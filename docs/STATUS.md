@@ -76,11 +76,7 @@ Problems found and fixed while testing:
 5. **Terms of Service and Privacy Policy.** Done 2026-10-30 as a plain-language draft (no lawyer, no governing-law clause, not limited to businesses): public pages `/terms` and `/privacy` in English and Spanish, linked from the sign-in pages and Settings › About in both apps. Accepting is by using the app; no checkbox.
 6. **Landing page.** Done 2026-10-31: visitors who are not signed in see a marketing page at `/` (screens/landing.tsx): hero with a real screenshot, features, a clickable showcase, benefits, three steps, web and Windows download, FAQ, English and Spanish, light and dark. Screenshots are the desktop app on synthetic demo data (public/landing, not precached). No pricing yet (owner will give plans later), no testimonials or figures.
 
-7. **Settings redesign, receipt field toggles, wider layout.** In progress (owner, 2026-10-31), desktop first, then the PWA:
-   - Settings becomes a dashboard: Business and Cloud sync stay on the page; every other group is a compact row that opens its settings in a popup.
-   - Receipts get show/hide switches for each optional detail (loan number, rate, amount lent, payment cycle, installments, split, late fees, balance, history), synced like the other receipt settings.
-   - Screens use the window's width instead of narrow fixed columns.
-   - A mockup is drawn first for approval.
+7. **Settings redesign, receipt part switches, wider layout.** Done 2026-10-31 (desktop 0.10 and the PWA): Business and Cloud sync (the businesses list in the PWA) stay on the Settings page; the other groups are rows that open in a popup (desktop) or sheet (PWA). Payment receipts print only the optional parts switched on (loan number, amount lent, rate, payment cycle, installments, split, late fees, balance, history), stored as the optional `receiptShow` in the cloud; loan receipts keep every term. Desktop Settings now uses the full width (it was capped at 760px); the other screens already did.
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
