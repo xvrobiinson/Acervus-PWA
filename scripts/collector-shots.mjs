@@ -114,6 +114,10 @@ spawnSync(`npx convex run messages:remindBusiness {businessId:'${businessId}'}`,
   stdio: "inherit",
 });
 console.log(`seeded ${businessId}`);
+// For the desktop app: the business and each person's session cookies.
+const cookie = (who) => Object.entries(who.stored).map(([k, v]) => `${k}=${v.value}`).join("; ");
+writeFileSync(join(outDir, "seed.json"), JSON.stringify({ businessId, admin: { email: rosa.email, cookie: cookie(rosa) }, collector: { email: ana.email, cookie: cookie(ana) } }));
+if (process.env.SEED_ONLY) process.exit(0);
 
 // ----- headless Edge over the DevTools protocol ----------------------------
 const port = 9334;
