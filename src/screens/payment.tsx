@@ -163,7 +163,11 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
         onClose();
         return;
       }
-      toast(t("Payment recorded.", "Pago registrado."));
+      toast(
+        app.role === "collector"
+          ? t("Collected. It counts once the office confirms it.", "Cobrado. Cuenta cuando la oficina lo confirme.")
+          : t("Payment recorded.", "Pago registrado."),
+      );
       if (snapshot.settings?.receiptAfterPayment && r.resultId) setReceiptId(r.resultId);
       else onClose();
     } catch (e) {
@@ -176,6 +180,8 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
   if (receiptId) {
     return snapshot.payments.some((p) => p._id === receiptId) ? (
       <ReceiptSheet kind="payment" id={receiptId} onClose={onClose} />
+    ) : snapshot.pending.some((p) => p._id === receiptId) ? (
+      <ReceiptSheet kind="pending" id={receiptId} onClose={onClose} />
     ) : (
       <Sheet title={t("Payment recorded", "Pago registrado")} onClose={onClose}>
         <p>{t("Preparing the receipt…", "Preparando el recibo…")}</p>
@@ -350,6 +356,14 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
             </p>
           )}
         </div>
+      )}
+      {app.role === "collector" && !editing && (
+        <Banner tone="info" icon="info">
+          {t(
+            "This payment counts once the office confirms the money reached them. The client gets a receipt marked “Pending confirmation”.",
+            "Este pago cuenta cuando la oficina confirme que el dinero le llegó. El cliente recibe un recibo marcado “Pendiente de confirmación”.",
+          )}
+        </Banner>
       )}
       {previewError && <div className="banner warn" style={{ marginTop: 12 }}>{previewError}</div>}
       {error && (

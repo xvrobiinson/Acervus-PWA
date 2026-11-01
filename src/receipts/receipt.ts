@@ -506,6 +506,52 @@ ${notes}
   return page(c, title, "", "", body);
 }
 
+// ----- receipt for a collected payment waiting for confirmation -----------
+
+/** What a collector hands the client: the amount and date, marked as
+ *  pending. No balances: the payment doesn't count until an admin confirms
+ *  it; the confirmed receipt (same number) shows them. */
+export function pendingReceiptHtml(
+  c: ReceiptContext,
+  r: {
+    loan: LoanRecord;
+    client: ReceiptClient;
+    pending: { recordNo: number; paidOn: Day; amount: Cents; notes: string; collectorName: string };
+  },
+): string {
+  const { t, fmt } = c;
+  const p = r.pending;
+  const number = String(p.recordNo).padStart(6, "0");
+  const company = companyLines(c);
+  const show = receiptShow(c.settings);
+  const lender = companyTag(c, company);
+  const paid = [
+    row(t("Amount received", "Monto recibido"), esc(fmt.money(p.amount)), "total"),
+    row(t("Received by", "Recibido por"), esc(t(`${p.collectorName}, collector`, `${p.collectorName}, cobrador`))),
+  ].join("");
+  const notes = p.notes.trim() ? `<p class="muted">${esc(t("Note:", "Nota:"))} ${esc(p.notes)}</p>` : "";
+  const title = t(`Receipt ${number} (pending)`, `Recibo ${number} (pendiente)`);
+  const body = `${header(c, company, t("Payment receipt", "Recibo de pago"), number, t("Date paid", "Fecha de pago"), fmt.day(p.paidOn))}
+<p class="stamp">${esc(t("Pending confirmation", "Pendiente de confirmación"))}</p>
+<div class="cols">${clientBlock(c, r.client)}${loanBlock(c, r.loan, show)}</div>
+<div class="cols"><div class="block"><p class="label">${esc(t("This payment", "Este pago"))}</p><table class="kv">${paid}</table></div></div>
+<p class="note">${esc(
+    t(
+      `${lender} applies this payment to the loan once it is confirmed, counted from the date above. The new balance is on the confirmed receipt, with the same number.`,
+      `${lender} aplica este pago al préstamo cuando lo confirme, contado desde la fecha de arriba. El nuevo saldo aparece en el recibo confirmado, con el mismo número.`,
+    ),
+  )}</p>
+${notes}
+<div class="signs"><span>${esc(t("Client", "Cliente"))}</span><span>${esc(t("Collector", "Cobrador"))}</span></div>
+<div class="end"><span>${esc(lender)}</span><span>${show.loanNumber ? `${esc(t("Loan", "Préstamo"))} #${r.loan.recordNo} · ` : ""}${esc(t("Receipt", "Recibo"))} ${number}</span></div>`;
+  const css = `
+  .stamp { display:inline-block; margin:8pt 0 0; padding:3pt 8pt; border:1pt solid var(--warn); color:var(--warn); background:var(--warn-bg); border-radius:3pt; font-weight:700; font-size:8.5pt; letter-spacing:0.06em; text-transform:uppercase; }
+  .signs { display:grid; grid-template-columns:1fr 1fr; gap:36pt; margin-top:40pt; color:var(--muted); font-size:8.5pt; text-align:center; }
+  .signs span { border-top:0.5pt solid var(--muted); padding-top:4pt; }
+`;
+  return page(c, title, "", css, body);
+}
+
 // ----- loan receipt --------------------------------------------------------
 
 export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client: ReceiptClient }): string {

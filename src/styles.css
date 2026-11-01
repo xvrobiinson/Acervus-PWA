@@ -272,6 +272,22 @@ a.list-row:active, button.list-row:active { background: var(--active); }
 .empty { padding: 28px 16px; text-align: center; color: var(--muted); }
 .empty svg { width: 28px; height: 28px; opacity: 0.6; }
 
+/* ----- collectors: bell, messages, assigning (screens/collect.tsx) ----- */
+.bell { position: relative; }
+.bell-count { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; line-height: 1; }
+.list.messages li.fresh .list-row { background: var(--accent-tint); }
+.list.messages .list-row { align-items: flex-start; }
+.list.messages .title.wrap { white-space: normal; overflow: visible; text-overflow: clip; font-weight: 400; line-height: 1.45; }
+.list.messages .btn { margin-top: 8px; }
+.msg-ico { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-text); }
+.msg-ico svg { width: 15px; height: 15px; }
+.msg-ico.due_unassigned { background: var(--warning-tint); color: var(--warning); }
+.msg-ico.confirmed { background: var(--positive-tint); color: var(--positive); }
+.msg-ico.rejected { background: var(--negative-tint); color: var(--negative); }
+.assign-list label.list-row { cursor: pointer; }
+.assign-list input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+@media (min-width: 900px) { .phone-only { display: none; } }
+
 /* ----- settings dashboard ------------------------------------------- */
 /* Business and the businesses list on the page; every other group a row
    that opens it in a sheet (screens/settings.tsx). */

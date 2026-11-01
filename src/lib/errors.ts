@@ -239,6 +239,10 @@ export function describeErrorData(t: T, f: Fmt, d: ErrorData): string {
       return t("Nothing to adjust: the amounts already match.", "No hay nada que ajustar: los montos ya coinciden.");
     case "rate_limited":
       return t("Too many attempts. Wait a while and try again.", "Demasiados intentos. Espera un rato e inténtalo de nuevo.");
+    case "already_decided":
+      return d.status === "confirmed"
+        ? t("This payment was already confirmed.", "Este pago ya fue confirmado.")
+        : t("This payment was already rejected.", "Este pago ya fue rechazado.");
     case "last_admin":
       return t("A business needs at least one admin.", "Un negocio necesita al menos un administrador.");
     case "already_member":

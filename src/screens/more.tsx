@@ -10,9 +10,12 @@ export function MoreScreen() {
   const t = useT();
   const { ops, user, role, snapshot, can } = useBooks();
   const pending = ops.filter((o) => o.status !== "synced").length;
+  const toConfirm = snapshot.pending.filter((p) => p.status === "waiting").length;
+  const team = role !== "collector";
   const items: [string, IconName, string, number?][] = [
+    ...(team && toConfirm > 0 ? [["/confirm", "check", t("To confirm", "Por confirmar"), toConfirm] as [string, IconName, string, number]] : []),
     ...(can("manage") ? [["/reports", "chart", t("Reports", "Reportes")] as [string, IconName, string]] : []),
-    ["/history", "history", t("History", "Historial")],
+    ...(team ? [["/history", "history", t("History", "Historial")] as [string, IconName, string]] : []),
     ["/sync", "sync", t("Sync", "Sincronización"), pending],
     ["/settings", "settings", t("Settings", "Ajustes")],
   ];

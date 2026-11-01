@@ -1,9 +1,11 @@
 // Clients: searchable list, profile with loans and totals, the form, and the
 // ID photo (admins only, fetched on request, never kept on the device).
+// In a business with collectors, admins see and change who collects from
+// each client; a collector sees their own clients and the unassigned ones.
 
 import { useMutation } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useForms } from "../App";
@@ -15,19 +17,27 @@ import { displayStatusLabel, methodShort } from "../lib/labels";
 import { useBooks } from "../state/app";
 import { Avatar, Banner, Button, Card, Confirm, Empty, Field, Pill, Row, Segmented, Sheet, useToast } from "../ui/kit";
 import { Icon } from "../ui/icons";
+import { AssignSheet, CollectorSelect, useTeam } from "./collect";
 import { statusTone } from "./loans";
 
 export function ClientsScreen() {
   const t = useT();
-  const { books, fmt, can, ops } = useBooks();
+  const { books, fmt, can, ops, role, mode } = useBooks();
   const open = useForms();
+  const team = useTeam();
   const [q, setQ] = useState("");
   const [show, setShow] = useState<"active" | "archived">("active");
+  const [assigning, setAssigning] = useState(false);
+  // ?collector=<userId> | none (from the "assign a collector" message).
+  const [params, setParams] = useSearchParams();
+  const byCollector = params.get("collector") ?? "";
+  const manageTeam = can("manage") && team.hasCollectors;
   const pending = ops.filter((o) => o.kind === "client.create" && o.status !== "synced");
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return books.clients
       .filter((c) => (show === "archived") === Boolean(c.client.archivedAt))
+      .filter((c) => !manageTeam || !byCollector || (byCollector === "none" ? !c.client.collectorId : c.client.collectorId === byCollector))
       .filter(
         (c) =>
           !needle ||
@@ -36,11 +46,17 @@ export function ClientsScreen() {
           c.client.idNumber.toLowerCase().includes(needle),
       )
       .sort((a, b) => a.client.fullName.localeCompare(b.client.fullName));
-  }, [books.clients, q, show]);
+  }, [books.clients, q, show, manageTeam, byCollector]);
+  const collectorLine = (collectorId: string | undefined) => (manageTeam ? team.nameOf(collectorId) : "");
   return (
     <div>
       <div className="topbar">
         <h1>{t("Clients", "Clientes")}</h1>
+        {manageTeam && mode === "online" && (
+          <Button size="small" icon="users" onClick={() => setAssigning(true)}>
+            {t("Assign", "Asignar")}
+          </Button>
+        )}
         {can("record") && (
           <Button variant="primary" size="small" icon="plus" onClick={() => open({ kind: "client" })}>
             {t("Client", "Cliente")}
@@ -61,6 +77,22 @@ export function ClientsScreen() {
             ["archived", t("Archived", "Archivados")],
           ]}
         />
+        {manageTeam && (
+          <select
+            className="input"
+            aria-label={t("Collector", "Cobrador")}
+            value={byCollector}
+            onChange={(e) => setParams(e.target.value ? { collector: e.target.value } : {}, { replace: true })}
+          >
+            <option value="">{t("Every collector", "Todos los cobradores")}</option>
+            {team.takers.map((p) => (
+              <option key={p.userId} value={p.userId}>
+                {team.nameOf(p.userId)}
+              </option>
+            ))}
+            <option value="none">{t("No collector", "Sin cobrador")}</option>
+          </select>
+        )}
       </div>
       <Card>
         <ul className="list">
@@ -73,9 +105,10 @@ export function ClientsScreen() {
               to={`/clients/${c.client._id}`}
               lead={<Avatar name={c.client.fullName} />}
               title={c.client.fullName}
-              sub={[c.client.phone, t(`${c.loans.length} loans`, `${c.loans.length} préstamos`)].filter(Boolean).join(" · ")}
+              sub={[collectorLine(c.client.collectorId), c.client.phone, t(`${c.loans.length} loans`, `${c.loans.length} préstamos`)].filter(Boolean).join(" · ")}
               trail={
                 <>
+                  {role === "collector" && !c.client.collectorId && <Pill>{t("No collector yet", "Aún sin cobrador")}</Pill>}
                   <span className="amount num">{fmt.money(c.outstanding)}</span>
                   {c.worst && c.worst !== "active" && <Pill tone={statusTone(c.worst)}>{displayStatusLabel(t, c.worst)}</Pill>}
                 </>
@@ -83,14 +116,56 @@ export function ClientsScreen() {
             />
           ))}
         </ul>
-        {list.length === 0 && pending.length === 0 && <Empty icon="users">{q ? t("No client matches.", "Ningún cliente coincide.") : t("No clients yet.", "Aún no hay clientes.")}</Empty>}
+        {list.length === 0 && pending.length === 0 && <Empty icon="users">{q || byCollector ? t("No client matches.", "Ningún cliente coincide.") : t("No clients yet.", "Aún no hay clientes.")}</Empty>}
       </Card>
+      {assigning && (
+        <AssignSheet
+          clients={list.map((c) => ({ _id: c.client._id, fullName: c.client.fullName, collectorId: c.client.collectorId }))}
+          onClose={() => setAssigning(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Who collects from this client: admins change it right here. */
+function CollectorCard({ clientId, collectorId }: { clientId: string; collectorId: string | undefined }) {
+  const t = useT();
+  const { can, mode, businessId, fmt, role } = useBooks();
+  const team = useTeam();
+  const toast = useToast();
+  const assign = useMutation(api.clients.assign);
+  const [busy, setBusy] = useState(false);
+  if (!team.hasCollectors) return null;
+  const change = async (to: string) => {
+    setBusy(true);
+    try {
+      await assign({ businessId, clientIds: [clientId as Id<"clients">], collectorId: to || null });
+      toast(t(`Now collected by ${team.nameOf(to || undefined)}.`, `Ahora lo cobra ${team.nameOf(to || undefined)}.`));
+    } catch (e) {
+      toast(describeError(t, fmt, e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title={t("Collector", "Cobrador")} className="section">
+      <div className="card-body stack">
+        {can("manage") && mode === "online" ? (
+          <CollectorSelect value={collectorId ?? ""} onChange={(v) => void change(v)} label={t("Collector", "Cobrador")} />
+        ) : (
+          <div>{role === "collector" && !collectorId ? t("No collector yet: every collector sees this client.", "Aún sin cobrador: todos los cobradores ven este cliente.") : team.nameOf(collectorId)}</div>
+        )}
+        {busy && <span className="small muted">{t("Saving…", "Guardando…")}</span>}
+        <p className="micro muted">{t("The collector sees this client and all their loans, and collects their payments.", "El cobrador ve a este cliente y todos sus préstamos, y cobra sus pagos.")}</p>
+      </div>
+    </Card>
   );
 }
 
 export function ClientDetail() {
   const t = useT();
+  const team = useTeam();
   const { id } = useParams();
   const app = useBooks();
   const { books, fmt, can, businessId, mode } = app;
@@ -155,7 +230,8 @@ export function ClientDetail() {
           </Card>
         </div>
         <div>
-          <Card title={t("Details", "Datos")}>
+          <CollectorCard clientId={c._id} collectorId={c.collectorId} />
+          <Card title={t("Details", "Datos")} className={team.hasCollectors ? "section" : undefined}>
             <dl className="kv card-body" style={{ gridTemplateColumns: "auto 1fr" }}>
               {(
                 [

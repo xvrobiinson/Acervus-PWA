@@ -7,6 +7,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 import { useT } from "./lib/i18n";
 import { InviteScreen, SignIn, SignUp, Welcome } from "./screens/auth";
 import { ClientDetail, ClientForm, ClientsScreen } from "./screens/clients";
+import { ConfirmScreen, MessagesButton } from "./screens/collect";
 import { HistoryScreen } from "./screens/history";
 import { LandingScreen } from "./screens/landing";
 import { LegalScreen } from "./screens/legal";
@@ -88,7 +89,9 @@ export function App() {
           {/* The business's balances and returns: admins only. */}
           <Route path="/money" element={app.can("manage") ? <MoneyScreen /> : <Navigate to="/" replace />} />
           <Route path="/reports" element={app.can("manage") ? <ReportsScreen /> : <Navigate to="/" replace />} />
-          <Route path="/history" element={<HistoryScreen />} />
+          {/* A collector sees the history of their own loans only (on each loan). */}
+          <Route path="/history" element={app.role !== "collector" ? <HistoryScreen /> : <Navigate to="/" replace />} />
+          <Route path="/confirm" element={app.role !== "collector" ? <ConfirmScreen /> : <Navigate to="/" replace />} />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/sync" element={<SyncScreen />} />
           <Route path="/more" element={<MoreScreen />} />
@@ -151,6 +154,8 @@ function Shell({ children }: { children: ReactNode }) {
   const [quick, setQuick] = useState(false);
   const waiting = app.ops.filter((o) => o.status === "pending" || o.status === "syncing").length;
   const review = app.ops.filter((o) => o.status === "needs_review").length;
+  const toConfirm = app.snapshot?.pending.filter((p) => p.status === "waiting").length ?? 0;
+  const team = app.role !== "collector";
   const nav: [string, IconName, string][] = [
     ["/", "home", t("Overview", "Resumen")],
     ["/clients", "users", t("Clients", "Clientes")],
@@ -169,7 +174,8 @@ function Shell({ children }: { children: ReactNode }) {
       <nav className="nav-rail" aria-label={t("Sections", "Secciones")}>
         <div className="brand">
           <img src="/pwa-64x64.png" alt="" />
-          <span className="ellipsis">{app.business?.name}</span>
+          <span className="ellipsis grow">{app.business?.name}</span>
+          {app.mode === "online" && <MessagesButton />}
         </div>
         {nav.map(([to, icon, label]) => (
           <NavLink key={to} to={to} end={to === "/"}>
@@ -183,10 +189,19 @@ function Shell({ children }: { children: ReactNode }) {
             {t("Reports", "Reportes")}
           </NavLink>
         )}
-        <NavLink to="/history">
-          <Icon name="history" />
-          {t("History", "Historial")}
-        </NavLink>
+        {team && toConfirm > 0 && (
+          <NavLink to="/confirm">
+            <Icon name="check" />
+            {t("To confirm", "Por confirmar")}
+            <span className="pill warn" style={{ marginLeft: "auto" }}>{toConfirm}</span>
+          </NavLink>
+        )}
+        {team && (
+          <NavLink to="/history">
+            <Icon name="history" />
+            {t("History", "Historial")}
+          </NavLink>
+        )}
         <NavLink to="/sync">
           <Icon name="sync" />
           {t("Sync", "Sincronización")}

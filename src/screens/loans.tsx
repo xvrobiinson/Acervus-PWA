@@ -24,6 +24,7 @@ import { describeError, scheduleErrorText } from "../lib/errors";
 import { useT } from "../lib/i18n";
 import { contractStatusLabel, displayStatusLabel, frequencyLabel, frequencyPer, installmentStatusLabel, methodExplanation, methodLabel, methodShort } from "../lib/labels";
 import { ReceiptSheet } from "../receipts/view";
+import { PendingOnLoan } from "./collect";
 import { useBooks } from "../state/app";
 import type { LoanView } from "../state/books";
 import { Icon } from "../ui/icons";
@@ -315,6 +316,7 @@ export function LoanDetail() {
 
           <Card title={t("Payments", "Pagos")} className="section">
             <ul className="list">
+              <PendingOnLoan loanId={l.loan._id} />
               {pending.map((o) => (
                 <Row key={o.opId} to="/sync" title={fmt.money(Number(o.args.amount))} sub={`${o.summary.on ? fmt.day(o.summary.on) : ""} · ${t("on this device, not synced", "en este dispositivo, sin sincronizar")}`} trail={<Pill tone="warn">{o.status === "needs_review" ? t("Review", "Revisar") : t("Pending", "Pendiente")}</Pill>} />
               ))}
@@ -341,7 +343,7 @@ export function LoanDetail() {
                 </li>
               ))}
             </ul>
-            {l.payments.length === 0 && pending.length === 0 && <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>}
+            {l.payments.length === 0 && pending.length === 0 && !snapshot.pending.some((p) => p.loanId === l.loan._id && p.status === "waiting") && <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>}
           </Card>
         </div>
         <div>

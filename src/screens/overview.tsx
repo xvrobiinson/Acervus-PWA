@@ -10,12 +10,16 @@ import { displayStatusLabel } from "../lib/labels";
 import { needsAttention } from "../state/books";
 import { useBooks } from "../state/app";
 import { GrowthChart } from "../ui/chart";
-import { Avatar, Button, Card, Empty, LinkButton, Pill, Row, Segmented, Stat } from "../ui/kit";
+import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented, Stat } from "../ui/kit";
+import type { Fmt } from "../lib/format";
+
+const fmtMoney = (fmt: Fmt, v: number) => fmt.money(v);
+import { MessagesButton, pendingStatus } from "./collect";
 import { statusTone } from "./loans";
 
 export function OverviewScreen() {
   const t = useT();
-  const { books, fmt, snapshot, today, can } = useBooks();
+  const { books, fmt, snapshot, today, can, role, mode } = useBooks();
   const open = useForms();
   const admin = can("manage");
   const s = books.summary;
@@ -28,6 +32,11 @@ export function OverviewScreen() {
   }, [books.book, today, range]);
   const attention = needsAttention(books).slice(0, 8);
   const recent = [...snapshot.payments].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  const collector = role === "collector";
+  const waiting = snapshot.pending.filter((p) => p.status === "waiting");
+  const waitingSum = waiting.reduce((a, p) => a + p.amount, 0);
+  // A collector's own payments, waiting or decided, newest first.
+  const mine = [...snapshot.pending].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
   const ret = ratioLabel(gain(s), netInvested(s));
   return (
     <div>
@@ -36,12 +45,25 @@ export function OverviewScreen() {
           <h1>{greeting(t)}</h1>
           <div className="small muted ellipsis">{snapshot.business.name}</div>
         </div>
+        {mode === "online" && (
+          <span className="phone-only">
+            <MessagesButton />
+          </span>
+        )}
         {can("record") && (
           <Button variant="primary" size="small" icon="receipt" onClick={() => open({ kind: "payment" })}>
             {t("Payment", "Pago")}
           </Button>
         )}
       </div>
+      {!collector && waiting.length > 0 && (
+        <Banner tone="warn" icon="wallet" action={<LinkButton to="/confirm" size="small" variant="primary">{t("Review", "Revisar")}</LinkButton>}>
+          {t(
+            `${waiting.length} payment(s) collected, ${fmtMoney(fmt, waitingSum)}, wait for you to confirm the money reached you.`,
+            `${waiting.length} pago(s) cobrado(s), ${fmtMoney(fmt, waitingSum)}, esperan que confirmes que el dinero te llegó.`,
+          )}
+        </Banner>
+      )}
       <Card>
         {/* The business's totals are for admins; collectors and viewers see their work. */}
         {!admin ? (
@@ -62,6 +84,15 @@ export function OverviewScreen() {
               value={fmt.money(s.interestReceivable + s.feesReceivable)}
               caption={t("Interest and late fees due, unpaid", "Interés y mora vencidos sin pagar")}
             />
+            {collector && (
+              <Stat
+                icon="wallet"
+                hue={waiting.length > 0 ? "warn" : "neutral"}
+                label={t("To confirm", "Por confirmar")}
+                value={fmt.money(waitingSum)}
+                caption={t(`${waiting.length} payment(s) waiting for the office`, `${waiting.length} pago(s) esperando a la oficina`)}
+              />
+            )}
           </div>
         ) : (
           <div className="stats">
@@ -170,7 +201,39 @@ export function OverviewScreen() {
         </Section>
       </div>
 
-      <Section title={t("Recent payments", "Pagos recientes")} action={admin && <LinkButton to="/money" size="small" variant="ghost">{t("Money", "Dinero")}</LinkButton>}>
+      {collector && (
+        <Section title={t("My recent payments", "Mis cobros recientes")}>
+          {mine.length === 0 ? (
+            <Card>
+              <Empty icon="receipt">{t("Payments you collect show here until the office confirms them.", "Los cobros que hagas aparecen aquí hasta que la oficina los confirme.")}</Empty>
+            </Card>
+          ) : (
+            <ul className="list boxed">
+              {mine.map((p) => {
+                const st = pendingStatus(t, p);
+                const l = books.loanById.get(p.loanId);
+                return (
+                  <Row
+                    key={p._id}
+                    to={`/loans/${p.loanId}`}
+                    lead={<Avatar name={l?.client?.fullName ?? "?"} />}
+                    title={l?.client?.fullName ?? "—"}
+                    sub={p.status === "rejected" ? `${fmt.dayShort(p.paidOn)} · “${p.reason}”` : fmt.dayShort(p.paidOn)}
+                    trail={
+                      <>
+                        <span className="amount num">{fmt.money(p.amount)}</span>
+                        <Pill tone={st.tone}>{st.label}</Pill>
+                      </>
+                    }
+                  />
+                );
+              })}
+            </ul>
+          )}
+        </Section>
+      )}
+      {!collector && (
+        <Section title={t("Recent payments", "Pagos recientes")} action={admin && <LinkButton to="/money" size="small" variant="ghost">{t("Money", "Dinero")}</LinkButton>}>
         {recent.length === 0 ? (
           <Card>
             <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>
@@ -192,7 +255,8 @@ export function OverviewScreen() {
             })}
           </ul>
         )}
-      </Section>
+        </Section>
+      )}
     </div>
   );
 }

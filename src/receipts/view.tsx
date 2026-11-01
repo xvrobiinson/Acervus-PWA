@@ -6,7 +6,7 @@ import type { LateFeeRecord, LoanRecord, PaymentRecord } from "../../shared/doma
 import { useT } from "../lib/i18n";
 import { useBooks } from "../state/app";
 import { Button, Sheet } from "../ui/kit";
-import { loanReceiptHtml, paymentReceiptHtml, type ReceiptContext } from "./receipt";
+import { loanReceiptHtml, paymentReceiptHtml, pendingReceiptHtml, type ReceiptContext } from "./receipt";
 
 /** The logo as a data: URL, so it is inside the receipt (prints offline once loaded). */
 function useLogo(url: string | null | undefined): string | null {
@@ -33,7 +33,8 @@ function useLogo(url: string | null | undefined): string | null {
   return data;
 }
 
-export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan"; id: string; onClose: () => void }) {
+/** `pending`: a collector's payment waiting for an admin (no balances yet). */
+export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan" | "pending"; id: string; onClose: () => void }) {
   const t = useT();
   const { snapshot, fmt } = useBooks();
   const logo = useLogo(snapshot.settings?.logoUrl);
@@ -42,10 +43,12 @@ export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan"; 
     const s = snapshot.settings;
     if (!s) return null;
     const c: ReceiptContext = { t, fmt, settings: s, businessName: snapshot.business.name, logo };
-    const loanId = kind === "loan" ? id : snapshot.payments.find((p) => p._id === id)?.loanId;
+    const pending = kind === "pending" ? snapshot.pending.find((p) => p._id === id) : undefined;
+    const loanId = kind === "loan" ? id : kind === "pending" ? pending?.loanId : snapshot.payments.find((p) => p._id === id)?.loanId;
     const loan = snapshot.loans.find((l) => l._id === loanId);
     const client = loan && snapshot.clients.find((x) => x._id === loan.clientId);
     if (!loan || !client) return null;
+    if (pending) return pendingReceiptHtml(c, { loan: loan as unknown as LoanRecord, client, pending });
     return kind === "loan"
       ? loanReceiptHtml(c, { loan: loan as unknown as LoanRecord, client })
       : paymentReceiptHtml(c, {
