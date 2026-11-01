@@ -83,7 +83,9 @@ Problems found and fixed while testing:
 11. **Delete my account.** Users delete their own account and data from Settings (privacy law and app stores expect it).
 12. **Reminders and receipts by WhatsApp.** A reminder before an installment is due, and the receipt after a payment, sent to the client.
 13. **Try-it demo on the landing page.** Visitors open the app with sample data, without signing up.
-14. **Papiamentu (Curaçao) and Dutch.** Glossary for native-speaker review: https://claude.ai/artifact/TDQKCdjMR8KEtTnbUCQ2fe. After approval: four languages in both apps, the PWA first.
+14. **Papiamentu (Curaçao) and Dutch.** Glossary for native-speaker review: https://claude.ai/artifact/TDQKCdjMR8KEtTnbUCQ2fe. Reviewed by a native speaker 2026-11-01 (changes: *pa fia*, *interes i kapital parti*, *saldo pendiente*); Dutch uses *je*. Next: four languages in both apps, the PWA first.
+
+15. **Animated landing page.** A more animated version of the landing page, once the owner has found the right design skills for it.
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
