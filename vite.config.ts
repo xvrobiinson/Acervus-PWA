@@ -20,7 +20,10 @@ export default defineConfig({
         short_name: "Acervus",
         description: "Lending portfolio: clients, loans, payments, income and expenses.",
         lang: "es",
-        start_url: "/",
+        // The installed app opens on sign-in (signed-in people go on to their
+        // dashboard); the public landing page stays at "/" in a browser.
+        // `id` stays "/" so existing installs are the same app.
+        start_url: "/sign-in",
         scope: "/",
         display: "standalone",
         orientation: "any",

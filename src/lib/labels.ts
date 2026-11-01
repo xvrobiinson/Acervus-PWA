@@ -104,6 +104,8 @@ export const CURRENCIES = [
   { code: "COP", symbol: "COL$", en: "Colombian peso", es: "Peso colombiano" },
   { code: "GBP", symbol: "£", en: "Pound sterling", es: "Libra esterlina" },
   { code: "CAD", symbol: "CA$", en: "Canadian dollar", es: "Dólar canadiense" },
+  // Curaçao and Sint Maarten; replaced the Netherlands Antillean guilder (ANG).
+  { code: "XCG", symbol: "Cg", en: "Caribbean guilder", es: "Florín del Caribe" },
 ];
 
 export function currencySymbol(code: string): string {

@@ -14,7 +14,7 @@ import { text } from "./lib/validate";
 import { hitLimit } from "./rateLimit";
 import { role } from "./schema";
 
-const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD"];
+const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD", "XCG"];
 
 /** The businesses the signed-in user belongs to. */
 export const mine = query({

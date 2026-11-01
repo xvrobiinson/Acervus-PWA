@@ -11,6 +11,24 @@ const ana = { subject: "user_ana", email: "ana@example.com", emailVerified: true
 
 const parts = { loanNumber: true, amountLent: false, rate: true, cycle: true, installments: true, split: false, lateFees: true, balance: true, history: false };
 
+describe("Caribbean guilder", () => {
+  it("is accepted for a new business and as a business's currency", async () => {
+    const t = convexTest(schema, modules);
+    const asAna = t.withIdentity(ana);
+    const businessId = await asAna.mutation(api.businesses.create, { name: "Kòrsou", timezone: "America/Curacao", language: "es", currencyCode: "XCG" });
+    const s = (await t.run((ctx) => ctx.db.query("settings").withIndex("by_business", (q) => q.eq("businessId", businessId)).unique()))!;
+    expect(s.currencyCode).toBe("XCG");
+    // And an existing business can switch to it; nothing is converted.
+    const other = await asAna.mutation(api.businesses.create, { name: "Otra", timezone: "America/Curacao", language: "es", currencyCode: "DOP" });
+    const o = (await t.run((ctx) => ctx.db.query("settings").withIndex("by_business", (q) => q.eq("businessId", other)).unique()))!;
+    const { _id, _creationTime, businessId: _b, updatedAt, version, logoId, ...rest } = o;
+    void _id; void _creationTime; void _b; void updatedAt; void logoId;
+    await asAna.mutation(api.settings.update, { ...rest, businessId: other, expectedVersion: version, currencyCode: "XCG" });
+    const after = (await t.run((ctx) => ctx.db.get(o._id)))!;
+    expect(after.currencyCode).toBe("XCG");
+  });
+});
+
 describe("settings.update receipt parts", () => {
   it("stores the switches, and an older app's save keeps them", async () => {
     const t = convexTest(schema, modules);

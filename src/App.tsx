@@ -22,6 +22,13 @@ import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
 import { Banner, Button, Sheet } from "./ui/kit";
 
+/** Running as the installed app (home screen or desktop window), where the
+ *  public landing page is never shown. Covers installs made before the
+ *  manifest opened on sign-in, and iOS, which reports it its own way. */
+function installedApp(): boolean {
+  return window.matchMedia?.("(display-mode: standalone)").matches || window.matchMedia?.("(display-mode: window-controls-overlay)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 export function App() {
   const app = useApp();
   const t = useT();
@@ -32,14 +39,14 @@ export function App() {
   if (location.pathname === "/privacy") return <LegalScreen page="privacy" />;
   // Someone who has never signed in on this device sees the landing page at
   // once, without waiting for the sign-in check.
-  if (app.mode === "loading" && location.pathname === "/" && !localStorage.getItem("acervus.lastUser")) return <LandingScreen />;
+  if (app.mode === "loading" && location.pathname === "/" && !localStorage.getItem("acervus.lastUser") && !installedApp()) return <LandingScreen />;
   if (app.mode === "loading") return <Splash />;
   if (app.mode === "signed_out") {
     return (
       <>
         <AutoUpdate />
         <Routes>
-          <Route path="/" element={<LandingScreen />} />
+          <Route path="/" element={installedApp() ? <Navigate to="/sign-in" replace /> : <LandingScreen />} />
           <Route path="/sign-in" element={<SignIn />} />
           <Route path="/sign-up" element={<SignUp />} />
           <Route path="/invite" element={<InviteScreen />} />

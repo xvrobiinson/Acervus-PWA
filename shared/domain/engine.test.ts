@@ -90,6 +90,14 @@ describe("money", () => {
     expect(formatCompact(f, 1_250_000)).toBe("$12.5k");
     expect(formatWhole(f, 1_250_049)).toBe("$12,500");
     expect(formatMoney({ symbol: "€", style: "dot_comma" }, 123_456_789)).toBe("€1.234.567,89");
+    // A symbol of letters (the Caribbean guilder) keeps a space before the digits.
+    const xcg = { symbol: "Cg", style: "dot_comma" as const };
+    expect(formatMoney(xcg, 123_456_789)).toBe("Cg\u00a01.234.567,89");
+    expect(formatMoney(xcg, -1_000)).toBe("−Cg\u00a010,00");
+    expect(formatSigned(xcg, 1_000)).toBe("+Cg\u00a010,00");
+    expect(formatWhole(xcg, 1_250_049)).toBe("Cg\u00a012.500");
+    expect(formatCompact(xcg, 1_250_000)).toBe("Cg\u00a012,5k");
+    expect(parseMoney("Cg 1,234.50")).toEqual({ ok: true, value: 123_450 });
     expect(ratioLabel(1_234, 10_000)).toBe("12.3%");
     expect(ratioLabel(1, 0)).toBeNull();
   });

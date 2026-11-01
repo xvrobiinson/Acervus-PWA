@@ -151,12 +151,18 @@ function group(fmt: MoneyFormat, n: bigint): string {
   return parts.reverse().join(sep);
 }
 
+/** The symbol before an amount. A symbol that ends in a letter ("Cg") is
+ *  kept apart from the digits by a no-break space: "Cg 1,250.00". */
+function lead(fmt: MoneyFormat): string {
+  return /\p{L}$/u.test(fmt.symbol) ? `${fmt.symbol}\u00a0` : fmt.symbol;
+}
+
 /** "$1,234.56"; negatives as "−$1,234.56". */
 export function formatMoney(fmt: MoneyFormat, cents: Cents): string {
   const [, dec] = separators(fmt.style);
   const neg = cents < 0;
   const abs = BigInt(Math.abs(cents));
-  return `${neg ? "−" : ""}${fmt.symbol}${group(fmt, abs / 100n)}${dec}${String(abs % 100n).padStart(2, "0")}`;
+  return `${neg ? "−" : ""}${lead(fmt)}${group(fmt, abs / 100n)}${dec}${String(abs % 100n).padStart(2, "0")}`;
 }
 
 /** Always signed: "+$12.00" / "−$12.00" / "$0.00". */
@@ -168,7 +174,7 @@ export function formatSigned(fmt: MoneyFormat, cents: Cents): string {
 export function formatWhole(fmt: MoneyFormat, cents: Cents): string {
   const neg = cents < 0;
   const units = (BigInt(Math.abs(cents)) + 50n) / 100n;
-  return `${neg ? "−" : ""}${fmt.symbol}${group(fmt, units)}`;
+  return `${neg ? "−" : ""}${lead(fmt)}${group(fmt, units)}`;
 }
 
 /** Compact axis label: "$1.2k", "$3.4M". Display only, never stored. */
@@ -179,7 +185,7 @@ export function formatCompact(fmt: MoneyFormat, cents: Cents): string {
   const [, dec] = separators(fmt.style);
   const trim = (v: number, suffix: string) => `${v.toFixed(1).replace(/0+$/, "").replace(/\.$/, "")}${suffix}`;
   const body = abs >= 1_000_000 ? trim(abs / 1_000_000, "M") : abs >= 1_000 ? trim(abs / 1_000, "k") : abs.toFixed(0);
-  return `${sign}${fmt.symbol}${body.replace(".", dec)}`;
+  return `${sign}${lead(fmt)}${body.replace(".", dec)}`;
 }
 
 /** Plain amount for an editable input ("1250.00"), no symbol or grouping. */

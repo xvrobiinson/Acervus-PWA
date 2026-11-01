@@ -10,7 +10,7 @@ import { fail } from "./lib/errors";
 import { rate, text } from "./lib/validate";
 import { frequency, receiptShow } from "./schema";
 
-const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD"];
+const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD", "XCG"];
 
 export const update = mutation({
   args: {
