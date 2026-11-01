@@ -14,6 +14,14 @@ A restore of a real copy was tested on 2026-11-01: every one of the 26
 tables (including the sign-in accounts, with the same IDs and dates) and
 every stored file came back identical.
 
+## One-time setup: the backup key
+
+The job has its own Convex key, separate from the one that deploys the app.
+
+1. Open https://dashboard.convex.dev, the project, the **Production** deployment, then **Settings**.
+2. Under **Deploy keys**, click **Generate a deploy key**. Name it `nightly-backup` and tick only `deployment:backups:create` and `deployment:backups:download`. Copy the key.
+3. On GitHub: **Settings** > **Secrets and variables** > **Actions** > **New repository secret**. Name: `CONVEX_BACKUP_KEY`. Secret: the key.
+
 ## One-time setup: the backup password
 
 1. Make a long password, at least 20 characters. Five or six random words

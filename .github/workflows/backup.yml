@@ -23,12 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+      CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_BACKUP_KEY }}
       BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
     steps:
       - name: Check the secrets are set
         run: |
-          [ -n "$CONVEX_DEPLOY_KEY" ] || { echo "::error::Missing GitHub secret CONVEX_DEPLOY_KEY (docs/DEPLOYMENT.md, part 5)."; exit 1; }
+          [ -n "$CONVEX_DEPLOY_KEY" ] || { echo "::error::Missing GitHub secret CONVEX_BACKUP_KEY (docs/BACKUPS.md)."; exit 1; }
           # Never upload a copy that isn't locked.
           if [ "${#BACKUP_PASSWORD}" -lt 20 ]; then
             echo "::error::The GitHub secret BACKUP_PASSWORD is missing or shorter than 20 characters (docs/BACKUPS.md)."
