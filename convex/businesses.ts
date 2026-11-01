@@ -8,6 +8,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireIdentity, requireMember, type Access, type Identity } from "./lib/access";
+import { limited, releaseClients } from "./lib/team";
 import { Diff, logChange } from "./lib/books";
 import { fail } from "./lib/errors";
 import { text } from "./lib/validate";
@@ -154,6 +155,8 @@ const BUSINESS_TABLES = [
   "loans",
   "loanStatusEvents",
   "payments",
+  "pendingPayments",
+  "messages",
   "lateFees",
   "capitalTxs",
   "cashEntries",
@@ -194,16 +197,18 @@ export const purge = internalMutation({
 export const members = query({
   args: { businessId: v.id("businesses") },
   handler: async (ctx, a) => {
-    await requireMember(ctx, a.businessId, "read");
+    const access = await requireMember(ctx, a.businessId, "read");
     const rows = await ctx.db
       .query("members")
       .withIndex("by_business", (q) => q.eq("businessId", a.businessId))
       .collect();
+    // Collectors see their teammates' names, not their email addresses.
+    const hide = limited(access);
     return rows.map((m) => ({
       _id: m._id,
       userId: m.userId,
       name: m.name,
-      email: m.email,
+      email: hide && m.userId !== access.userId ? "" : m.email,
       role: m.role,
       active: m.active,
       joinedAt: m.joinedAt,
@@ -228,6 +233,8 @@ export const setRole = mutation({
     if (m.role === a.role) return;
     if (m.role === "admin" && (await activeAdmins(ctx, a.businessId)).length <= 1) fail("last_admin");
     await ctx.db.patch(m._id, { role: a.role });
+    // A viewer collects from nobody: their clients go back to no collector.
+    if (a.role === "viewer") await releaseClients(ctx, a.businessId, m.userId);
     await logChange(ctx, access, "member", m._id, "update", new Diff().field("role", m.role, a.role).field("email", m.email, m.email), "");
   },
 });
@@ -240,6 +247,7 @@ export const removeMember = mutation({
     if (!m || m.businessId !== a.businessId || !m.active) fail("not_found", { table: "members" });
     if (m.role === "admin" && (await activeAdmins(ctx, a.businessId)).length <= 1) fail("last_admin");
     await ctx.db.patch(m._id, { active: false, removedAt: Date.now() });
+    await releaseClients(ctx, a.businessId, m.userId);
     await logChange(
       ctx,
       access,

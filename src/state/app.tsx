@@ -241,7 +241,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         }
         case "payment.record": {
           const r = await withTimeout(convex.mutation(api.payments.record, args), 25_000);
-          return { resultId: r.paymentId, loanVersionBefore: r.loanVersionBefore, loanVersionAfter: r.loanVersionAfter };
+          // A collector's payment comes back as a pending one (waits for an admin).
+          return { resultId: (r.paymentId ?? r.pendingId)!, loanVersionBefore: r.loanVersionBefore, loanVersionAfter: r.loanVersionAfter };
         }
         case "entry.expense":
         case "entry.income": {

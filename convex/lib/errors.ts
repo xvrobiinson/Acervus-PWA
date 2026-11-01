@@ -24,4 +24,5 @@ export const PERMANENT = new Set([
   "plan",
   "loan_closed",
   "archived_client",
+  "already_decided",
 ]);

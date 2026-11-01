@@ -131,8 +131,8 @@ describe("authorization and isolation", () => {
     expect(await errorOf(asCarla.mutation(api.money.addCapital, { businessId, kind: "withdrawal", amount: 1, occurredOn: today, notes: "" }))).toMatchObject({
       code: "forbidden",
     });
-    // Viewer: read only.
-    expect((await asDario.query(api.data.snapshot, { businessId })).payments).toHaveLength(1);
+    // Viewer: read only. (The collector's payment waits for an admin.)
+    expect((await asDario.query(api.data.snapshot, { businessId })).pending).toHaveLength(1);
     expect(
       await errorOf(asDario.mutation(api.payments.record, {
         businessId, opId: op(), loanId, loanVersion: 2, amount: 100, fee: 0, paidOn: today, notes: "", instruction: { kind: "auto" },

@@ -138,6 +138,9 @@ export default defineSchema({
     /** Photo of the client or their ID document. Sensitive: only admins can
      *  fetch it, it is never cached offline and never printed. */
     photoId: v.optional(v.id("_storage")),
+    /** The member (collector or admin) who collects from this client; unset:
+     *  nobody yet, and every collector sees them (convex/lib/team.ts). */
+    collectorId: v.optional(v.string()),
     ...stamps,
   }).index("by_business", ["businessId"]),
 
@@ -205,6 +208,72 @@ export default defineSchema({
   })
     .index("by_business", ["businessId"])
     .index("by_loan", ["loanId"]),
+
+  /** A payment a collector recorded. It counts for nothing (balances,
+   *  overdue, totals) until an admin confirms it; then it becomes a payment
+   *  dated the day it was collected, with the same receipt number. Kept
+   *  apart from `payments` so no app, old or new, can count it early. */
+  pendingPayments: defineTable({
+    businessId: v.id("businesses"),
+    loanId: v.id("loans"),
+    clientId: v.id("clients"),
+    /** Receipt number, kept by the payment once confirmed. */
+    recordNo: v.number(),
+    paidOn: v.string(),
+    amount: v.number(),
+    /** Entered fee (interest-only loans). */
+    fee: v.number(),
+    notes: v.string(),
+    mode: allocationMode,
+    targetSeq: v.optional(v.number()),
+    targets: v.optional(v.array(v.object({ seq: v.number(), amount: v.number() }))),
+    custom: v.optional(v.object({ principal: v.number(), interest: v.number(), fee: v.number() })),
+    collectedBy: v.string(),
+    collectorName: v.string(),
+    status: v.union(v.literal("waiting"), v.literal("confirmed"), v.literal("rejected")),
+    /** Why it was rejected. */
+    reason: v.string(),
+    paymentId: v.optional(v.id("payments")),
+    decidedBy: v.optional(v.string()),
+    decidedAt: v.optional(v.number()),
+    recordedOffline: v.boolean(),
+    deviceRecordedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_business", ["businessId", "status"])
+    .index("by_loan", ["loanId"]),
+
+  /** What the bell shows each person. Words are put together on the device,
+   *  in its language, from these facts. */
+  messages: defineTable({
+    businessId: v.id("businesses"),
+    toUserId: v.string(),
+    kind: v.union(
+      /** A payment is due soon on a client nobody collects from. */
+      v.literal("due_unassigned"),
+      v.literal("assigned"),
+      /** Clients moved from this collector to someone else (or nobody). */
+      v.literal("unassigned"),
+      /** A collector collected a payment that waits for confirmation. */
+      v.literal("collected"),
+      v.literal("confirmed"),
+      v.literal("rejected"),
+    ),
+    clientNames: v.array(v.string()),
+    /** Who did it (collector or admin), or "" for the app itself. */
+    fromName: v.string(),
+    amount: v.optional(v.number()),
+    dueOn: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    clientId: v.optional(v.id("clients")),
+    pendingId: v.optional(v.id("pendingPayments")),
+    /** Reminders: one message per payment due date, never repeated. */
+    key: v.optional(v.string()),
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+  })
+    .index("by_business", ["businessId", "toUserId", "createdAt"])
+    .index("by_key", ["businessId", "key"]),
 
   lateFees: defineTable({
     businessId: v.id("businesses"),

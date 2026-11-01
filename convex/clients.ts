@@ -1,5 +1,6 @@
-// Clients. Collectors can add them (also offline); admins edit, archive,
-// delete and manage the ID photo. Clients with loans can't be deleted.
+// Clients. Collectors can add them (also offline), and a client a collector
+// adds is theirs; admins edit, archive, delete, give clients to collectors
+// and manage the ID photo. Clients with loans can't be deleted.
 
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
@@ -7,6 +8,7 @@ import { internalQuery, mutation } from "./_generated/server";
 import { checkVersion, ownRecord, requireMember } from "./lib/access";
 import { Diff, logChange, nextRecordNo, priorOperation, rememberOperation } from "./lib/books";
 import { fail } from "./lib/errors";
+import { activeMembers, limited, notify } from "./lib/team";
 import { email, phone, text } from "./lib/validate";
 
 const input = {
@@ -46,6 +48,7 @@ export const create = mutation({
       businessId: a.businessId,
       recordNo: await nextRecordNo(ctx, access.business),
       ...c,
+      collectorId: limited(access) ? access.userId : undefined,
       createdAt: now,
       createdBy: access.userId,
       updatedAt: now,
@@ -58,6 +61,45 @@ export const create = mutation({
     });
     await rememberOperation(ctx, access, a.opId, "client.create", clientId);
     return { clientId, duplicate: false };
+  },
+});
+
+/** Gives clients (with all their loans) to a collector or admin, or back to
+ *  nobody (`collectorId: null`). The new collector and the one who had them
+ *  are told in their messages. */
+export const assign = mutation({
+  args: { businessId: v.id("businesses"), clientIds: v.array(v.id("clients")), collectorId: v.union(v.string(), v.null()) },
+  handler: async (ctx, a) => {
+    const access = await requireMember(ctx, a.businessId, "manage");
+    if (a.clientIds.length === 0 || a.clientIds.length > 500) fail("invalid", { field: "clientIds", reason: "count" });
+    const members = await activeMembers(ctx, a.businessId);
+    const name = (userId: string | undefined) => (userId ? (members.find((m) => m.userId === userId)?.name ?? "") : "");
+    const to = a.collectorId === null ? undefined : a.collectorId;
+    if (to !== undefined && !members.some((m) => m.userId === to && (m.role === "collector" || m.role === "admin"))) {
+      fail("invalid", { field: "collectorId", reason: "not_a_collector" });
+    }
+    const given: string[] = [];
+    const taken = new Map<string, string[]>();
+    const now = Date.now();
+    for (const id of new Set(a.clientIds)) {
+      const c = await ownRecord(ctx, access, "clients", id);
+      if (c.collectorId === to) continue;
+      await ctx.db.patch(c._id, { collectorId: to, version: c.version + 1, updatedAt: now });
+      await logChange(ctx, access, "client", c._id, "update", new Diff().field("collector", name(c.collectorId), name(to)), "");
+      given.push(c.fullName);
+      if (c.collectorId !== undefined && c.collectorId !== access.userId) {
+        taken.set(c.collectorId, [...(taken.get(c.collectorId) ?? []), c.fullName]);
+      }
+    }
+    if (to !== undefined && to !== access.userId && given.length > 0) {
+      await notify(ctx, a.businessId, [to], { kind: "assigned", clientNames: given, fromName: access.name });
+    }
+    for (const [userId, names] of taken) {
+      if (members.some((m) => m.userId === userId)) {
+        await notify(ctx, a.businessId, [userId], { kind: "unassigned", clientNames: names, fromName: access.name });
+      }
+    }
+    return { changed: given.length };
   },
 });
 
