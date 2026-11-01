@@ -62,7 +62,7 @@ Problems found and fixed while testing:
 
 ## Limitations
 - Each mutation reads the business's whole ledger, which is fine for small and medium lenders. Very large books would need cached per-loan summaries (Convex transaction read limits).
-- Not tested on real Android or iPhone hardware by us; the owner uses it live. The per-IP rate limit depends on what Convex cloud forwards; per-account limits always apply.
+- Not tested on real Android or iPhone hardware by us; the owner uses it live and tested the installed app's launch on a phone (2026-10-31). The per-IP rate limit depends on what Convex cloud forwards; per-account limits always apply.
 - The session token lives in localStorage (the cross-domain plugin's design), mitigated by the CSP.
 - Offline: no new loans or edits; receipts only after sync; queued payments aren't counted in figures until accepted; the app must be opened online once per device. iOS needs the app installed to keep offline data reliably.
 - Desktop-only features with no PWA equivalent: SQLite backup/restore files (replaced by Convex backups and CSV/JSON export), the Windows file picker, keyboard shortcuts, Diagnostics.
@@ -77,6 +77,13 @@ Problems found and fixed while testing:
 6. **Landing page.** Done 2026-10-31: visitors who are not signed in see a marketing page at `/` (screens/landing.tsx): hero with a real screenshot, features, a clickable showcase, benefits, three steps, web and Windows download, FAQ, English and Spanish, light and dark. Screenshots are the desktop app on synthetic demo data (public/landing, not precached). No pricing yet (owner will give plans later), no testimonials or figures.
 
 7. **Settings redesign, receipt part switches, wider layout.** Done 2026-10-31 (desktop 0.10 and the PWA): Business and Cloud sync (the businesses list in the PWA) stay on the Settings page; the other groups are rows that open in a popup (desktop) or sheet (PWA). Payment receipts print only the optional parts switched on (loan number, amount lent, rate, payment cycle, installments, split, late fees, balance, history), stored as the optional `receiptShow` in the cloud; loan receipts keep every term. Desktop Settings now uses the full width (it was capped at 760px); the other screens already did.
+8. **Caribbean guilder and the installed app's start.** Done 2026-10-31: XCG (symbol Cg, shown "Cg 1.250,00" with a space) in both apps and the cloud; amounts are never converted. The installed PWA opens on `/sign-in` (signed-in people go on to the dashboard) and never shows the landing page, which stays at `/` in a browser; the owner tested it on a phone. Desktop 0.11 with XCG waits for the owner's go.
+9. **Tested cloud backups.** Confirm Convex keeps automatic backups of production, and restore one into a scratch deployment once to prove it works.
+10. **Collectors get only what their role allows.** Today totals are hidden on screen but every loan reaches a collector's device; the cloud should send each role only its data.
+11. **Delete my account.** Users delete their own account and data from Settings (privacy law and app stores expect it).
+12. **Reminders and receipts by WhatsApp.** A reminder before an installment is due, and the receipt after a payment, sent to the client.
+13. **Try-it demo on the landing page.** Visitors open the app with sample data, without signing up.
+14. **Papiamentu (Curaçao) and Dutch.** Glossary for native-speaker review: https://claude.ai/artifact/TDQKCdjMR8KEtTnbUCQ2fe. After approval: four languages in both apps, the PWA first.
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
