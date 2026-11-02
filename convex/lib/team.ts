@@ -1,6 +1,6 @@
 // Collectors and their clients. Each client belongs to at most one
-// collector (or admin), with all their loans. A collector sees only their
-// own clients and the ones nobody has been given yet; admins and viewers see
+// collector (or admin), with all their loans. A collector sees only the
+// clients assigned to them; admins and viewers see
 // everything. Payments a collector records wait as pending payments until an
 // admin confirms them (convex/payments.ts).
 
@@ -15,7 +15,7 @@ export function limited(access: Access): boolean {
 
 /** Whether `access` may see and collect for `client`. */
 export function canSee(access: Access, client: Pick<Doc<"clients">, "collectorId">): boolean {
-  return !limited(access) || client.collectorId === undefined || client.collectorId === access.userId;
+  return !limited(access) || client.collectorId === access.userId;
 }
 
 export async function activeMembers(ctx: QueryCtx | MutationCtx, businessId: Id<"businesses">) {

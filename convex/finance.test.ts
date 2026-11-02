@@ -116,6 +116,7 @@ describe("authorization and isolation", () => {
     }
     const asCarla = t.withIdentity(carla);
     const asDario = t.withIdentity(dario);
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [clientId], collectorId: carla.subject });
     const loan = (await asCarla.query(api.data.snapshot, { businessId })).loans[0];
     // Collector: can record a payment and an expense…
     await asCarla.mutation(api.payments.record, {

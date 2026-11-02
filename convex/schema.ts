@@ -139,7 +139,7 @@ export default defineSchema({
      *  fetch it, it is never cached offline and never printed. */
     photoId: v.optional(v.id("_storage")),
     /** The member (collector or admin) who collects from this client; unset:
-     *  nobody yet, and every collector sees them (convex/lib/team.ts). */
+     *  nobody yet, and only admins and viewers see them (convex/lib/team.ts). */
     collectorId: v.optional(v.string()),
     ...stamps,
   }).index("by_business", ["businessId"]),

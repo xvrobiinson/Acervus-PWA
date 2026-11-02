@@ -4,7 +4,7 @@
 // photos are not included — only whether one is on file.
 //
 // A collector gets only their own part of the business (convex/lib/team.ts):
-// their clients and the ones nobody collects from yet, those clients' loans
+// the clients assigned to them, those clients' loans
 // and payments, the expenses and income they recorded themselves and their
 // own pending payments. Never capital, the rest of the income and expenses,
 // or their teammates' email addresses.

@@ -1,7 +1,7 @@
 // Clients: searchable list, profile with loans and totals, the form, and the
 // ID photo (admins only, fetched on request, never kept on the device).
 // In a business with collectors, admins see and change who collects from
-// each client; a collector sees their own clients and the unassigned ones.
+// each client; a collector sees only the clients assigned to them.
 
 import { useMutation } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
@@ -22,7 +22,7 @@ import { statusTone } from "./loans";
 
 export function ClientsScreen() {
   const t = useT();
-  const { books, fmt, can, ops, role, mode } = useBooks();
+  const { books, fmt, can, ops, mode } = useBooks();
   const open = useForms();
   const team = useTeam();
   const [q, setQ] = useState("");
@@ -108,7 +108,6 @@ export function ClientsScreen() {
               sub={[collectorLine(c.client.collectorId), c.client.phone, t(`${c.loans.length} loans`, `${c.loans.length} préstamos`)].filter(Boolean).join(" · ")}
               trail={
                 <>
-                  {role === "collector" && !c.client.collectorId && <Pill>{t("No collector yet", "Aún sin cobrador")}</Pill>}
                   <span className="amount num">{fmt.money(c.outstanding)}</span>
                   {c.worst && c.worst !== "active" && <Pill tone={statusTone(c.worst)}>{displayStatusLabel(t, c.worst)}</Pill>}
                 </>
@@ -131,7 +130,7 @@ export function ClientsScreen() {
 /** Who collects from this client: admins change it right here. */
 function CollectorCard({ clientId, collectorId }: { clientId: string; collectorId: string | undefined }) {
   const t = useT();
-  const { can, mode, businessId, fmt, role } = useBooks();
+  const { can, mode, businessId, fmt } = useBooks();
   const team = useTeam();
   const toast = useToast();
   const assign = useMutation(api.clients.assign);
@@ -154,7 +153,7 @@ function CollectorCard({ clientId, collectorId }: { clientId: string; collectorI
         {can("manage") && mode === "online" ? (
           <CollectorSelect value={collectorId ?? ""} onChange={(v) => void change(v)} label={t("Collector", "Cobrador")} />
         ) : (
-          <div>{role === "collector" && !collectorId ? t("No collector yet: every collector sees this client.", "Aún sin cobrador: todos los cobradores ven este cliente.") : team.nameOf(collectorId)}</div>
+          <div>{team.nameOf(collectorId)}</div>
         )}
         {busy && <span className="small muted">{t("Saving…", "Guardando…")}</span>}
         <p className="micro muted">{t("The collector sees this client and all their loans, and collects their payments.", "El cobrador ve a este cliente y todos sus préstamos, y cobra sus pagos.")}</p>

@@ -85,12 +85,13 @@ Problems found and fixed while testing:
 13. **Try-it demo on the landing page.** Visitors open the app with sample data, without signing up.
 14. **Papiamentu (Curaçao) and Dutch.** Glossary for native-speaker review: https://claude.ai/artifact/TDQKCdjMR8KEtTnbUCQ2fe. Reviewed by a native speaker 2026-11-01 (changes: *pa fia*, *interes i kapital parti*, *saldo pendiente*); Dutch uses *je*. Next: four languages in both apps, the PWA first.
 
-15. **Animated landing page.** A more animated version of the landing page, once the owner has found the right design skills for it.
 16. **Fix: desktop assign, confirm and reject fail.** `mutation_name` in the desktop's src/sync/outbox.rs doesn't list clients:assign, payments:confirm or payments:reject, so they are sent as "unknown". The PWA works. Next up.
 17. **Collectors see only clients assigned to them.** Owner's call 2026-11-01, replaces "unassigned clients are visible to every collector".
 18. **What each collector can see.** Admins set switches per collector, in Team.
 19. **Receipt switches apply to every receipt.** Owner's call 2026-11-01: loan receipts follow the same switches as payment receipts (until now they kept every term).
-20. **Same settings in both apps.** Team in the desktop's Settings; Sign out directly on the PWA's Settings page; compare every setting and add what's missing.
+20. **Same settings in both apps.** Team in the desktop's Settings, where admins invite, change and remove collectors and viewers, as in the PWA; Sign out directly on the PWA's Settings page; compare every setting and add what's missing.
+21. **Animated landing page.** A more animated version of the landing page, once the owner has found the right design skills for it.
+22. **Animated loading page.** After the animated landing page.
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.

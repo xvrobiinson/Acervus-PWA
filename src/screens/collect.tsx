@@ -491,8 +491,8 @@ export function AssignSheet({ clients, onClose }: { clients: { _id: string; full
       </Field>
       <p className="small muted">
         {t(
-          "Each client goes with all their loans. Clients with no collector are seen by every collector.",
-          "Cada cliente va con todos sus préstamos. Los clientes sin cobrador los ven todos los cobradores.",
+          "Each client goes with all their loans. A collector sees only the clients assigned to them.",
+          "Cada cliente va con todos sus préstamos. Un cobrador solo ve los clientes asignados a él.",
         )}
       </p>
       <ul className="list assign-list">

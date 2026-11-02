@@ -66,7 +66,7 @@ describe("collectors", () => {
     t = convexTest(schema, modules);
   });
 
-  it("see only their own clients and the ones nobody collects from", async () => {
+  it("see only the clients assigned to them", async () => {
     const { asAna, asCarla, asDario, businessId, client, loan } = await team(t);
     const mine = await client("Para Carla");
     const luisOnly = await client("Para Luis");
@@ -80,7 +80,7 @@ describe("collectors", () => {
     });
 
     const snap = await asCarla.query(api.data.snapshot, { businessId });
-    expect(snap.clients.map((c) => c.fullName).sort()).toEqual(["Para Carla", "Sin cobrador"]);
+    expect(snap.clients.map((c) => c.fullName)).toEqual(["Para Carla"]);
     expect(snap.loans).toHaveLength(1);
     expect(snap.capital).toEqual([]);
     expect(snap.entries).toEqual([]);
@@ -114,6 +114,7 @@ describe("collectors", () => {
   it("their payments count only once an admin confirms them, from the day they were collected", async () => {
     const { asAna, asCarla, businessId, client, loan } = await team(t);
     const clientId = await client("María");
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [clientId], collectorId: carla.subject });
     const loanId = await loan(clientId);
     const collectedOn = addDays(today, -2);
     const args = {
@@ -147,7 +148,9 @@ describe("collectors", () => {
 
   it("a rejected payment never counts, and the collector is told why", async () => {
     const { asAna, asCarla, businessId, client, loan } = await team(t);
-    const loanId = await loan(await client("Rosa"));
+    const rosa = await client("Rosa");
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [rosa], collectorId: carla.subject });
+    const loanId = await loan(rosa);
     const { pendingId } = await asCarla.mutation(api.payments.record, {
       businessId, opId: op(), loanId, loanVersion: 1, amount: 5_000, fee: 0, paidOn: today, notes: "", instruction: { kind: "auto" },
     });
