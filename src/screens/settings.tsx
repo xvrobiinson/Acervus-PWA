@@ -355,7 +355,6 @@ const SHOW_GROUPS: [[string, string], [keyof ReceiptShow, string, string][]][] =
       ["installments", "Installments covered", "Cuotas cubiertas"],
       ["split", "Interest and capital split", "División entre interés y capital"],
       ["lateFees", "Late fees", "Mora"],
-  ["notes", "Client notes", "Notas del cliente"],
     ],
   ],
   [
