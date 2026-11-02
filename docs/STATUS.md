@@ -100,3 +100,19 @@ Problems found and fixed while testing:
 
 ## Waiting on you
 1. Deployment, email and Google sign-in are done.
+
+## Papiamentu and Dutch (Beta), 2026-11-01
+
+App and receipts in both apps; the landing page and Terms/Privacy stay English
+and Spanish. PWA catalog: `src/lib/translations.json`; desktop catalog:
+`src/translations.json` in the desktop repo; both keyed by the English text.
+`node scripts/i18n-keys.mjs` lists PWA texts missing from the catalog. A missing
+text falls back to Spanish (Papiamentu) or English (Dutch). The language is per
+device: the cloud's business language stays `en`/`es`. Machine-assisted
+translation, marked Beta until a native speaker has reviewed it.
+
+## Delete my account, 2026-11-01
+
+Settings on both apps. Seven-day wait with Keep; the only admin of a business must
+hand over or delete it first; old records show "Former team member". Hourly cron
+`delete accounts`. No confirmation email is sent.
