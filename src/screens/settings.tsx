@@ -355,6 +355,7 @@ const SHOW_GROUPS: [[string, string], [keyof ReceiptShow, string, string][]][] =
       ["installments", "Installments covered", "Cuotas cubiertas"],
       ["split", "Interest and capital split", "División entre interés y capital"],
       ["lateFees", "Late fees", "Mora"],
+  ["notes", "Client notes", "Notas del cliente"],
     ],
   ],
   [
@@ -565,7 +566,7 @@ function WordingCard() {
   );
 }
 
-const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true, notes: true };
 const VIEW_PARTS: [keyof typeof FULL_VIEW, string, string][] = [
   ["amountLent", "Amount lent", "Monto prestado"],
   ["rate", "Interest rate", "Tasa de interés"],
@@ -573,6 +574,7 @@ const VIEW_PARTS: [keyof typeof FULL_VIEW, string, string][] = [
   ["idNumber", "Client ID number", "Cédula del cliente"],
   ["history", "Payment history", "Historial de pagos"],
   ["lateFees", "Late fees", "Mora"],
+  ["notes", "Client notes", "Notas del cliente"],
 ];
 
 function PeopleCard() {
@@ -643,8 +645,8 @@ function PeopleCard() {
                   </div>
                   <p className="micro muted" style={{ margin: "4px 0 0" }}>
                     {t(
-                      "Phone, address and ID never reach their device when off. The others are hidden on their screens and receipts.",
-                      "Teléfono, dirección y cédula no llegan a su dispositivo si están apagados. Los demás se ocultan en sus pantallas y recibos.",
+                      "Phone, address, ID and notes never reach their device when off. The others are hidden on their screens and receipts.",
+                      "Teléfono, dirección, cédula y notas no llegan a su dispositivo si están apagados. Los demás se ocultan en sus pantallas y recibos.",
                     )}
                   </p>
                 </div>

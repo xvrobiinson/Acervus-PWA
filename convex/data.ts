@@ -66,6 +66,7 @@ export const snapshot = query({
         ...c,
         ...(view.contact ? {} : { phone: "", email: "", address: "" }),
         ...(view.idNumber ? {} : { idNumber: "" }),
+        ...(view.notes ? {} : { notes: "" }),
       }));
     const clientIds = new Set(clients.map((c) => c._id as string));
     const loans = own ? records.loans.filter((l) => clientIds.has(l.clientId)) : records.loans;

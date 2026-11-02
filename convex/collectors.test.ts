@@ -173,7 +173,7 @@ describe("collectors", () => {
     const memberId = members.find((m) => m.userId === carla.subject)!._id;
     // Everything shows until an admin says otherwise.
     expect((await asCarla.query(api.data.snapshot, { businessId })).clients[0]).toMatchObject({ phone: "809-555-0101", idNumber: "001" });
-    const view = { amountLent: false, rate: false, contact: false, idNumber: false, history: false, lateFees: true };
+    const view = { amountLent: false, rate: false, contact: false, idNumber: false, history: false, lateFees: true, notes: false };
     await asAna.mutation(api.businesses.setCollectorView, { businessId, memberId, view });
     const snap = await asCarla.query(api.data.snapshot, { businessId });
     expect(snap.clients[0]).toMatchObject({ phone: "", email: "", address: "", idNumber: "" });

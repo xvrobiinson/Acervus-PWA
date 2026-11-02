@@ -209,7 +209,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (userId && businessId) {
       void loadSnapshot<Snapshot>(userId, businessId).then((c) => {
         // A copy saved by an older version has no pending payments or switches.
-        const full = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+        const full = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true, notes: true };
         setCached(c && { ...c, data: { ...c.data, pending: c.data.pending ?? [], people: c.data.people ?? [], me: { ...c.data.me, view: c.data.me.view ?? full } } });
       });
     }

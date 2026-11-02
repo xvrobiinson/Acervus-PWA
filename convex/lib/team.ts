@@ -13,7 +13,7 @@ export function limited(access: Access): boolean {
   return access.member.role === "collector";
 }
 
-export const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+export const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true, notes: true };
 
 /** What this member sees of their clients: a collector's switches, or all. */
 export function viewOf(access: Access) {
