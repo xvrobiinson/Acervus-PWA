@@ -206,7 +206,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [cached, setCached] = useState<{ savedAt: number; data: Snapshot } | null>(null);
   useEffect(() => {
     setCached(null);
-    if (userId && businessId) void loadSnapshot<Snapshot>(userId, businessId).then(setCached);
+    if (userId && businessId) {
+      void loadSnapshot<Snapshot>(userId, businessId).then((c) => {
+        // A copy saved by an older version has no pending payments or switches.
+        const full = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+        setCached(c && { ...c, data: { ...c.data, pending: c.data.pending ?? [], people: c.data.people ?? [], me: { ...c.data.me, view: c.data.me.view ?? full } } });
+      });
+    }
   }, [userId, businessId]);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   useEffect(() => {

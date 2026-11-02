@@ -13,6 +13,13 @@ export function limited(access: Access): boolean {
   return access.member.role === "collector";
 }
 
+export const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+
+/** What this member sees of their clients: a collector's switches, or all. */
+export function viewOf(access: Access) {
+  return limited(access) ? (access.member.collectorView ?? FULL_VIEW) : FULL_VIEW;
+}
+
 /** Whether `access` may see and collect for `client`. */
 export function canSee(access: Access, client: Pick<Doc<"clients">, "collectorId">): boolean {
   return !limited(access) || client.collectorId === access.userId;

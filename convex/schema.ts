@@ -15,6 +15,8 @@ import { v } from "convex/values";
 
 export const role = v.union(v.literal("admin"), v.literal("collector"), v.literal("viewer"));
 /** Which optional parts of a payment receipt are printed (Settings › Receipts). */
+/** What a collector sees of the clients assigned to them. */
+export const collectorView = v.object({ amountLent: v.boolean(), rate: v.boolean(), contact: v.boolean(), idNumber: v.boolean(), history: v.boolean(), lateFees: v.boolean() });
 export const receiptShow = v.object({
   loanNumber: v.boolean(),
   amountLent: v.boolean(),
@@ -77,6 +79,8 @@ export default defineSchema({
     active: v.boolean(),
     joinedAt: v.number(),
     removedAt: v.optional(v.number()),
+    /** Collectors: what they see; unset shows everything. */
+    collectorView: v.optional(collectorView),
   })
     .index("by_user", ["userId"])
     .index("by_business", ["businessId"])

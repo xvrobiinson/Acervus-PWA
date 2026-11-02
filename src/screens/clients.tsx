@@ -214,7 +214,7 @@ export function ClientDetail() {
                 <Row
                   key={l.loan._id}
                   to={`/loans/${l.loan._id}`}
-                  title={`#${l.loan.recordNo} · ${fmt.money(l.loan.principal)}`}
+                  title={app.snapshot.me.view.amountLent ? `#${l.loan.recordNo} · ${fmt.money(l.loan.principal)}` : `#${l.loan.recordNo}`}
                   sub={`${methodShort(t, l.loan.method)} · ${fmt.day(l.loan.startDate)}`}
                   trail={
                     <>

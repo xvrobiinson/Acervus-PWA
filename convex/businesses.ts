@@ -9,6 +9,7 @@ import { internal } from "./_generated/api";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireIdentity, requireMember, type Access, type Identity } from "./lib/access";
 import { limited, releaseClients } from "./lib/team";
+import { collectorView } from "./schema";
 import { Diff, logChange } from "./lib/books";
 import { fail } from "./lib/errors";
 import { text } from "./lib/validate";
@@ -210,6 +211,7 @@ export const members = query({
       name: m.name,
       email: hide && m.userId !== access.userId ? "" : m.email,
       role: m.role,
+      collectorView: hide ? undefined : m.collectorView,
       active: m.active,
       joinedAt: m.joinedAt,
     }));
@@ -236,6 +238,19 @@ export const setRole = mutation({
     // A viewer collects from nobody: their clients go back to no collector.
     if (a.role === "viewer") await releaseClients(ctx, a.businessId, m.userId);
     await logChange(ctx, access, "member", m._id, "update", new Diff().field("role", m.role, a.role).field("email", m.email, m.email), "");
+  },
+});
+
+/** What a collector sees of the clients assigned to them. */
+export const setCollectorView = mutation({
+  args: { businessId: v.id("businesses"), memberId: v.id("members"), view: collectorView },
+  handler: async (ctx, a) => {
+    const access = await requireMember(ctx, a.businessId, "manage");
+    const m = await ctx.db.get(a.memberId);
+    if (!m || m.businessId !== a.businessId || !m.active) fail("not_found", { table: "members" });
+    if (m.role !== "collector") fail("invalid", { field: "memberId", reason: "not_a_collector" });
+    await ctx.db.patch(m._id, { collectorView: a.view });
+    await logChange(ctx, access, "member", m._id, "update", new Diff().field("collector_view", m.collectorView, a.view).field("email", m.email, m.email), "");
   },
 });
 

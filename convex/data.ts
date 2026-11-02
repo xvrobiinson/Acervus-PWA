@@ -11,15 +11,22 @@
 
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { requireMember } from "./lib/access";
 import { loadRecords } from "./lib/books";
 import { fail } from "./lib/errors";
-import { canSee, limited } from "./lib/team";
+import { canSee, limited, viewOf } from "./lib/team";
 
 /** Decided pending payments stay listed this long (the collector's "my
  *  recent payments", the admin's confirmed and rejected). */
 const DECIDED_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** A collector's receipts leave out what their switches hide. */
+function collectorReceipt(show: Doc<"settings">["receiptShow"], view: ReturnType<typeof viewOf>) {
+  const s = show ?? { loanNumber: true, amountLent: true, rate: true, cycle: true, installments: true, split: true, lateFees: true, balance: true, history: true };
+  return { ...s, amountLent: s.amountLent && view.amountLent, rate: s.rate && view.rate, history: s.history && view.history, lateFees: s.lateFees && view.lateFees };
+}
 
 export const snapshot = query({
   args: { businessId: v.id("businesses") },
@@ -49,7 +56,17 @@ export const snapshot = query({
         .collect(),
     ]);
     const own = limited(access);
-    const clients = allClients.filter((c) => canSee(access, c));
+    // Contact details and ID numbers switched off never leave the cloud. The
+    // loan figures stay (balances are worked out on the device), so those
+    // switches hide them on screen and, through receiptShow, on receipts.
+    const view = viewOf(access);
+    const clients = allClients
+      .filter((c) => canSee(access, c))
+      .map((c) => ({
+        ...c,
+        ...(view.contact ? {} : { phone: "", email: "", address: "" }),
+        ...(view.idNumber ? {} : { idNumber: "" }),
+      }));
     const clientIds = new Set(clients.map((c) => c._id as string));
     const loans = own ? records.loans.filter((l) => clientIds.has(l.clientId)) : records.loans;
     const loanIds = new Set(loans.map((l) => l._id as string));
@@ -65,9 +82,9 @@ export const snapshot = query({
         name: access.business.name,
         timezone: access.business.timezone,
       },
-      me: { userId: access.userId, role: access.member.role, name: access.name },
+      me: { userId: access.userId, role: access.member.role, name: access.name, view },
       today: access.today,
-      settings: settings ? { ...settings, logoUrl } : null,
+      settings: settings ? { ...settings, logoUrl, ...(own ? { receiptShow: collectorReceipt(settings.receiptShow, view) } : {}) } : null,
       clients: clients.map(({ photoId, ...c }) => ({ ...c, hasPhoto: photoId !== undefined })),
       loans,
       payments: mineOnly(records.payments),

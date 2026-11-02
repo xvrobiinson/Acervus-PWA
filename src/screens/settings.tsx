@@ -565,6 +565,16 @@ function WordingCard() {
   );
 }
 
+const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true };
+const VIEW_PARTS: [keyof typeof FULL_VIEW, string, string][] = [
+  ["amountLent", "Amount lent", "Monto prestado"],
+  ["rate", "Interest rate", "Tasa de interés"],
+  ["contact", "Client phone and address", "Teléfono y dirección del cliente"],
+  ["idNumber", "Client ID number", "Cédula del cliente"],
+  ["history", "Payment history", "Historial de pagos"],
+  ["lateFees", "Late fees", "Mora"],
+];
+
 function PeopleCard() {
   const t = useT();
   const { businessId, fmt, user } = useBooks();
@@ -575,6 +585,7 @@ function PeopleCard() {
   const revoke = useMutation(api.invites.revoke);
   const setRole = useMutation(api.businesses.setRole);
   const removeMember = useMutation(api.businesses.removeMember);
+  const setView = useMutation(api.businesses.setCollectorView);
   const [email, setEmail] = useState("");
   const [role, setRoleNew] = useState<"admin" | "collector" | "viewer">("collector");
   const [busy, setBusy] = useState(false);
@@ -607,6 +618,37 @@ function PeopleCard() {
                 {roles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
               <Button size="small" variant="danger-ghost" icon="trash" aria-label={t("Remove", "Quitar")} onClick={() => setRemoving(m._id)} />
+              {m.role === "collector" && (
+                <div style={{ flexBasis: "100%" }}>
+                  <div className="micro muted strong" style={{ marginTop: 6 }}>{t("Sees, for their assigned clients", "Ve, de sus clientes asignados")}</div>
+                  <div className="form-grid two">
+                    {VIEW_PARTS.map(([k, en, es]) => {
+                      const current = { ...FULL_VIEW, ...m.collectorView };
+                      return (
+                        <Check
+                          key={k}
+                          checked={current[k]}
+                          onChange={async (on) => {
+                            try {
+                              await setView({ businessId, memberId: m._id, view: { ...current, [k]: on } });
+                            } catch (err) {
+                              toast(describeError(t, fmt, err), true);
+                            }
+                          }}
+                        >
+                          {t(en, es)}
+                        </Check>
+                      );
+                    })}
+                  </div>
+                  <p className="micro muted" style={{ margin: "4px 0 0" }}>
+                    {t(
+                      "Phone, address and ID never reach their device when off. The others are hidden on their screens and receipts.",
+                      "Teléfono, dirección y cédula no llegan a su dispositivo si están apagados. Los demás se ocultan en sus pantallas y recibos.",
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
           </li>
         ))}

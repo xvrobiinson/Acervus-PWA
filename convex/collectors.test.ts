@@ -162,6 +162,32 @@ describe("collectors", () => {
     expect((await asCarla.query(api.messages.mine, { businessId }))[0]).toMatchObject({ kind: "rejected", reason: "Recorded twice" });
   });
 
+  it("each collector's switches hide what the admin chose, for that collector only", async () => {
+    const { asAna, asCarla, asLuis, businessId, client, loan } = await team(t);
+    const { clientId: a } = await asAna.mutation(api.clients.create, { businessId, opId: op(), fullName: "Con datos", ...blank, phone: "809-555-0101", idNumber: "001", address: "Calle 1" });
+    const b = await client("Otro");
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [a], collectorId: carla.subject });
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [b], collectorId: luis.subject });
+    await loan(a);
+    const members = await asAna.query(api.businesses.members, { businessId });
+    const memberId = members.find((m) => m.userId === carla.subject)!._id;
+    // Everything shows until an admin says otherwise.
+    expect((await asCarla.query(api.data.snapshot, { businessId })).clients[0]).toMatchObject({ phone: "809-555-0101", idNumber: "001" });
+    const view = { amountLent: false, rate: false, contact: false, idNumber: false, history: false, lateFees: true };
+    await asAna.mutation(api.businesses.setCollectorView, { businessId, memberId, view });
+    const snap = await asCarla.query(api.data.snapshot, { businessId });
+    expect(snap.clients[0]).toMatchObject({ phone: "", email: "", address: "", idNumber: "" });
+    expect(snap.me.view).toEqual(view);
+    expect(snap.settings?.receiptShow).toMatchObject({ amountLent: false, rate: false, history: false, lateFees: true, balance: true });
+    // Another collector and the admin are unaffected; the record itself is untouched.
+    expect((await asLuis.query(api.data.snapshot, { businessId })).me.view.rate).toBe(true);
+    expect((await asAna.query(api.data.snapshot, { businessId })).clients.find((c) => c._id === a)).toMatchObject({ phone: "809-555-0101", idNumber: "001" });
+    // Only admins set them, and only on collectors.
+    expect(await errorOf(asCarla.mutation(api.businesses.setCollectorView, { businessId, memberId, view }))).toMatchObject({ code: "forbidden" });
+    const adminId = members.find((m) => m.userId === ana.subject)!._id;
+    expect(await errorOf(asAna.mutation(api.businesses.setCollectorView, { businessId, memberId: adminId, view }))).toMatchObject({ code: "invalid" });
+  });
+
   it("admins' own payments count right away", async () => {
     const { asAna, businessId, client, loan } = await team(t);
     const loanId = await loan(await client("Pedro"));

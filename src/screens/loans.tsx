@@ -136,6 +136,8 @@ export function LoanDetail() {
   const { id } = useParams();
   const app = useBooks();
   const { books, fmt, can, mode, businessId, ops, snapshot } = app;
+  // A collector's switches (convex/lib/team.ts); everything for anyone else.
+  const view = snapshot.me.view;
   const navigate = useNavigate();
   const open = useForms();
   const toast = useToast();
@@ -210,10 +212,12 @@ export function LoanDetail() {
             <div className="label">{t("Interest owed", "Interés pendiente")}</div>
             <div className="value">{fmt.money(p.interestOutstanding)}</div>
           </div>
-          <div className="stat">
-            <div className="label">{t("Late fees owed", "Mora pendiente")}</div>
-            <div className={`value ${p.feesOutstanding ? "neg" : ""}`}>{fmt.money(p.feesOutstanding)}</div>
-          </div>
+          {view.lateFees && (
+            <div className="stat">
+              <div className="label">{t("Late fees owed", "Mora pendiente")}</div>
+              <div className={`value ${p.feesOutstanding ? "neg" : ""}`}>{fmt.money(p.feesOutstanding)}</div>
+            </div>
+          )}
           <div className="stat">
             <div className="label">{t("Overdue", "Atrasado")}</div>
             <div className={`value ${l.delinquency.overdueAmount ? "neg" : ""}`}>{fmt.money(l.delinquency.overdueAmount)}</div>
@@ -242,7 +246,7 @@ export function LoanDetail() {
                       <th className="num">{t("Amount", "Monto")}</th>
                       <th className="num">{t("Left", "Falta")}</th>
                       <th>{t("Status", "Estado")}</th>
-                      <th className="num">{t("Late fee", "Mora")}</th>
+                      {view.lateFees && <th className="num">{t("Late fee", "Mora")}</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -258,7 +262,7 @@ export function LoanDetail() {
                           <td>
                             <Pill tone={st === "paid" ? "pos" : st === "overdue" ? "neg" : st === "partly_paid" ? "warn" : undefined}>{installmentStatusLabel(t, st)}</Pill>
                           </td>
-                          <td className="num">
+                          {view.lateFees && <td className="num">
                             {x.feeAssessedOn ? (
                               <span className="row" style={{ justifyContent: "flex-end", gap: 4 }}>
                                 <span className={x.feeWaived ? "faint" : ""} style={x.feeWaived ? { textDecoration: "line-through" } : undefined}>
@@ -273,7 +277,7 @@ export function LoanDetail() {
                             ) : (
                               ""
                             )}
-                          </td>
+                          </td>}
                         </tr>
                       );
                     })}
@@ -320,7 +324,7 @@ export function LoanDetail() {
               {pending.map((o) => (
                 <Row key={o.opId} to="/sync" title={fmt.money(Number(o.args.amount))} sub={`${o.summary.on ? fmt.day(o.summary.on) : ""} · ${t("on this device, not synced", "en este dispositivo, sin sincronizar")}`} trail={<Pill tone="warn">{o.status === "needs_review" ? t("Review", "Revisar") : t("Pending", "Pendiente")}</Pill>} />
               ))}
-              {[...l.payments].reverse().map((pay) => (
+              {(view.history ? [...l.payments].reverse() : []).map((pay) => (
                 <li key={pay._id}>
                   <div className="list-row">
                     <div className="grow">
@@ -328,7 +332,7 @@ export function LoanDetail() {
                         {fmt.money(pay.amount)} <span className="muted small">· {fmt.day(pay.paidOn)}</span>
                       </div>
                       <div className="sub">
-                        {[pay.fee ? `${t("fees", "mora")} ${fmt.money(pay.fee)}` : "", `${t("interest", "interés")} ${fmt.money(pay.interest)}`, `${t("capital", "capital")} ${fmt.money(pay.principal)}`]
+                        {[pay.fee && view.lateFees ? `${t("fees", "mora")} ${fmt.money(pay.fee)}` : "", `${t("interest", "interés")} ${fmt.money(pay.interest)}`, `${t("capital", "capital")} ${fmt.money(pay.principal)}`]
                           .filter(Boolean)
                           .join(" · ")}
                         {pay.recordedOffline ? ` · ${t("recorded offline", "registrado sin conexión")}` : ""}
@@ -343,26 +347,38 @@ export function LoanDetail() {
                 </li>
               ))}
             </ul>
-            {l.payments.length === 0 && pending.length === 0 && !snapshot.pending.some((p) => p.loanId === l.loan._id && p.status === "waiting") && <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>}
+            {(l.payments.length === 0 || !view.history) && pending.length === 0 && !snapshot.pending.some((p) => p.loanId === l.loan._id && p.status === "waiting") && <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>}
           </Card>
         </div>
         <div>
           <Card title={t("Terms", "Condiciones")}>
             <dl className="kv card-body">
-              <dt>{t("Amount lent", "Monto prestado")}</dt>
-              <dd>{fmt.money(loan.principal)}</dd>
+              {view.amountLent && (
+                <>
+                  <dt>{t("Amount lent", "Monto prestado")}</dt>
+                  <dd>{fmt.money(loan.principal)}</dd>
+                </>
+              )}
               <dt>{t("Type", "Tipo")}</dt>
               <dd>{methodShort(t, loan.method)}</dd>
-              <dt>{t("Rate", "Tasa")}</dt>
-              <dd>{rateLine(t, fmt.rate, loan)}</dd>
+              {view.rate && (
+                <>
+                  <dt>{t("Rate", "Tasa")}</dt>
+                  <dd>{rateLine(t, fmt.rate, loan)}</dd>
+                </>
+              )}
               <dt>{t("Payments", "Pagos")}</dt>
               <dd>{frequencyLabel(t, loan.frequency)}</dd>
               {loan.installments && (
                 <>
                   <dt>{t("Installments", "Cuotas")}</dt>
                   <dd>{loan.schedule.length}</dd>
-                  <dt>{t("Late fee", "Mora")}</dt>
-                  <dd>{fmt.rate(loan.lateFeeRate)}</dd>
+                  {view.lateFees && (
+                    <>
+                      <dt>{t("Late fee", "Mora")}</dt>
+                      <dd>{fmt.rate(loan.lateFeeRate)}</dd>
+                    </>
+                  )}
                 </>
               )}
               <dt>{t("Loan date", "Fecha")}</dt>
