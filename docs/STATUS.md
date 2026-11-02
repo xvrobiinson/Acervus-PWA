@@ -85,11 +85,11 @@ Problems found and fixed while testing:
 13. **Try-it demo on the landing page.** Visitors open the app with sample data, without signing up.
 14. **Papiamentu (Curaçao) and Dutch.** Glossary for native-speaker review: https://claude.ai/artifact/TDQKCdjMR8KEtTnbUCQ2fe. Reviewed by a native speaker 2026-11-01 (changes: *pa fia*, *interes i kapital parti*, *saldo pendiente*); Dutch uses *je*. Next: four languages in both apps, the PWA first.
 
-16. **Fix: desktop assign, confirm and reject fail.** `mutation_name` in the desktop's src/sync/outbox.rs doesn't list clients:assign, payments:confirm or payments:reject, so they are sent as "unknown". The PWA works. Next up.
-17. **Collectors see only clients assigned to them.** Owner's call 2026-11-01, replaces "unassigned clients are visible to every collector".
-18. **What each collector can see.** Admins set switches per collector, in Team.
-19. **Receipt switches apply to every receipt.** Owner's call 2026-11-01: loan receipts follow the same switches as payment receipts (until now they kept every term).
-20. **Same settings in both apps.** Team in the desktop's Settings, where admins invite, change and remove collectors and viewers, as in the PWA; Sign out directly on the PWA's Settings page; compare every setting and add what's missing.
+16. **Fix: desktop assign, confirm and reject.** Done in desktop 0.12.1 (the call names were missing from the outbox's list).
+17. **Collectors see only clients assigned to them.** Done: replaces "unassigned clients are visible to every collector".
+18. **What each collector can see.** Done: seven switches per collector under Team (`members.collectorView`). Phone, address, email, ID and notes never reach the device when off; amount lent, rate, history and late fees are hidden on screens and receipts but stay on the device, because balances are worked out there.
+19. **Receipt switches apply to every receipt.** Done: loan receipts follow them; the "How payments work" lines go when the amount or rate is off.
+20. **Same settings in both apps.** Done: Team, business name and time zone in the desktop; Sign out directly on the PWA's Settings page. PC-only: Google Drive, database backups, Diagnostics, keyboard shortcuts. MIN_DESKTOP_VERSION is 0.12.1, so collectors can't skip the switches on an older desktop.
 21. **Animated landing page.** A more animated version of the landing page, once the owner has found the right design skills for it.
 22. **Animated loading page.** After the animated landing page.
 

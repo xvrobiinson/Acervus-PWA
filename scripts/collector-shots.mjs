@@ -99,6 +99,11 @@ await c.mutation(api.clients.assign, { businessId, clientIds: [ids["Carmen Peña
 await c.mutation(api.clients.assign, { businessId, clientIds: [ids["Rafael Gómez"]], collectorId: rosa.userId });
 const collect = async (who, n, amount, paidOn) =>
   (await who.c.mutation(api.payments.record, { businessId, opId: crypto.randomUUID(), loanId: loanOf[n], loanVersion: 0, amount, fee: 0, paidOn, notes: "", instruction: { kind: "auto" } })).pendingId;
+// HIDE_VIEW=1: Ana sees less, to check the switches.
+if (process.env.HIDE_VIEW) {
+  const m = (await c.query(api.businesses.members, { businessId })).find((x) => x.userId === ana.userId);
+  await c.mutation(api.businesses.setCollectorView, { businessId, memberId: m._id, view: { amountLent: false, rate: false, contact: false, idNumber: false, history: false, lateFees: false, notes: false } });
+}
 const p1 = await collect(ana, "Pedro Almonte", 175_000, day(0, -6));
 const p2 = await collect(ana, "José Martínez", 50_000, day(0, -5));
 await collect(ana, "María Rodríguez", 250_000, day(0, -1));
@@ -199,6 +204,9 @@ await shot("c02-overview-scrolled", null, `window.scrollTo(0, document.body.scro
 await shot("c03-messages", "/", `document.querySelector(".phone-only .bell").click()`);
 await shot("c04-clients", "/clients");
 await shot("c05-payment-form", `/loans/${loanOf["María Rodríguez"]}`, click("/Record payment/"));
+await shot("c07-loan", `/loans/${loanOf["María Rodríguez"]}`, null, true);
+await shot("c08-loan-receipt", `/loans/${loanOf["María Rodríguez"]}`, click("/Loan receipt/"));
+await shot("c09-client", `/clients/${ids["María Rodríguez"]}`, null, true);
 await shot("c06-pending-receipt", `/loans/${loanOf["María Rodríguez"]}`, `document.querySelector('.list [aria-label="Receipt"]').click()`);
 ws.close();
 browser.kill();

@@ -9,7 +9,7 @@ import { query } from "./_generated/server";
 /** The oldest desktop build that may sync. Raise it whenever a change to the
  *  schema or to a function's arguments would let an older build misread the
  *  data or send writes the server would apply differently. */
-export const MIN_DESKTOP_VERSION = "0.12.0";
+export const MIN_DESKTOP_VERSION = "0.12.1";
 
 /** "1.2.3" → [1, 2, 3]; null when it isn't a plain version number. */
 function parseVersion(s: string): number[] | null {
