@@ -92,8 +92,8 @@ const TERMS: Section[] = [
     h: ["Stopping", "Dejar de usarla"],
     p: [
       [
-        "You can stop using Acervus at any time, delete a business you administer from Settings, or write to us to delete your account. We may suspend an account that breaks these terms.",
-        "Puedes dejar de usar Acervus cuando quieras, borrar un negocio que administres desde Ajustes o escribirnos para borrar tu cuenta. Podemos suspender una cuenta que no cumpla estos términos.",
+        "You can stop using Acervus at any time, delete a business you administer from Settings, or delete your account from Settings. We may suspend an account that breaks these terms.",
+        "Puedes dejar de usar Acervus cuando quieras, borrar un negocio que administres desde Ajustes o borrar tu cuenta desde Ajustes. Podemos suspender una cuenta que no cumpla estos términos.",
       ],
     ],
   },
@@ -179,8 +179,8 @@ const PRIVACY: Section[] = [
     h: ["Keeping and deleting", "Conservar y borrar"],
     p: [
       [
-        "Records are kept while the business exists. When an admin deletes a business, its records and photos are deleted; copies in our providers' own backups may last a short while longer. To delete your account, write to us. Data in the desktop app stays on your PC until you delete it.",
-        "Los registros se guardan mientras el negocio exista. Cuando un administrador borra un negocio, se borran sus registros y fotos; las copias en los respaldos de nuestros proveedores pueden durar un poco más. Para borrar tu cuenta, escríbenos. Los datos de la app de escritorio quedan en tu PC hasta que los borres.",
+        "Records are kept while the business exists. When an admin deletes a business, its records and photos are deleted; copies in our providers' own backups may last a short while longer. To delete your account, use Settings: it is deleted after 7 days, unless you cancel. Your sign-in and personal details go; records you made for a business stay with that business without your name. Encrypted nightly backups, including your details, are kept up to 90 days before they expire. Data in the desktop app stays on your PC until you delete it.",
+        "Los registros se guardan mientras el negocio exista. Cuando un administrador borra un negocio, se borran sus registros y fotos; las copias en los respaldos de nuestros proveedores pueden durar un poco más. Para borrar tu cuenta, usa Ajustes: se borra después de 7 días, a menos que lo canceles. Se eliminan tu acceso y tus datos personales; los registros que hiciste para un negocio quedan en ese negocio sin tu nombre. Los respaldos nocturnos cifrados, incluidos tus datos, se guardan hasta 90 días antes de vencer. Los datos de la app de escritorio quedan en tu PC hasta que los borres.",
       ],
       [
         "You can see, correct and export your records at any time (Settings has CSV and JSON export).",

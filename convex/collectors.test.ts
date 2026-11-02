@@ -60,6 +60,41 @@ async function team(t: T) {
   return { asAna, asCarla: t.withIdentity(carla), asLuis: t.withIdentity(luis), asDario: t.withIdentity(dario), businessId, client, loan };
 }
 
+describe("deleting your account", () => {
+  it("waits 7 days, can be cancelled, keeps records without the name, and protects the only admin", async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, asCarla, businessId, client, loan } = await team(t);
+    expect(await errorOf(asAna.mutation(api.account.requestDeletion, {}))).toMatchObject({ code: "sole_admin" });
+    const clientId = await client("María");
+    await asAna.mutation(api.clients.assign, { businessId, clientIds: [clientId], collectorId: carla.subject });
+    const loanId = await loan(clientId);
+    const { pendingId } = await asCarla.mutation(api.payments.record, {
+      businessId, opId: op(), loanId, loanVersion: 1, amount: 10_000, fee: 0, paidOn: today, notes: "", instruction: { kind: "auto" },
+    });
+    await asAna.mutation(api.payments.confirm, { businessId, pendingId: pendingId! });
+    // Cancelled: nothing happens.
+    await asCarla.mutation(api.account.requestDeletion, {});
+    expect((await asCarla.query(api.account.status, {})).deletesAt).toBeGreaterThan(Date.now());
+    await asCarla.mutation(api.account.cancelDeletion, {});
+    expect((await asCarla.query(api.account.status, {})).deletesAt).toBeNull();
+    // Not due yet: nothing happens.
+    await asCarla.mutation(api.account.requestDeletion, {});
+    await t.mutation(internal.account.runDue, {});
+    const row = (await t.run((ctx) => ctx.db.query("accountDeletions").first()))!;
+    // Due: gone from the team; the payment stays, without the name.
+    await t.mutation(internal.account.erase, { userId: carla.subject, email: carla.email, deletionId: row._id });
+    const snap = await asAna.query(api.data.snapshot, { businessId });
+    expect(snap.payments).toHaveLength(1);
+    expect(snap.pending[0].collectorName).toBe("Antiguo miembro del equipo");
+    const me = snap.people.find((p) => p.userId === carla.subject)!;
+    expect(me).toMatchObject({ active: false, email: "", name: "Antiguo miembro del equipo" });
+    expect((await t.run((ctx) => ctx.db.get(clientId)))?.collectorId).toBeUndefined();
+    const log = await t.run((ctx) => ctx.db.query("changeLog").collect());
+    expect(JSON.stringify(log)).not.toContain(carla.email);
+    expect(log.filter((l) => l.userId === carla.subject).every((l) => l.userName === "Antiguo miembro del equipo")).toBe(true);
+  });
+});
+
 describe("collectors", () => {
   let t: T;
   beforeEach(() => {

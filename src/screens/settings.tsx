@@ -45,6 +45,55 @@ function SignOutButton() {
   );
 }
 
+/** Deleting your own account: waits 7 days, and can be cancelled meanwhile. */
+function DeleteAccount() {
+  const t = useT();
+  const { fmt } = useBooks();
+  const toast = useToast();
+  const status = useQuery(api.account.status, {});
+  const request = useMutation(api.account.requestDeletion);
+  const [asking, setAsking] = useState(false);
+  if (!status) return null;
+  return (
+    <div className="span2 stack">
+      <div className="row between wrap">
+        <span className="small muted">
+          {status.soleAdminOf.length > 0
+            ? t(
+                `You're the only admin of ${status.soleAdminOf.join(", ")}. Make someone else an admin or delete the business before deleting your account.`,
+                `Eres el único administrador de ${status.soleAdminOf.join(", ")}. Haz administrador a otra persona o borra el negocio antes de borrar tu cuenta.`,
+              )
+            : t("Deleted after 7 days, and you can cancel until then.", "Se borra después de 7 días, y puedes cancelar hasta entonces.")}
+        </span>
+        <Button variant="danger-ghost" icon="trash" disabled={status.soleAdminOf.length > 0} onClick={() => setAsking(true)}>
+          {t("Delete my account", "Borrar mi cuenta")}
+        </Button>
+      </div>
+      {asking && (
+        <Confirm
+          title={t("Delete your account?", "¿Borrar tu cuenta?")}
+          danger
+          confirmLabel={t("Delete my account", "Borrar mi cuenta")}
+          onClose={() => setAsking(false)}
+          onConfirm={async () => {
+            try {
+              await request({});
+              toast(t("Your account will be deleted in 7 days.", "Tu cuenta se borrará en 7 días."));
+            } catch (e) {
+              throw new Error(describeError(t, fmt, e));
+            }
+          }}
+        >
+          {t(
+            "After 7 days your sign-in and personal details are deleted and you leave every business. The records you made stay with each business, shown as “Former team member”. Encrypted backups expire within 90 days. Until then, you can cancel.",
+            "Después de 7 días se borran tu acceso y tus datos personales y sales de todos los negocios. Los registros que hiciste quedan en cada negocio, como “Antiguo miembro del equipo”. Los respaldos cifrados vencen en 90 días. Hasta entonces, puedes cancelar.",
+          )}
+        </Confirm>
+      )}
+    </div>
+  );
+}
+
 /** A group of settings behind a row on the Settings page, opened in a sheet. */
 type Panel = "receipts" | "account" | "team" | "data" | "about";
 
@@ -185,6 +234,7 @@ function DeviceCard() {
         <div className="span2 small muted">
           {app.user?.email} · {app.role ? roleLabel(t, app.role) : ""}
         </div>
+        {app.mode === "online" && <DeleteAccount />}
       </div>
     </Card>
   );

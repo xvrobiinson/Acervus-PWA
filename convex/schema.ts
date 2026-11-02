@@ -247,6 +247,16 @@ export default defineSchema({
     .index("by_business", ["businessId", "status"])
     .index("by_loan", ["loanId"]),
 
+  /** Accounts waiting to be deleted (convex/account.ts). */
+  accountDeletions: defineTable({
+    userId: v.string(),
+    email: v.string(),
+    requestedAt: v.number(),
+    runAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_run", ["runAt"]),
+
   /** What the bell shows each person. Words are put together on the device,
    *  in its language, from these facts. */
   messages: defineTable({

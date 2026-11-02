@@ -243,6 +243,11 @@ export function describeErrorData(t: T, f: Fmt, d: ErrorData): string {
       return d.status === "confirmed"
         ? t("This payment was already confirmed.", "Este pago ya fue confirmado.")
         : t("This payment was already rejected.", "Este pago ya fue rechazado.");
+    case "sole_admin":
+      return t(
+        `You're the only admin of ${d.businesses}. Make someone else an admin or delete the business first.`,
+        `Eres el único administrador de ${d.businesses}. Haz administrador a otra persona o borra el negocio primero.`,
+      );
     case "last_admin":
       return t("A business needs at least one admin.", "Un negocio necesita al menos un administrador.");
     case "already_member":

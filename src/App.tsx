@@ -4,6 +4,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { useT } from "./lib/i18n";
 import { InviteScreen, SignIn, SignUp, Welcome } from "./screens/auth";
 import { ClientDetail, ClientForm, ClientsScreen } from "./screens/clients";
@@ -34,6 +36,7 @@ export function App() {
   const app = useApp();
   const t = useT();
   const location = useLocation();
+  const deletion = useQuery(api.account.status, app.mode === "online" ? {} : "skip");
 
   // The Terms and the Privacy Policy are public: readable signed in or out.
   if (location.pathname === "/terms") return <LegalScreen page="terms" />;
@@ -57,6 +60,7 @@ export function App() {
     );
   }
   if (location.pathname === "/invite") return <InviteScreen />;
+  if (app.mode === "online" && deletion?.deletesAt) return <AccountDeleting deletesAt={deletion.deletesAt} />;
   if (app.businesses === null) return <Splash />;
   if (app.businesses.length === 0) {
     return app.mode === "online" ? (
@@ -99,6 +103,28 @@ export function App() {
         </Routes>
       </Shell>
     </FormsProvider>
+  );
+}
+
+/** While an account waits to be deleted: nothing else, but the way back. */
+function AccountDeleting({ deletesAt }: { deletesAt: number }) {
+  const app = useApp();
+  const t = useT();
+  const cancel = useMutation(api.account.cancelDeletion);
+  const when = new Date(deletesAt).toLocaleDateString(app.fmt.lang === "es" ? "es" : "en", { dateStyle: "long" });
+  return (
+    <div className="auth splash">
+      <div className="panel stack" style={{ alignItems: "center", textAlign: "center" }}>
+        <img className="logo" src="/pwa-192x192.png" alt="" />
+        <p>{t(`Your account will be deleted on ${when}.`, `Tu cuenta se borrará el ${when}.`)}</p>
+        <Button variant="primary" onClick={() => void cancel({})}>
+          {t("Keep my account", "Conservar mi cuenta")}
+        </Button>
+        <Button variant="ghost" icon="logout" onClick={() => void app.signOut()}>
+          {t("Sign out", "Cerrar sesión")}
+        </Button>
+      </div>
+    </div>
   );
 }
 

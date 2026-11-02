@@ -25,4 +25,5 @@ export const PERMANENT = new Set([
   "loan_closed",
   "archived_client",
   "already_decided",
+  "sole_admin",
 ]);
