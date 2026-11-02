@@ -207,7 +207,7 @@ function DeviceCard() {
   return (
     <Card title={t("This device", "Este dispositivo")}>
       <div className="card-body form-grid two">
-        <Field label={t("Language", "Idioma")}>{() => <Segmented label={t("Language", "Idioma")} value={lang} onChange={setLang} options={[["es", "Español"], ["en", "English"]]} />}</Field>
+        <Field label={t("Language", "Idioma")}>{() => <Segmented label={t("Language", "Idioma")} value={lang} onChange={setLang} options={[["es", "Español"], ["en", "English"], ["pap", "Papiamentu (Beta)"], ["nl", "Nederlands (Beta)"]]} />}</Field>
         <Field label={t("Theme", "Tema")}>
           {() => (
             <Segmented

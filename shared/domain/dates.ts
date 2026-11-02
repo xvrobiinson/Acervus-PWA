@@ -100,10 +100,14 @@ export function isValidTimeZone(tz: string): boolean {
 
 export type DateStyle = "medium" | "iso" | "dmy" | "mdy";
 export const DATE_STYLES: DateStyle[] = ["medium", "iso", "dmy", "mdy"];
-export type Lang = "en" | "es";
+export type Lang = "en" | "es" | "pap" | "nl";
 
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+const MONTHS_PAP = ["yan", "feb", "mar", "apr", "mei", "yün", "yül", "oug", "sèp", "òkt", "nov", "des"];
+const MONTHS_NL = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const MONTH_NAMES_PAP = ["Yanüari", "Febrüari", "Mart", "Aprel", "Mei", "Yüni", "Yüli", "Ougùstùs", "Sèptèmber", "Òktober", "Novèmber", "Desèmber"];
+const MONTH_NAMES_NL = ["Januari", "Februari", "Maart", "April", "Mei", "Juni", "Juli", "Augustus", "September", "Oktober", "November", "December"];
 const MONTH_NAMES_EN = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -115,7 +119,7 @@ const MONTH_NAMES_ES = [
 
 function shortMonth(m: number, lang: Lang): string {
   const i = Math.min(Math.max(m, 1), 12) - 1;
-  return lang === "es" ? MONTHS_ES[i] : MONTHS_EN[i];
+  return { en: MONTHS_EN, es: MONTHS_ES, pap: MONTHS_PAP, nl: MONTHS_NL }[lang][i];
 }
 
 export function formatDay(d: Day, style: DateStyle, lang: Lang): string {
@@ -130,7 +134,7 @@ export function formatDay(d: Day, style: DateStyle, lang: Lang): string {
     case "mdy":
       return `${mm}/${dd}/${y}`;
     default:
-      return lang === "es" ? `${day} ${shortMonth(m, lang)} ${y}` : `${shortMonth(m, lang)} ${day}, ${y}`;
+      return lang !== "en" ? `${day} ${shortMonth(m, lang)} ${y}` : `${shortMonth(m, lang)} ${day}, ${y}`;
   }
 }
 
@@ -138,7 +142,7 @@ export function formatDay(d: Day, style: DateStyle, lang: Lang): string {
 export function formatDayShort(d: Day, today: Day, style: DateStyle, lang: Lang): string {
   const [y, m, day] = parts(d);
   if (style === "medium" && y === parts(today)[0]) {
-    return lang === "es" ? `${day} ${shortMonth(m, lang)}` : `${shortMonth(m, lang)} ${day}`;
+    return lang !== "en" ? `${day} ${shortMonth(m, lang)}` : `${shortMonth(m, lang)} ${day}`;
   }
   return formatDay(d, style, lang);
 }
@@ -146,7 +150,7 @@ export function formatDayShort(d: Day, today: Day, style: DateStyle, lang: Lang)
 /** "October 2026" / "Octubre 2026". */
 export function monthYear(d: Day, lang: Lang): string {
   const [y, m] = parts(d);
-  return `${(lang === "es" ? MONTH_NAMES_ES : MONTH_NAMES_EN)[m - 1]} ${y}`;
+  return `${{ en: MONTH_NAMES_EN, es: MONTH_NAMES_ES, pap: MONTH_NAMES_PAP, nl: MONTH_NAMES_NL }[lang][m - 1]} ${y}`;
 }
 
 /** "Oct 2026" / "oct 2026". */

@@ -215,7 +215,8 @@ const PRIVACY: Section[] = [
 export function LegalScreen({ page }: { page: "terms" | "privacy" }) {
   const t = useT();
   const { lang, setLang } = useLang();
-  const es = lang === "es" ? 1 : 0;
+  // These pages come in English and Spanish; Papiamentu readers get Spanish.
+  const es = lang === "es" || lang === "pap" ? 1 : 0;
   const sections = page === "terms" ? TERMS : PRIVACY;
   const title = page === "terms" ? t("Terms of Service", "Términos de servicio") : t("Privacy Policy", "Política de privacidad");
   return (

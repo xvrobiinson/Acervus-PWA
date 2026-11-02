@@ -415,7 +415,7 @@ export function NewBusinessForm({ onCreated }: { onCreated?: () => void }) {
         setBusy(true);
         setError(null);
         try {
-          const id = await create({ name, timezone, language: lang, currencyCode: currency });
+          const id = await create({ name, timezone, language: lang === "en" || lang === "nl" ? "en" : "es", currencyCode: currency });
           app.setBusinessId(id as Id<"businesses">);
           onCreated?.();
         } catch (err) {

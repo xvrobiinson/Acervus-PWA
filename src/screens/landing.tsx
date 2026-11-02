@@ -261,7 +261,8 @@ function Section({ id, kicker, title, lead, center, children }: { id: string; ki
 export function LandingScreen() {
   const t = useT();
   const { lang, setLang } = useLang();
-  const es = lang === "es" ? 1 : 0;
+  // These pages come in English and Spanish; Papiamentu readers get Spanish.
+  const es = lang === "es" || lang === "pap" ? 1 : 0;
   const [menu, setMenu] = useState(false);
   const [view, setView] = useState(0);
   const other = lang === "es" ? "English" : "Español";
