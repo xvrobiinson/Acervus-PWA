@@ -568,19 +568,21 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
   const interestAfterHalf = periodInterest(pr, loan.principal - half);
   const conversion = conversionNote(t, fmt, loan);
 
-  const terms = [
-    row(t("Amount lent", "Monto prestado"), m(loan.principal), "total"),
-    row(t("Loan type", "Tipo de préstamo"), esc(methodShort(t, loan.method))),
-    row(t("Interest rate", "Tasa de interés"), esc(rateLine(t, fmt, loan))),
-    row(t("Payments", "Pagos"), esc(frequencyLabel(t, loan.frequency))),
-  ];
+  // The same switches as payment receipts (Settings › Receipts).
+  const show = receiptShow(c.settings);
+  const scheduleShown = installmentLoan && show.installments;
+  const terms: string[] = [];
+  if (show.amountLent) terms.push(row(t("Amount lent", "Monto prestado"), m(loan.principal), "total"));
+  if (show.cycle) terms.push(row(t("Loan type", "Tipo de préstamo"), esc(methodShort(t, loan.method))));
+  if (show.rate) terms.push(row(t("Interest rate", "Tasa de interés"), esc(rateLine(t, fmt, loan))));
+  if (show.cycle) terms.push(row(t("Payments", "Pagos"), esc(frequencyLabel(t, loan.frequency))));
   let scheduleHtml = "";
   if (installmentLoan) {
     const totalInterest = loan.schedule.reduce((a, x) => a + x.interest, 0);
-    terms.push(row(t("Installments", "Cuotas"), String(loan.schedule.length)));
-    terms.push(row(t("Total interest", "Interés total"), m(totalInterest)));
-    if (loan.lateFeeRate > 0) terms.push(row(t("Late fee", "Cargo por mora"), esc(fmt.rate(loan.lateFeeRate))));
-    terms.push(row(t("Total to repay", "Total a pagar"), m(loan.principal + totalInterest), "total"));
+    if (show.installments) terms.push(row(t("Installments", "Cuotas"), String(loan.schedule.length)));
+    if (show.rate) terms.push(row(t("Total interest", "Interés total"), m(totalInterest)));
+    if (loan.lateFeeRate > 0 && show.lateFees) terms.push(row(t("Late fee", "Cargo por mora"), esc(fmt.rate(loan.lateFeeRate))));
+    if (show.amountLent && show.rate) terms.push(row(t("Total to repay", "Total a pagar"), m(loan.principal + totalInterest), "total"));
     let left = loan.principal;
     const rows = loan.schedule
       .map((x) => {
@@ -595,7 +597,8 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
     )}</th><th class="num">${esc(t("Capital", "Capital"))}</th><th class="num">${esc(t("Interest", "Interés"))}</th><th class="num">${esc(
       t("Payment", "Cuota"),
     )}</th><th class="num">${esc(t("Capital left", "Restante"))}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  } else {
+    if (!show.installments) scheduleHtml = "";
+  } else if (show.rate) {
     terms.push(row(t("Interest per payment", "Interés por pago"), m(interestPerPeriod)));
   }
 
@@ -609,9 +612,10 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
     next_interest: fmt.money(interestAfterHalf),
     company: companyTag(c, company),
   };
-  const lateFee = installmentLoan && loan.lateFeeRate > 0;
+  const lateFee = installmentLoan && loan.lateFeeRate > 0 && show.lateFees;
   const edited = installmentLoan && loan.scheduleEdited;
-  const rules = linesFor(wording.rules(loan.method as RuleSet as Method & RuleSet), tags, conversion !== null, lateFee, edited);
+  // Those lines quote the amount and the interest, so they go when either is hidden.
+  const rules = show.amountLent && show.rate ? linesFor(wording.rules(loan.method as RuleSet as Method & RuleSet), tags, conversion !== null, lateFee, edited) : [];
   const heading = fill(wording.heading(), tags);
   const rulesHtml = rules.length
     ? `<div class="rules">${heading.trim() ? `<h2>${esc(heading)}</h2>` : ""}<ul>${rules.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`
@@ -620,9 +624,13 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
   const caption = fill(wording.clientSign(), tags);
   const clientName = c.settings.receiptClient.name && r.client.fullName.trim() ? r.client.fullName.trim() : null;
   const [amount, date] = [fmt.money(loan.principal), fmt.day(loan.startDate)];
-  const received = clientName
-    ? t(`${clientName} received ${amount} on ${date}.`, `${clientName} recibió ${amount} el ${date}.`)
-    : t(`The client received ${amount} on ${date}.`, `El cliente recibió ${amount} el ${date}.`);
+  const received = show.amountLent
+    ? clientName
+      ? t(`${clientName} received ${amount} on ${date}.`, `${clientName} recibió ${amount} el ${date}.`)
+      : t(`The client received ${amount} on ${date}.`, `El cliente recibió ${amount} el ${date}.`)
+    : clientName
+      ? t(`${clientName} received this loan on ${date}.`, `${clientName} recibió este préstamo el ${date}.`)
+      : t(`The client received this loan on ${date}.`, `El cliente recibió este préstamo el ${date}.`);
   const clientSign = clientName ? (caption.trim() ? `${caption}: ${clientName}` : clientName) : caption;
   const closing = fill(wording.loanFooter(), tags);
   const closingHtml = closing.trim() ? `<p class="closing">${esc(closing)}</p>` : "";
@@ -631,9 +639,9 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
   const paragraphPt = (s: string) => (textRows(s) ? 10 + textRows(s) * LINE_PT : 0);
   let used = rulesPt + paragraphPt(loan.notes ?? "") + paragraphPt(closing);
   if (company.address || company.phone) used += LINE_PT;
-  if (installmentLoan) used += SCHEDULE_HEAD_PT + SCHEDULE_ROW_PT * loan.schedule.length;
+  if (scheduleShown) used += SCHEDULE_HEAD_PT + SCHEDULE_ROW_PT * loan.schedule.length;
   const overflow =
-    loan.schedule.length > LOAN_PAGE_ROWS
+    scheduleShown && loan.schedule.length > LOAN_PAGE_ROWS
       ? `<p class="note">${esc(t("The schedule continues on the next page; the signatures are at the end.", "El calendario continúa en la página siguiente; las firmas están al final."))}</p>`
       : used > LOAN_TEXT_PT
         ? `<p class="note">${esc(t("This receipt continues on the next page; the signatures are at the end.", "Este recibo continúa en la página siguiente; las firmas están al final."))}</p>`
@@ -656,7 +664,7 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
   const title = t(`Loan receipt ${number}`, `Recibo de préstamo ${number}`);
   const body = `<div class="body">
 ${header(c, company, t("Loan receipt", "Recibo de préstamo"), number, t("Loan date", "Fecha del préstamo"), fmt.day(loan.startDate))}
-<div class="cols">${clientBlock(c, r.client)}<div class="block"><p class="label">${esc(t(`Loan #${loan.recordNo}`, `Préstamo #${loan.recordNo}`))}</p><table class="kv">${terms.join(
+<div class="cols">${clientBlock(c, r.client)}<div class="block"><p class="label">${esc(show.loanNumber ? t(`Loan #${loan.recordNo}`, `Préstamo #${loan.recordNo}`) : t("Loan", "Préstamo"))}</p><table class="kv">${terms.join(
     "",
   )}</table></div></div>
 <p class="received">${esc(received)}</p>

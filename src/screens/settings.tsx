@@ -59,6 +59,8 @@ export function SettingsScreen() {
     <div>
       <div className="topbar">
         <h1>{t("Settings", "Ajustes")}</h1>
+        <span className="spacer" />
+        <Button icon="logout" onClick={() => void app.signOut()}>{t("Sign out", "Cerrar sesión")}</Button>
       </div>
       <div className="grid2 even settings-top">
         {admin && online && <BusinessCard />}
@@ -403,11 +405,11 @@ function ReceiptCard() {
           <p className="micro muted">{t("Client photos are never printed.", "Las fotos de clientes nunca se imprimen.")}</p>
         </div>
         <div className="span2">
-          <div className="small strong">{t("Shown on payment receipts", "En los recibos de pago")}</div>
+          <div className="small strong">{t("Shown on receipts", "En los recibos")}</div>
           <p className="micro muted" style={{ margin: "2px 0 6px" }}>
             {t(
-              "The business name, amount paid, payment date and receipt number always print. Loan receipts are the client's agreement and keep every term.",
-              "El nombre del negocio, el monto pagado, la fecha y el número de recibo siempre se imprimen. El recibo del préstamo es el acuerdo con el cliente y conserva todos los términos.",
+              "These apply to payment and loan receipts. The business name, amounts paid, dates and receipt number always print. A loan receipt is the client's agreement: with the rate or amount off, it no longer shows those terms or the \"How payments work\" lines.",
+              "Se aplican a los recibos de pago y de préstamo. El nombre del negocio, los montos pagados, las fechas y el número de recibo siempre se imprimen. El recibo del préstamo es el acuerdo con el cliente: sin la tasa o el monto, ya no muestra esos términos ni las líneas de \"Cómo funcionan los pagos\".",
             )}
           </p>
           <div className="form-grid two">
