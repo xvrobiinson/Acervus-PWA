@@ -1,9 +1,9 @@
-// Settings: this device (language, theme, business, sign-out), the business
-// (admins: name, time zone, receipts, formats, defaults, logo, wording),
-// people (members and invitations) and data export.
+// Settings: the businesses list stays on the page; every group opens from
+// its row in a sheet, and some have pages inside (receipt customization,
+// payment receipt settings, a team member), each with a back button.
 
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { DATE_STYLES, formatDay, type DateStyle } from "../../shared/domain/dates";
@@ -15,7 +15,7 @@ import { useLang, useT } from "../lib/i18n";
 import { CURRENCIES, frequencyLabel, roleLabel } from "../lib/labels";
 import { defaultRules, tagList, whenHint, withRules, withText, Wording, wordingProblem, type RuleLine, type RuleSet, type When } from "../receipts/wording";
 import { useBooks } from "../state/app";
-import { Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useToast } from "../ui/kit";
+import { Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
 import { Icon, type IconName } from "../ui/icons";
 import { receiptShow, type ReceiptShow } from "../receipts/receipt";
 import { NewBusinessForm, PendingInvites } from "./auth";
@@ -95,55 +95,93 @@ function DeleteAccount() {
 }
 
 /** A group of settings behind a row on the Settings page, opened in a sheet. */
-type Panel = "receipts" | "account" | "team" | "data" | "about";
+type Panel = "business" | "receipts" | "formats" | "lending" | "team" | "account" | "data" | "about";
+/** A page inside a group's sheet; its back button returns to the group. */
+type Page = "receiptLook" | "receiptParts" | { person: Id<"members"> };
 
 export function SettingsScreen() {
   const t = useT();
   const app = useBooks();
-  const { can, mode } = app;
+  const { can, mode, businessId } = app;
   const admin = can("manage");
   const online = mode === "online";
   const [open, setOpen] = useState<Panel | null>(null);
-  // Business and the businesses list (sync) stay on the page; every other
-  // group is a row that opens it in a sheet.
-  const panels: { key: Panel; icon: IconName; title: string; sub: string; body: ReactNode; show: boolean }[] = [
-    {
-      key: "receipts",
-      icon: "receipt",
-      title: t("Receipts", "Recibos"),
-      sub: t("What prints, formats, defaults, wording", "Qué se imprime, formatos, valores, textos"),
-      body: (
-        <>
-          <ReceiptCard />
-          <WordingCard />
-        </>
-      ),
-      show: admin && online,
-    },
-    { key: "account", icon: "settings", title: t("Account and appearance", "Cuenta y apariencia"), sub: t("Language, light or dark", "Idioma, claro u oscuro"), body: <DeviceCard />, show: true },
-    { key: "team", icon: "users", title: t("Team", "Equipo"), sub: t("People, roles and invitations", "Personas, roles e invitaciones"), body: <PeopleCard />, show: admin && online },
-    { key: "data", icon: "download", title: t("Data", "Datos"), sub: t("Export to CSV or JSON", "Exportar a CSV o JSON"), body: <DataCard />, show: admin },
-    { key: "about", icon: "info", title: t("About", "Acerca de"), sub: t("Version, help, terms and privacy", "Versión, ayuda, términos y privacidad"), body: <AboutCard />, show: true },
+  const [page, setPage] = useState<Page | null>(null);
+  const business = admin && online;
+  const members = useQuery(api.businesses.members, business && open === "team" ? { businessId } : "skip");
+  const person = page && typeof page === "object" ? members?.find((m) => m._id === page.person && m.active) : undefined;
+  // The businesses list (sync) stays on the page; every group is a row
+  // that opens it in a sheet.
+  const panels: { key: Panel; icon: IconName; title: string; sub: string; show: boolean }[] = [
+    { key: "business", icon: "briefcase", title: t("Business", "Negocio"), sub: t("Company details and logo", "Datos de la empresa y logo"), show: business },
+    { key: "receipts", icon: "receipt", title: t("Receipts", "Recibos"), sub: t("What prints, when to show it, wording", "Qué se imprime, cuándo se muestra, textos"), show: business },
+    { key: "team", icon: "users", title: t("Team", "Equipo"), sub: t("People, roles, invitations, what collectors see", "Personas, roles, invitaciones, qué ven los cobradores"), show: business },
+    { key: "formats", icon: "globe", title: t("Regional formats", "Formatos regionales"), sub: t("Language, currency, numbers and dates", "Idioma, moneda, números y fechas"), show: true },
+    { key: "lending", icon: "wallet", title: t("Lending defaults", "Valores de préstamos"), sub: t("Rate, payments and late fees for new loans", "Tasa, pagos y mora para préstamos nuevos"), show: business },
+    { key: "account", icon: "settings", title: t("Account and appearance", "Cuenta y apariencia"), sub: t("Light or dark, your account", "Claro u oscuro, tu cuenta"), show: true },
+    { key: "data", icon: "download", title: t("Data", "Datos"), sub: t("Export to CSV or JSON", "Exportar a CSV o JSON"), show: admin },
+    { key: "about", icon: "info", title: t("About", "Acerca de"), sub: t("Version, help, terms and privacy", "Versión, ayuda, términos y privacidad"), show: true },
   ];
   const shown = panels.filter((x) => x.show);
   const current = shown.find((x) => x.key === open);
+  const pageTitle =
+    page === "receiptLook"
+      ? t("Receipt customization", "Personalizar recibos")
+      : page === "receiptParts"
+        ? t("Payment receipt settings", "Ajustes del recibo de pago")
+        : person?.name;
+  const body = () => {
+    switch (current?.key) {
+      case "business":
+        return (
+          <>
+            <BusinessCard />
+            <CompanyCard />
+          </>
+        );
+      case "receipts":
+        if (page === "receiptLook")
+          return (
+            <>
+              <ReceiptDetailsCard />
+              <WordingCard />
+            </>
+          );
+        if (page === "receiptParts") return <ReceiptPartsCard />;
+        return <ReceiptOpenCard onPage={setPage} />;
+      case "formats":
+        return <FormatsCard business={business} />;
+      case "lending":
+        return <LendingCard />;
+      case "team":
+        return <PeopleCard members={members} person={person} onPerson={(id) => setPage({ person: id })} onGone={() => setPage(null)} />;
+      case "account":
+        return <DeviceCard />;
+      case "data":
+        return <DataCard />;
+      case "about":
+        return <AboutCard />;
+      default:
+        return null;
+    }
+  };
   return (
     <div>
       <div className="topbar">
         <h1>{t("Settings", "Ajustes")}</h1>
         <SignOutButton />
       </div>
-      <div className="grid2 even settings-top">
-        {admin && online && <BusinessCard />}
-        <BusinessesCard />
-      </div>
+      <BusinessesCard />
       {admin && !online && <Banner tone="offline" icon="cloudOff">{t("Business settings need a connection.", "Los ajustes del negocio necesitan conexión.")}</Banner>}
       <div className="settings-label">{t("Preferences and configuration", "Preferencias y configuración")}</div>
       <ul className="list boxed settings-cats">
         {shown.map((x) => (
           <Row
             key={x.key}
-            onClick={() => setOpen(x.key)}
+            onClick={() => {
+              setOpen(x.key);
+              setPage(null);
+            }}
             lead={
               <span className={`settings-ico ${x.key}`} aria-hidden="true">
                 <Icon name={x.icon} />
@@ -156,8 +194,16 @@ export function SettingsScreen() {
         ))}
       </ul>
       {current && (
-        <Sheet title={current.title} wide onClose={() => setOpen(null)}>
-          <div className="settings-panel">{current.body}</div>
+        <Sheet
+          title={(page && pageTitle) || current.title}
+          wide
+          onBack={page && pageTitle ? () => setPage(null) : undefined}
+          onClose={() => {
+            setOpen(null);
+            setPage(null);
+          }}
+        >
+          <div className="settings-panel">{body()}</div>
         </Sheet>
       )}
     </div>
@@ -201,13 +247,11 @@ function AboutCard() {
 
 function DeviceCard() {
   const t = useT();
-  const { lang, setLang } = useLang();
   const app = useBooks();
   const [theme, setTheme] = useState<"system" | "light" | "dark">(() => (localStorage.getItem("acervus.theme") as "light" | "dark") ?? "system");
   return (
     <Card title={t("This device", "Este dispositivo")}>
       <div className="card-body form-grid two">
-        <Field label={t("Language", "Idioma")}>{() => <Segmented label={t("Language", "Idioma")} value={lang} onChange={setLang} options={[["es", "Español"], ["en", "English"], ["pap", "Papiamentu (Beta)"], ["nl", "Nederlands (Beta)"]]} />}</Field>
         <Field label={t("Theme", "Tema")}>
           {() => (
             <Segmented
@@ -338,6 +382,7 @@ function BusinessCard() {
   const { snapshot, businessId, fmt } = useBooks();
   const toast = useToast();
   const update = useMutation(api.businesses.update);
+  const clean = useSheetClean();
   const [name, setName] = useState(snapshot.business.name);
   const [tz, setTz] = useState(snapshot.business.timezone);
   const zones = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? [tz];
@@ -358,6 +403,7 @@ function BusinessCard() {
             onClick={async () => {
               try {
                 await update({ businessId, name, timezone: tz });
+                clean();
                 toast(t("Saved.", "Guardado."));
               } catch (e) {
                 toast(describeError(t, fmt, e), true);
@@ -384,10 +430,12 @@ function useSaveSettings() {
   const t = useT();
   const { snapshot, businessId, fmt } = useBooks();
   const toast = useToast();
+  const clean = useSheetClean();
   const update = useMutation(api.settings.update);
   return async (changes: Partial<ReturnType<typeof settingsArgs>>) => {
     try {
       await update({ businessId, ...settingsArgs(snapshot.settings!), ...changes });
+      clean();
       toast(t("Saved.", "Guardado."));
       return true;
     } catch (e) {
@@ -425,101 +473,47 @@ const SHOW_GROUPS: [[string, string], [keyof ReceiptShow, string, string][]][] =
   ],
 ];
 
-function ReceiptCard() {
-  const t = useT();
-  const { snapshot, businessId, fmt, today } = useBooks();
-  const save = useSaveSettings();
-  const toast = useToast();
+/** The settings a page's form starts from, and a setter for one of them. */
+function useSettingsForm() {
+  const { snapshot } = useBooks();
   const s = snapshot.settings!;
   const [f, setF] = useState(() => ({ ...s }));
-  const [show, setShow] = useState<ReceiptShow>(() => receiptShow(s));
-  const [rate, setRate] = useRate(s.defaultRate);
-  const [late, setLate] = useRate(s.lateFeeRate);
-  const showErr = useParseError();
+  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
+  return { s, f, set };
+}
+
+function SaveRow({ disabled, onSave }: { disabled?: boolean; onSave: () => void }) {
+  const t = useT();
+  return (
+    <div className="span2 actions end">
+      <Button variant="primary" disabled={disabled} onClick={onSave}>
+        {t("Save", "Guardar")}
+      </Button>
+    </div>
+  );
+}
+
+/** Business › the company details printed on receipts, and the logo. */
+function CompanyCard() {
+  const t = useT();
+  const { businessId, fmt } = useBooks();
+  const save = useSaveSettings();
+  const toast = useToast();
+  const { s, f, set } = useSettingsForm();
   const logoUpload = useMutation(api.settings.logoUploadUrl);
   const setLogo = useMutation(api.settings.setLogo);
-  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF({ ...f, [k]: v });
   return (
-    <Card title={t("Receipts, money and defaults", "Recibos, dinero y valores por defecto")} className="section">
+    <Card title={t("Company details", "Datos de la empresa")} className="section">
       <div className="card-body form-grid two">
         <Field label={t("Name on receipts", "Nombre en los recibos")} hint={t("Empty: the business name.", "Vacío: el nombre del negocio.")}>{(id) => <input id={id} className="input" maxLength={60} value={f.receiptName} onChange={(e) => set("receiptName", e.target.value)} />}</Field>
         <Field label={t("Phone", "Teléfono")}>{(id) => <input id={id} className="input" maxLength={40} value={f.companyPhone} onChange={(e) => set("companyPhone", e.target.value)} />}</Field>
         <div className="span2">
           <Field label={t("Address", "Dirección")}>{(id) => <input id={id} className="input" maxLength={200} value={f.companyAddress} onChange={(e) => set("companyAddress", e.target.value)} />}</Field>
         </div>
-        <div>
-          <div className="small strong">{t("Company details on receipts", "Datos de la empresa en los recibos")}</div>
-          <Check checked={f.receiptCompany.name} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, name: v })}>{t("Name", "Nombre")}</Check>
-          <Check checked={f.receiptCompany.address} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, address: v })}>{t("Address", "Dirección")}</Check>
-          <Check checked={f.receiptCompany.phone} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, phone: v })}>{t("Phone", "Teléfono")}</Check>
-        </div>
-        <div>
-          <div className="small strong">{t("Client details on receipts", "Datos del cliente en los recibos")}</div>
-          <Check checked={f.receiptClient.name} onChange={(v) => set("receiptClient", { ...f.receiptClient, name: v })}>{t("Name", "Nombre")}</Check>
-          <Check checked={f.receiptClient.idNumber} onChange={(v) => set("receiptClient", { ...f.receiptClient, idNumber: v })}>{t("ID number", "Identificación")}</Check>
-          <Check checked={f.receiptClient.phone} onChange={(v) => set("receiptClient", { ...f.receiptClient, phone: v })}>{t("Phone", "Teléfono")}</Check>
-          <Check checked={f.receiptClient.address} onChange={(v) => set("receiptClient", { ...f.receiptClient, address: v })}>{t("Address", "Dirección")}</Check>
-          <p className="micro muted">{t("Client photos are never printed.", "Las fotos de clientes nunca se imprimen.")}</p>
-        </div>
-        <div className="span2">
-          <div className="small strong">{t("Shown on receipts", "En los recibos")}</div>
-          <p className="micro muted" style={{ margin: "2px 0 6px" }}>
-            {t(
-              "These apply to payment and loan receipts. The business name, amounts paid, dates and receipt number always print. A loan receipt is the client's agreement: with the rate or amount off, it no longer shows those terms or the \"How payments work\" lines.",
-              "Se aplican a los recibos de pago y de préstamo. El nombre del negocio, los montos pagados, las fechas y el número de recibo siempre se imprimen. El recibo del préstamo es el acuerdo con el cliente: sin la tasa o el monto, ya no muestra esos términos ni las líneas de \"Cómo funcionan los pagos\".",
-            )}
-          </p>
-          <div className="form-grid two">
-            {SHOW_GROUPS.map(([title, keys]) => (
-              <div key={title[0]}>
-                <div className="micro muted strong" style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 6 }}>{t(title[0], title[1])}</div>
-                {keys.map(([k, en, es]) => (
-                  <Check key={k} checked={show[k]} onChange={(v) => setShow({ ...show, [k]: v })}>
-                    {t(en, es)}
-                  </Check>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        <Check checked={f.receiptAfterPayment} onChange={(v) => set("receiptAfterPayment", v)}>{t("Show the receipt after recording a payment", "Mostrar el recibo al registrar un pago")}</Check>
-        <Check checked={f.receiptAfterLoan} onChange={(v) => set("receiptAfterLoan", v)}>{t("Show the receipt after creating a loan", "Mostrar el recibo al crear un préstamo")}</Check>
-        <Field label={t("Currency", "Moneda")} hint={t("Only the symbol changes; amounts are never converted.", "Solo cambia el símbolo; los montos no se convierten.")}>
-          {(id) => (
-            <select id={id} className="input" value={f.currencyCode} onChange={(e) => set("currencyCode", e.target.value)}>
-              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.symbol} · {t(c.en, c.es)}</option>)}
-            </select>
-          )}
-        </Field>
-        <Field label={t("Numbers", "Números")}>
-          {(id) => (
-            <select id={id} className="input" value={f.numberStyle} onChange={(e) => set("numberStyle", e.target.value as NumberStyle)}>
-              {NUMBER_STYLES.map((n) => <option key={n} value={n}>{numberStyleLabel(n)}</option>)}
-            </select>
-          )}
-        </Field>
-        <Field label={t("Dates", "Fechas")}>
-          {(id) => (
-            <select id={id} className="input" value={f.dateStyle} onChange={(e) => set("dateStyle", e.target.value as DateStyle)}>
-              {DATE_STYLES.map((d) => <option key={d} value={d}>{formatDay(today, d, fmt.lang)}</option>)}
-            </select>
-          )}
-        </Field>
-        <Field label={t("Business language (receipts default)", "Idioma del negocio")}>
-          {() => <Segmented label={t("Language", "Idioma")} value={f.language} onChange={(v) => set("language", v)} options={[["es", "Español"], ["en", "English"]]} />}
-        </Field>
-        <Field label={t("Default rate", "Tasa por defecto")} error={showErr(rate, false)}>{(id) => <RateInput id={id} value={rate.text} onChange={setRate} />}</Field>
-        <Field label={t("Default frequency", "Frecuencia por defecto")}>
-          {(id) => (
-            <select id={id} className="input" value={f.defaultFrequency} onChange={(e) => set("defaultFrequency", e.target.value as Frequency)}>
-              {FREQUENCIES.map((x) => <option key={x} value={x}>{frequencyLabel(t, x)}</option>)}
-            </select>
-          )}
-        </Field>
-        <Field label={t("Default late fee", "Mora por defecto")} error={showErr(late, false)}>{(id) => <RateInput id={id} value={late.text} onChange={setLate} />}</Field>
+        <SaveRow onSave={() => void save({ receiptName: f.receiptName, companyAddress: f.companyAddress, companyPhone: f.companyPhone })} />
         <Field label={t("Logo", "Logo")}>
           {() => (
-            <div className="row wrap">
+            <div className="row wrap" data-instant>
               {s.logoUrl && <img src={s.logoUrl} alt="" style={{ maxHeight: 44, maxWidth: 120, borderRadius: 6 }} />}
               <label className="btn small">
                 {s.logoUrl ? t("Replace", "Reemplazar") : t("Upload", "Subir")}
@@ -545,21 +539,200 @@ function ReceiptCard() {
             </div>
           )}
         </Field>
-        <div className="span2 actions end">
-          <Button
-            variant="primary"
-            disabled={rate.value === null || late.value === null}
-            onClick={() =>
-              void save({
-                receiptName: f.receiptName, companyAddress: f.companyAddress, companyPhone: f.companyPhone, receiptCompany: f.receiptCompany,
-                receiptClient: f.receiptClient, receiptShow: show, currencyCode: f.currencyCode, numberStyle: f.numberStyle, dateStyle: f.dateStyle, language: f.language,
-                defaultRate: rate.value!, defaultFrequency: f.defaultFrequency, lateFeeRate: late.value!, receiptAfterPayment: f.receiptAfterPayment, receiptAfterLoan: f.receiptAfterLoan,
-              })
-            }
-          >
-            {t("Save", "Guardar")}
-          </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** Receipts: when to show them, and the rows to the pages inside. */
+function ReceiptOpenCard({ onPage }: { onPage: (page: "receiptLook" | "receiptParts") => void }) {
+  const t = useT();
+  const save = useSaveSettings();
+  const guard = useSheetGuard();
+  const { f, set } = useSettingsForm();
+  const pages: ["receiptLook" | "receiptParts", IconName, string, string][] = [
+    ["receiptLook", "edit", t("Receipt customization", "Personalizar recibos"), t("Company info, wording and client info", "Datos de la empresa, texto y datos del cliente")],
+    ["receiptParts", "receipt", t("Payment receipt settings", "Ajustes del recibo de pago"), t("What payment and loan receipts show", "Qué muestran los recibos de pago y de préstamo")],
+  ];
+  return (
+    <Card title={t("Receipts", "Recibos")} className="section">
+      <div className="card-body form-grid two">
+        <Check checked={f.receiptAfterPayment} onChange={(v) => set("receiptAfterPayment", v)}>{t("Show the receipt after recording a payment", "Mostrar el recibo al registrar un pago")}</Check>
+        <Check checked={f.receiptAfterLoan} onChange={(v) => set("receiptAfterLoan", v)}>{t("Show the receipt after creating a loan", "Mostrar el recibo al crear un préstamo")}</Check>
+        <SaveRow onSave={() => void save({ receiptAfterPayment: f.receiptAfterPayment, receiptAfterLoan: f.receiptAfterLoan })} />
+        <ul className="list boxed span2 settings-pages">
+          {pages.map(([key, icon, title, sub]) => (
+            <Row
+              key={key}
+              onClick={() => guard(() => onPage(key))}
+              lead={
+                <span className="settings-ico receipts" aria-hidden="true">
+                  <Icon name={icon} />
+                </span>
+              }
+              title={title}
+              sub={sub}
+              trail={<Icon name="chevron" className="settings-chev" />}
+            />
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
+/** Receipt customization: the company and client details on every receipt. */
+function ReceiptDetailsCard() {
+  const t = useT();
+  const save = useSaveSettings();
+  const { f, set } = useSettingsForm();
+  return (
+    <Card title={t("Details on every receipt", "Datos en cada recibo")} className="section">
+      <div className="card-body form-grid two">
+        <div>
+          <div className="small strong">{t("Company details on receipts", "Datos de la empresa en los recibos")}</div>
+          <Check checked={f.receiptCompany.name} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, name: v })}>{t("Name", "Nombre")}</Check>
+          <Check checked={f.receiptCompany.address} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, address: v })}>{t("Address", "Dirección")}</Check>
+          <Check checked={f.receiptCompany.phone} onChange={(v) => set("receiptCompany", { ...f.receiptCompany, phone: v })}>{t("Phone", "Teléfono")}</Check>
         </div>
+        <div>
+          <div className="small strong">{t("Client details on receipts", "Datos del cliente en los recibos")}</div>
+          <Check checked={f.receiptClient.name} onChange={(v) => set("receiptClient", { ...f.receiptClient, name: v })}>{t("Name", "Nombre")}</Check>
+          <Check checked={f.receiptClient.idNumber} onChange={(v) => set("receiptClient", { ...f.receiptClient, idNumber: v })}>{t("ID number", "Identificación")}</Check>
+          <Check checked={f.receiptClient.phone} onChange={(v) => set("receiptClient", { ...f.receiptClient, phone: v })}>{t("Phone", "Teléfono")}</Check>
+          <Check checked={f.receiptClient.address} onChange={(v) => set("receiptClient", { ...f.receiptClient, address: v })}>{t("Address", "Dirección")}</Check>
+          <p className="micro muted">{t("Client photos are never printed.", "Las fotos de clientes nunca se imprimen.")}</p>
+        </div>
+        <SaveRow onSave={() => void save({ receiptCompany: f.receiptCompany, receiptClient: f.receiptClient })} />
+      </div>
+    </Card>
+  );
+}
+
+/** Payment receipt settings: the optional parts of payment and loan receipts. */
+function ReceiptPartsCard() {
+  const t = useT();
+  const { snapshot } = useBooks();
+  const save = useSaveSettings();
+  const [show, setShow] = useState<ReceiptShow>(() => receiptShow(snapshot.settings!));
+  return (
+    <Card title={t("Shown on receipts", "En los recibos")} className="section">
+      <div className="card-body form-grid two">
+        <p className="span2 micro muted" style={{ margin: 0 }}>
+          {t(
+            "These apply to payment and loan receipts. The business name, amounts paid, dates and receipt number always print. A loan receipt is the client's agreement: with the rate or amount off, it no longer shows those terms or the \"How payments work\" lines.",
+            "Se aplican a los recibos de pago y de préstamo. El nombre del negocio, los montos pagados, las fechas y el número de recibo siempre se imprimen. El recibo del préstamo es el acuerdo con el cliente: sin la tasa o el monto, ya no muestra esos términos ni las líneas de \"Cómo funcionan los pagos\".",
+          )}
+        </p>
+        {SHOW_GROUPS.map(([title, keys]) => (
+          <div key={title[0]}>
+            <div className="micro muted strong" style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 6 }}>{t(title[0], title[1])}</div>
+            {keys.map(([k, en, es]) => (
+              <Check key={k} checked={show[k]} onChange={(v) => setShow({ ...show, [k]: v })}>
+                {t(en, es)}
+              </Check>
+            ))}
+          </div>
+        ))}
+        <SaveRow onSave={() => void save({ receiptShow: show })} />
+      </div>
+    </Card>
+  );
+}
+
+/** Regional formats: this device's language for everyone; the business's
+ *  currency, numbers, dates and receipt language for admins. */
+function FormatsCard({ business }: { business: boolean }) {
+  const t = useT();
+  const { lang, setLang } = useLang();
+  return (
+    <>
+      <Card title={t("This device", "Este dispositivo")} className="section">
+        <div className="card-body form-grid two" data-instant>
+          <Field label={t("Language", "Idioma")} hint={t("This device's language for the app and receipts", "El idioma de este dispositivo para la app y los recibos")}>
+            {(id) => (
+              <select id={id} className="input" value={lang} onChange={(e) => setLang(e.target.value as typeof lang)}>
+                {(
+                  [
+                    ["en", "English"],
+                    ["es", "Español"],
+                    ["pap", "Papiamentu (Beta)"],
+                    ["nl", "Nederlands (Beta)"],
+                  ] as const
+                ).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        </div>
+      </Card>
+      {business && <BusinessFormatsCard />}
+    </>
+  );
+}
+
+function BusinessFormatsCard() {
+  const t = useT();
+  const { fmt, today } = useBooks();
+  const save = useSaveSettings();
+  const { f, set } = useSettingsForm();
+  return (
+    <Card title={t("Business", "Negocio")} className="section">
+      <div className="card-body form-grid two">
+        <Field label={t("Currency", "Moneda")} hint={t("Only the symbol changes; amounts are never converted.", "Solo cambia el símbolo; los montos no se convierten.")}>
+          {(id) => (
+            <select id={id} className="input" value={f.currencyCode} onChange={(e) => set("currencyCode", e.target.value)}>
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.symbol} · {t(c.en, c.es)}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label={t("Numbers", "Números")}>
+          {(id) => (
+            <select id={id} className="input" value={f.numberStyle} onChange={(e) => set("numberStyle", e.target.value as NumberStyle)}>
+              {NUMBER_STYLES.map((n) => <option key={n} value={n}>{numberStyleLabel(n)}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label={t("Dates", "Fechas")}>
+          {(id) => (
+            <select id={id} className="input" value={f.dateStyle} onChange={(e) => set("dateStyle", e.target.value as DateStyle)}>
+              {DATE_STYLES.map((d) => <option key={d} value={d}>{formatDay(today, d, fmt.lang)}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label={t("Business language (receipts default)", "Idioma del negocio")}>
+          {() => <Segmented label={t("Language", "Idioma")} value={f.language} onChange={(v) => set("language", v)} options={[["es", "Español"], ["en", "English"]]} />}
+        </Field>
+        <SaveRow onSave={() => void save({ currencyCode: f.currencyCode, numberStyle: f.numberStyle, dateStyle: f.dateStyle, language: f.language })} />
+      </div>
+    </Card>
+  );
+}
+
+/** Lending defaults for new loans. */
+function LendingCard() {
+  const t = useT();
+  const save = useSaveSettings();
+  const { s, f, set } = useSettingsForm();
+  const [rate, setRate] = useRate(s.defaultRate);
+  const [late, setLate] = useRate(s.lateFeeRate);
+  const showErr = useParseError();
+  return (
+    <Card title={t("Lending defaults", "Valores de préstamos")} className="section">
+      <div className="card-body form-grid two">
+        <Field label={t("Default rate", "Tasa por defecto")} error={showErr(rate, false)}>{(id) => <RateInput id={id} value={rate.text} onChange={setRate} />}</Field>
+        <Field label={t("Default frequency", "Frecuencia por defecto")}>
+          {(id) => (
+            <select id={id} className="input" value={f.defaultFrequency} onChange={(e) => set("defaultFrequency", e.target.value as Frequency)}>
+              {FREQUENCIES.map((x) => <option key={x} value={x}>{frequencyLabel(t, x)}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label={t("Default late fee", "Mora por defecto")} error={showErr(late, false)}>{(id) => <RateInput id={id} value={late.text} onChange={setLate} />}</Field>
+        <SaveRow disabled={rate.value === null || late.value === null} onSave={() => void save({ defaultRate: rate.value!, defaultFrequency: f.defaultFrequency, lateFeeRate: late.value! })} />
       </div>
     </Card>
   );
@@ -635,11 +808,17 @@ const VIEW_PARTS: [keyof typeof FULL_VIEW, string, string][] = [
   ["notes", "Client notes", "Notas del cliente"],
 ];
 
-function PeopleCard() {
+type Member = NonNullable<ReturnType<typeof useQuery<typeof api.businesses.members>>>[number];
+const ROLE_ORDER = ["admin", "collector", "viewer"] as const;
+
+/** Team: everyone by role (each opens their page), then inviting. A
+ *  person's page changes their role, chooses what a collector sees, and
+ *  removes them. The cloud checks every change; this only asks for it. */
+function PeopleCard({ members, person, onPerson, onGone }: { members: Member[] | undefined; person: Member | undefined; onPerson: (id: Id<"members">) => void; onGone: () => void }) {
   const t = useT();
   const { businessId, fmt, user } = useBooks();
   const toast = useToast();
-  const members = useQuery(api.businesses.members, { businessId });
+  const guard = useSheetGuard();
   const invites = useQuery(api.invites.list, { businessId });
   const invite = useAction(api.invites.create);
   const revoke = useMutation(api.invites.revoke);
@@ -650,26 +829,29 @@ function PeopleCard() {
   const [role, setRoleNew] = useState<"admin" | "collector" | "viewer">("collector");
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState<{ url: string; emailed: boolean } | null>(null);
-  const [removing, setRemoving] = useState<Id<"members"> | null>(null);
+  const [removing, setRemoving] = useState(false);
   const roles: ["admin" | "collector" | "viewer", string][] = [["admin", roleLabel(t, "admin")], ["collector", roleLabel(t, "collector")], ["viewer", roleLabel(t, "viewer")]];
-  return (
-    <Card title={t("People", "Personas")} className="section">
-      <ul className="list">
-        {(members ?? []).filter((m) => m.active).map((m) => (
-          <li key={m._id}>
-            <div className="list-row" style={{ flexWrap: "wrap" }}>
-              <div className="grow">
-                <div className="title">{m.name}{m.userId === user?.id ? ` · ${t("you", "tú")}` : ""}</div>
-                <div className="sub">{m.email}</div>
-              </div>
+  const groupTitle: Record<(typeof ROLE_ORDER)[number], string> = { admin: t("Admins", "Administradores"), collector: t("Collectors", "Cobradores"), viewer: t("Viewers", "Solo lectura") };
+  const tone = (r: string) => (r === "admin" ? "accent" : r === "collector" ? "pos" : undefined);
+  const mark = (r: string): IconName => (r === "admin" ? "shield" : r === "collector" ? "wallet" : "eye");
+  const active = (members ?? []).filter((m) => m.active);
+
+  if (person) {
+    const current = { ...FULL_VIEW, ...person.collectorView };
+    return (
+      <Card title={roleLabel(t, person.role)} className="section">
+        <div className="card-body stack">
+          <div className="small muted">{person.email}</div>
+          <Field label={t("Role", "Rol")} hint={t("Admin: everything. Collector: clients, payments, expenses, income and receipts. Viewer: read only.", "Administrador: todo. Cobrador: clientes, pagos, gastos, ingresos y recibos. Solo lectura: ver.")}>
+            {(id) => (
               <select
+                id={id}
                 className="input"
-                style={{ width: 160, minHeight: 38 }}
-                value={m.role}
-                aria-label={t("Role", "Rol")}
+                data-instant
+                value={person.role}
                 onChange={async (e) => {
                   try {
-                    await setRole({ businessId, memberId: m._id, role: e.target.value as typeof role });
+                    await setRole({ businessId, memberId: person._id, role: e.target.value as typeof role });
                   } catch (err) {
                     toast(describeError(t, fmt, err), true);
                   }
@@ -677,49 +859,99 @@ function PeopleCard() {
               >
                 {roles.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
-              <Button size="small" variant="danger-ghost" icon="trash" aria-label={t("Remove", "Quitar")} onClick={() => setRemoving(m._id)} />
-              {m.role === "collector" && (
-                <div style={{ flexBasis: "100%" }}>
-                  <div className="micro muted strong" style={{ marginTop: 6 }}>{t("Sees, for their assigned clients", "Ve, de sus clientes asignados")}</div>
-                  <div className="form-grid two">
-                    {VIEW_PARTS.map(([k, en, es]) => {
-                      const current = { ...FULL_VIEW, ...m.collectorView };
-                      return (
-                        <Check
-                          key={k}
-                          checked={current[k]}
-                          onChange={async (on) => {
-                            try {
-                              await setView({ businessId, memberId: m._id, view: { ...current, [k]: on } });
-                            } catch (err) {
-                              toast(describeError(t, fmt, err), true);
-                            }
-                          }}
-                        >
-                          {t(en, es)}
-                        </Check>
-                      );
-                    })}
-                  </div>
-                  <p className="micro muted" style={{ margin: "4px 0 0" }}>
-                    {t(
-                      "Phone, address, ID and notes never reach their device when off. The others are hidden on their screens and receipts.",
-                      "Teléfono, dirección, cédula y notas no llegan a su dispositivo si están apagados. Los demás se ocultan en sus pantallas y recibos.",
-                    )}
-                  </p>
-                </div>
-              )}
+            )}
+          </Field>
+          {person.role === "collector" && (
+            <div data-instant>
+              <div className="small strong">{t("Sees, for their assigned clients", "Ve, de sus clientes asignados")}</div>
+              {VIEW_PARTS.map(([k, en, es]) => (
+                <Check
+                  key={k}
+                  checked={current[k]}
+                  onChange={async (on) => {
+                    try {
+                      await setView({ businessId, memberId: person._id, view: { ...current, [k]: on } });
+                    } catch (err) {
+                      toast(describeError(t, fmt, err), true);
+                    }
+                  }}
+                >
+                  {t(en, es)}
+                </Check>
+              ))}
+              <p className="micro muted" style={{ margin: "4px 0 0" }}>
+                {t(
+                  "Phone, address, ID and notes never reach their device when off. The others are hidden on their screens and receipts.",
+                  "Teléfono, dirección, cédula y notas no llegan a su dispositivo si están apagados. Los demás se ocultan en sus pantallas y recibos.",
+                )}
+              </p>
             </div>
-          </li>
-        ))}
-      </ul>
-      <div className="card-body stack">
-        <div className="small muted">
-          {t(
-            "Admin: everything. Collector: clients, payments, expenses, income and receipts. Viewer: read only.",
-            "Administrador: todo. Cobrador: clientes, pagos, gastos, ingresos y recibos. Solo lectura: ver.",
           )}
+          <div className="stack tight" style={{ borderTop: "1px solid var(--rule)", paddingTop: 12 }}>
+            <span className="small muted">{t("They lose access to this business at once. Their past changes stay in the history.", "Pierde el acceso al negocio de inmediato. Sus cambios anteriores siguen en el historial.")}</span>
+            <div>
+              <Button variant="danger-ghost" icon="trash" onClick={() => setRemoving(true)}>
+                {t("Remove from the team", "Quitar del equipo")}
+              </Button>
+            </div>
+          </div>
         </div>
+        {removing && (
+          <Confirm title={t("Remove this person?", "¿Quitar a esta persona?")} danger needsReason confirmLabel={t("Remove", "Quitar")} onClose={() => setRemoving(false)} onConfirm={async (reason) => {
+            try {
+              await removeMember({ businessId, memberId: person._id, reason });
+              onGone();
+            } catch (e) {
+              throw new Error(describeError(t, fmt, e));
+            }
+          }}>
+            {t("They lose access to this business at once. Their past changes stay in the history.", "Pierde el acceso al negocio de inmediato. Sus cambios anteriores siguen en el historial.")}
+          </Confirm>
+        )}
+      </Card>
+    );
+  }
+
+  return (
+    <Card title={t("People", "Personas")} className="section">
+      <div className="card-body stack">
+        {members === undefined && <div className="small muted">{t("Loading…", "Cargando…")}</div>}
+        {members !== undefined &&
+          ROLE_ORDER.map((r) => {
+            const people = active.filter((m) => m.role === r);
+            if (r === "admin" && people.length === 0) return null;
+            return (
+              <div key={r} className="stack tight">
+                <div className="settings-label" style={{ margin: "6px 0 0" }}>{groupTitle[r]}</div>
+                {people.length === 0 ? (
+                  <div className="micro muted">{t("No one yet", "Nadie todavía")}</div>
+                ) : (
+                  <ul className="list boxed">
+                    {people.map((m) => (
+                      <Row
+                        key={m._id}
+                        onClick={() => guard(() => onPerson(m._id))}
+                        lead={
+                          <span className={`settings-ico ${r === "admin" ? "receipts" : r === "collector" ? "team" : "about"}`} aria-hidden="true">
+                            <Icon name={mark(r)} />
+                          </span>
+                        }
+                        title={`${m.name}${m.userId === user?.id ? ` · ${t("you", "tú")}` : ""}`}
+                        sub={m.email}
+                        trail={
+                          <>
+                            <Pill tone={tone(r)}>{roleLabel(t, r)}</Pill>
+                            <Icon name="chevron" className="settings-chev" />
+                          </>
+                        }
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        <div className="small strong" style={{ marginTop: 8 }}>{t("Invite someone", "Invitar a alguien")}</div>
         <div className="form-grid two">
           <Field label={t("Invite by email", "Invitar por correo")}>{(id) => <input id={id} className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
           <Field label={t("Role", "Rol")}>{() => <Segmented label={t("Role", "Rol")} value={role} onChange={setRoleNew} options={roles} />}</Field>
@@ -768,17 +1000,6 @@ function PeopleCard() {
           </ul>
         )}
       </div>
-      {removing && (
-        <Confirm title={t("Remove this person?", "¿Quitar a esta persona?")} danger needsReason confirmLabel={t("Remove", "Quitar")} onClose={() => setRemoving(null)} onConfirm={async (reason) => {
-          try {
-            await removeMember({ businessId, memberId: removing, reason });
-          } catch (e) {
-            throw new Error(describeError(t, fmt, e));
-          }
-        }}>
-          {t("They lose access to this business at once. Their past changes stay in the history.", "Pierde el acceso al negocio de inmediato. Sus cambios anteriores siguen en el historial.")}
-        </Confirm>
-      )}
     </Card>
   );
 }

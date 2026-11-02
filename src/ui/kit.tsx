@@ -228,47 +228,119 @@ export function Check({ checked, onChange, children }: { checked: boolean; onCha
   );
 }
 
+/** The sheets open now, newest last: Escape belongs to the top one. */
+const openSheets: symbol[] = [];
+
+const SheetGuard = createContext<{ guard: (go: () => void) => void; clean: () => void }>({ guard: (go) => go(), clean: () => {} });
+
+/** Runs `go` (leaving the sheet's current page), first asking when
+ *  something was typed there and not saved. */
+export function useSheetGuard() {
+  return useContext(SheetGuard).guard;
+}
+
+/** After a save: what was typed in the sheet is no longer at risk. */
+export function useSheetClean() {
+  return useContext(SheetGuard).clean;
+}
+
 /** A form or detail over the page: a bottom sheet on phones, a dialog on
- *  wide screens. Escape and the backdrop close it. */
+ *  wide screens. Escape and the backdrop close it, after asking when
+ *  something was typed in it (the X and the form's own buttons close it as
+ *  before). With `onBack`, a back button leads to the page before. A field
+ *  inside `data-instant` saves on its own and never counts as typing. */
 export function Sheet({
   title,
   onClose,
+  onBack,
   children,
   footer,
   wide,
 }: {
   title: ReactNode;
   onClose: () => void;
+  onBack?: () => void;
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
 }) {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
+  const me = useRef(Symbol("sheet"));
+  const typed = useRef(false);
+  const [asking, setAsking] = useState<(() => void) | null>(null);
+  const guard = useCallback((go: () => void) => {
+    if (!typed.current) return go();
+    setAsking(() => go);
+  }, []);
+  const clean = useCallback(() => {
+    typed.current = false;
+  }, []);
+  const leave = useCallback(
+    (go: () => void) =>
+      guard(() => {
+        typed.current = false;
+        go();
+      }),
+    [guard],
+  );
   useEffect(() => {
+    const self = me.current;
+    openSheets.push(self);
     const prev = document.activeElement as HTMLElement | null;
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", key);
     document.body.style.overflow = "hidden";
     ref.current?.querySelector<HTMLElement>("input, select, textarea, button:not(.sheet-close)")?.focus({ preventScroll: true });
     return () => {
-      document.removeEventListener("keydown", key);
-      document.body.style.overflow = "";
+      openSheets.splice(openSheets.indexOf(self), 1);
+      if (openSheets.length === 0) document.body.style.overflow = "";
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && openSheets[openSheets.length - 1] === me.current) leave(onClose);
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [onClose, leave]);
   return createPortal(
-    <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`sheet ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined} ref={ref}>
+    <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && leave(onClose)}>
+      <div
+        className={`sheet ${wide ? "wide" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === "string" ? title : undefined}
+        ref={ref}
+        onChangeCapture={(e) => {
+          if (!(e.target as HTMLElement).closest("[data-instant]")) typed.current = true;
+        }}
+      >
         <div className="sheet-head">
+          {onBack && <Button variant="ghost" icon="back" className="sheet-back" aria-label={t("Back", "Atrás")} onClick={() => leave(onBack)} />}
           <h2>{title}</h2>
           <Button variant="ghost" icon="close" className="sheet-close" aria-label={t("Close", "Cerrar")} onClick={onClose} />
         </div>
-        <div className="sheet-body">{children}</div>
-        {footer && <div className="sheet-foot">{footer}</div>}
+        <SheetGuard.Provider value={{ guard: leave, clean }}>
+          <div className="sheet-body">{children}</div>
+          {footer && <div className="sheet-foot">{footer}</div>}
+        </SheetGuard.Provider>
       </div>
+      {asking && (
+        <Confirm
+          title={t("Discard changes?", "¿Descartar los cambios?")}
+          danger
+          confirmLabel={t("Discard", "Descartar")}
+          onClose={() => setAsking(null)}
+          onConfirm={() => {
+            const go = asking;
+            setAsking(null);
+            typed.current = false;
+            go();
+          }}
+        >
+          {t("What you typed here will be lost.", "Lo que escribiste aquí se perderá.")}
+        </Confirm>
+      )}
     </div>,
     document.body,
   );

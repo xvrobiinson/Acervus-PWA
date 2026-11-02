@@ -299,7 +299,7 @@ a.list-row:active, button.list-row:active { background: var(--active); }
 .settings-ico { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-text); }
 .settings-ico svg { width: 17px; height: 17px; }
 .settings-ico.account, .settings-ico.data { background: var(--info-tint); color: var(--info); }
-.settings-ico.team { background: var(--positive-tint); color: var(--positive); }
+.settings-ico.team, .settings-ico.formats { background: var(--positive-tint); color: var(--positive); }
 .settings-ico.about { background: var(--neutral-tint); color: var(--muted); }
 .settings-chev { width: 16px; height: 16px; color: var(--muted); }
 /* Inside a sheet the cards lose their own frame: the sheet is the frame. */
@@ -397,6 +397,7 @@ textarea.input { min-height: 88px; resize: vertical; }
   background: var(--surface); border-radius: 16px 16px 0 0; box-shadow: var(--shadow-floating); animation: rise 220ms var(--spring);
 }
 .sheet-head { display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16px; border-bottom: 1px solid var(--rule); }
+.sheet-head .sheet-back { margin-left: -8px; }
 .sheet-head h2 { font-size: 17px; line-height: 24px; font-weight: 600; flex: 1 1 auto; }
 .sheet-body { padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .sheet-foot { padding: 12px 16px calc(12px + var(--safe-bottom)); border-top: 1px solid var(--rule); display: flex; gap: 8px; justify-content: flex-end; }
