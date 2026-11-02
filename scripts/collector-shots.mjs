@@ -187,6 +187,8 @@ await shot("a06-clients-unassigned", "/clients?collector=none");
 await shot("a07-assign", "/clients", click("/^Assign$/", ".topbar"));
 await shot("a08-client-detail", `/clients/${ids["María Rodríguez"]}`);
 await shot("a09-loan-pending", `/loans/${loanOf["María Rodríguez"]}`);
+await shot("a11-settings", "/settings");
+await shot("a12-team", null, `[...document.querySelectorAll(".settings-cats button")].find(b => /Team/.test(b.textContent)).click()`);
 // The admin, on a phone.
 await size(390, 844, true);
 await shot("a10-phone-confirm", "/confirm");
