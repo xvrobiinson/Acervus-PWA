@@ -22,6 +22,29 @@ import { NewBusinessForm, PendingInvites } from "./auth";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 import { RateInput, useParseError, useRate } from "../ui/inputs";
 
+/** Sign out, on the page itself; warns when changes haven't reached the server. */
+function SignOutButton() {
+  const t = useT();
+  const app = useBooks();
+  const [confirmOut, setConfirmOut] = useState(false);
+  const unsynced = app.ops.filter((o) => o.status !== "synced").length;
+  return (
+    <>
+      <Button icon="logout" onClick={() => (unsynced ? setConfirmOut(true) : void app.signOut())}>
+        {t("Sign out", "Cerrar sesión")}
+      </Button>
+      {confirmOut && (
+        <Confirm title={t("Sign out with unsynced changes?", "¿Cerrar sesión con cambios sin sincronizar?")} confirmLabel={t("Sign out", "Cerrar sesión")} onClose={() => setConfirmOut(false)} onConfirm={() => app.signOut()}>
+          {t(
+            `${unsynced} change(s) made on this device haven't reached the server. They stay on this device and sync the next time you sign in here; the offline copy of the business is removed.`,
+            `${unsynced} cambio(s) hechos en este dispositivo no han llegado al servidor. Se quedan aquí y se sincronizan la próxima vez que inicies sesión en este dispositivo; la copia sin conexión del negocio se borra.`,
+          )}
+        </Confirm>
+      )}
+    </>
+  );
+}
+
 /** A group of settings behind a row on the Settings page, opened in a sheet. */
 type Panel = "receipts" | "account" | "team" | "data" | "about";
 
@@ -48,7 +71,7 @@ export function SettingsScreen() {
       ),
       show: admin && online,
     },
-    { key: "account", icon: "settings", title: t("Account and appearance", "Cuenta y apariencia"), sub: t("Language, light or dark, sign out", "Idioma, claro u oscuro, cerrar sesión"), body: <DeviceCard />, show: true },
+    { key: "account", icon: "settings", title: t("Account and appearance", "Cuenta y apariencia"), sub: t("Language, light or dark", "Idioma, claro u oscuro"), body: <DeviceCard />, show: true },
     { key: "team", icon: "users", title: t("Team", "Equipo"), sub: t("People, roles and invitations", "Personas, roles e invitaciones"), body: <PeopleCard />, show: admin && online },
     { key: "data", icon: "download", title: t("Data", "Datos"), sub: t("Export to CSV or JSON", "Exportar a CSV o JSON"), body: <DataCard />, show: admin },
     { key: "about", icon: "info", title: t("About", "Acerca de"), sub: t("Version, help, terms and privacy", "Versión, ayuda, términos y privacidad"), body: <AboutCard />, show: true },
@@ -59,8 +82,7 @@ export function SettingsScreen() {
     <div>
       <div className="topbar">
         <h1>{t("Settings", "Ajustes")}</h1>
-        <span className="spacer" />
-        <Button icon="logout" onClick={() => void app.signOut()}>{t("Sign out", "Cerrar sesión")}</Button>
+        <SignOutButton />
       </div>
       <div className="grid2 even settings-top">
         {admin && online && <BusinessCard />}
@@ -133,8 +155,6 @@ function DeviceCard() {
   const { lang, setLang } = useLang();
   const app = useBooks();
   const [theme, setTheme] = useState<"system" | "light" | "dark">(() => (localStorage.getItem("acervus.theme") as "light" | "dark") ?? "system");
-  const [confirmOut, setConfirmOut] = useState(false);
-  const unsynced = app.ops.filter((o) => o.status !== "synced").length;
   return (
     <Card title={t("This device", "Este dispositivo")}>
       <div className="card-body form-grid two">
@@ -162,23 +182,10 @@ function DeviceCard() {
             />
           )}
         </Field>
-        <div className="span2 row between wrap">
-          <span className="small muted">
-            {app.user?.email} · {app.role ? roleLabel(t, app.role) : ""}
-          </span>
-          <Button icon="logout" onClick={() => (unsynced ? setConfirmOut(true) : void app.signOut())}>
-            {t("Sign out", "Cerrar sesión")}
-          </Button>
+        <div className="span2 small muted">
+          {app.user?.email} · {app.role ? roleLabel(t, app.role) : ""}
         </div>
       </div>
-      {confirmOut && (
-        <Confirm title={t("Sign out with unsynced changes?", "¿Cerrar sesión con cambios sin sincronizar?")} confirmLabel={t("Sign out", "Cerrar sesión")} onClose={() => setConfirmOut(false)} onConfirm={() => app.signOut()}>
-          {t(
-            `${unsynced} change(s) made on this device haven't reached the server. They stay on this device and sync the next time you sign in here; the offline copy of the business is removed.`,
-            `${unsynced} cambio(s) hechos en este dispositivo no han llegado al servidor. Se quedan aquí y se sincronizan la próxima vez que inicies sesión en este dispositivo; la copia sin conexión del negocio se borra.`,
-          )}
-        </Confirm>
-      )}
     </Card>
   );
 }
