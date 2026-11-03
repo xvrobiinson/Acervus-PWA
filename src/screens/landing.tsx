@@ -241,6 +241,17 @@ function Mark() {
   );
 }
 
+/** The three window dots on top of a glass card. */
+function Dots() {
+  return (
+    <div className="lp-dots" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </div>
+  );
+}
+
 function Check() {
   return <Icon name="check" className="lp-check" />;
 }
@@ -331,7 +342,7 @@ export function LandingScreen() {
             <Link to="/sign-in" className="lp-pill ghost lp-wide-only">
               {t("Sign in", "Iniciar sesión")}
             </Link>
-            <Link to="/sign-up" className="lp-pill solid">
+            <Link to="/sign-up" className="lp-pill lp-glow">
               {t("Get started", "Empezar")}
             </Link>
             <button type="button" className="lp-burger" aria-label={t("Menu", "Menú")} aria-expanded={menu} onClick={() => setMenu(!menu)}>
@@ -374,7 +385,7 @@ export function LandingScreen() {
               )}
             </p>
             <div className="lp-cta">
-              <Link to="/sign-up" className="lp-pill light">
+              <Link to="/sign-up" className="lp-pill lp-glow">
                 {t("Get started", "Empezar")} <Icon name="chevron" />
               </Link>
               <a href="#features" className="lp-pill glass">
@@ -404,7 +415,7 @@ export function LandingScreen() {
             <div className="k">{t("Languages", "Idiomas")}</div>
             <div className="v">English · Español</div>
           </div>
-          <Link to="/sign-up" className="lp-pill solid square">
+          <Link to="/sign-up" className="lp-pill lp-glow">
             {t("Get started", "Empezar")}
           </Link>
         </div>
@@ -419,9 +430,10 @@ export function LandingScreen() {
             "Hecho para cómo trabajan los prestamistas: quién debe qué, qué vence esta semana y a dónde fue cada peso.",
           )}
         >
-          <div className="lp-grid four">
+          <div className="lp-grid four glass">
             {FEATURES.map((f, i) => (
-              <div key={f.title[0]} className="lp-card">
+              <div key={f.title[0]} className="lp-card lp-glass" tabIndex={0}>
+                <Dots />
                 <span className={`lp-ico ${i === 0 ? "on" : ""}`}>
                   <Icon name={f.icon} />
                 </span>
@@ -447,9 +459,10 @@ export function LandingScreen() {
         </Section>
 
         <Section id="benefits" kicker={t("Benefits", "Beneficios")} title={t("Spend less time managing records. More time growing your business.", "Menos tiempo con los registros. Más tiempo para hacer crecer tu negocio.")}>
-          <div className="lp-grid three">
+          <div className="lp-grid three glass">
             {BENEFITS.map((b) => (
-              <div key={b.title[0]} className="lp-card">
+              <div key={b.title[0]} className="lp-card lp-glass" tabIndex={0}>
+                <Dots />
                 <span className="lp-ico">
                   <Icon name={b.icon} />
                 </span>
@@ -541,7 +554,7 @@ export function LandingScreen() {
           <h2>{t("Your lending business, organized.", "Tu negocio de préstamos, en orden.")}</h2>
           <p>{t("Create your account in a minute and add your first client today.", "Crea tu cuenta en un minuto y agrega tu primer cliente hoy.")}</p>
           <div className="lp-cta center">
-            <Link to="/sign-up" className="lp-pill light">
+            <Link to="/sign-up" className="lp-pill lp-glow">
               {t("Get started", "Empezar")}
             </Link>
             <Link to="/sign-in" className="lp-pill glass">

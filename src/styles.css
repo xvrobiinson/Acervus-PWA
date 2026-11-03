@@ -46,6 +46,7 @@
   --app-deco: none;
   /* Landing page screenshots: one per theme. */
   --lp-light: block; --lp-dark: none; --lp-muted: #3f4352;
+  --lp-glass-ink: var(--ink); --lp-glass-title: var(--ink); --lp-glass-body: #3f4352; --lp-glass-text-shadow: none;
   /* The selected sidebar item: an accent tint in light, a framed neutral chip in dark. */
   --rail-on: var(--accent-tint); --rail-on-edge: transparent; --rail-on-ink: var(--accent-text); --rail-on-icon: var(--accent-text);
   --overlay: rgba(11, 16, 32, 0.32);
@@ -77,6 +78,7 @@
     --negative: #f87171; --negative-tint: #351c1e; --info: #7fb2ff; --info-tint: #1b2538; --neutral-tint: #26272e; --grid: #26272c;
     --chart-reference: #f59e42; --overlay: rgba(0, 0, 0, 0.5);
     --app-sky: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--ground) 100%); --app-deco: ""; --lp-light: none; --lp-dark: block; --lp-muted: #a7aab6;
+  --lp-glass-ink: #fff; --lp-glass-title: rgb(218, 244, 237); --lp-glass-body: rgba(255, 255, 255, 0.8); --lp-glass-text-shadow: -10px 5px 10px rgba(0, 0, 0, 0.573);
     --rail-on: var(--neutral-tint); --rail-on-edge: var(--border); --rail-on-ink: var(--ink); --rail-on-icon: var(--accent-text);
     --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 6px -1px rgba(0, 0, 0, 0.16), 0 8px 24px -6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.045);
     --shadow-floating: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 20px -4px rgba(0, 0, 0, 0.48), 0 24px 56px -12px rgba(0, 0, 0, 0.8);
@@ -93,6 +95,7 @@
   --negative: #f87171; --negative-tint: #351c1e; --info: #7fb2ff; --info-tint: #1b2538; --neutral-tint: #26272e; --grid: #26272c;
   --chart-reference: #f59e42; --overlay: rgba(0, 0, 0, 0.5);
   --app-sky: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--ground) 100%); --app-deco: ""; --lp-light: none; --lp-dark: block; --lp-muted: #a7aab6;
+  --lp-glass-ink: #fff; --lp-glass-title: rgb(218, 244, 237); --lp-glass-body: rgba(255, 255, 255, 0.8); --lp-glass-text-shadow: -10px 5px 10px rgba(0, 0, 0, 0.573);
   --rail-on: var(--neutral-tint); --rail-on-edge: var(--border); --rail-on-ink: var(--ink); --rail-on-icon: var(--accent-text);
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 6px -1px rgba(0, 0, 0, 0.16), 0 8px 24px -6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.045);
   --shadow-floating: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 20px -4px rgba(0, 0, 0, 0.48), 0 24px 56px -12px rgba(0, 0, 0, 0.8);
@@ -346,14 +349,24 @@ table.data tr.dim td { color: var(--muted); }
 .btn.block { width: 100%; }
 .btn .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* AcervusLoader (after Uiverse.io's spinner by TamaniPhiri): the ring spins,
-   the mark inside pings. A fixed box, so nothing moves around it. */
-.acervus-loader { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--accent); }
-.acervus-loader-ring { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 8px solid color-mix(in srgb, var(--ink) 16%, transparent); border-top-color: currentColor; animation: spin 1s linear infinite; }
-.acervus-loader.page .acervus-loader-ring { width: 112px; height: 112px; font-size: 36px; }
-.acervus-loader.small .acervus-loader-ring { width: 40px; height: 40px; border-width: 4px; font-size: 14px; }
-.acervus-loader svg { display: block; animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
-@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+/* AcervusLoader (after Uiverse.io's crystal loader by Z4drus): six crystals
+   that grow and fade in turn. A fixed box, so nothing moves around it.
+   Keyframe names are prefixed so the buttons' own spin animation stays theirs. */
+.acervus-loader { --box: 200px; --c: 60px; --r: 10px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.acervus-loader.small { --box: 44px; --c: 14px; --r: 3px; }
+.crystals { position: relative; width: var(--box); height: var(--box); perspective: 800px; }
+.crystal { position: absolute; top: 50%; left: 50%; width: var(--c); height: var(--c); opacity: 0; transform-origin: bottom center;
+  transform: translate(-50%, -50%) rotateX(45deg) rotateZ(0deg); border-radius: var(--r); visibility: hidden;
+  animation: crystal-spin 4s linear infinite, crystal-emerge 2s ease-in-out infinite alternate, crystal-fade 0.3s ease-out forwards; }
+@keyframes crystal-spin { from { transform: translate(-50%, -50%) rotateX(45deg) rotateZ(0deg); } to { transform: translate(-50%, -50%) rotateX(45deg) rotateZ(360deg); } }
+@keyframes crystal-emerge { 0%, 100% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+@keyframes crystal-fade { to { visibility: visible; opacity: 0.8; } }
+.crystal:nth-child(1) { background: linear-gradient(45deg, #003366, #336699); animation-delay: 0s; --s: 1; }
+.crystal:nth-child(2) { background: linear-gradient(45deg, #003399, #3366cc); animation-delay: 0.3s; --s: 0.9; }
+.crystal:nth-child(3) { background: linear-gradient(45deg, #0066cc, #3399ff); animation-delay: 0.6s; --s: 0.8; }
+.crystal:nth-child(4) { background: linear-gradient(45deg, #0099ff, #66ccff); animation-delay: 0.9s; --s: 0.7; }
+.crystal:nth-child(5) { background: linear-gradient(45deg, #33ccff, #99ccff); animation-delay: 1.2s; --s: 0.6; }
+.crystal:nth-child(6) { background: linear-gradient(45deg, #66ffff, #ccffff); animation-delay: 1.5s; --s: 0.5; }
 .loading-block { display: flex; justify-content: center; padding: 24px 0; }
 /* The Windows download popup (landing page). */
 .dl > p { margin: 0; }
@@ -371,9 +384,9 @@ table.data tr.dim td { color: var(--muted); }
 .dl-steps p { margin: 0 0 6px; font-size: 14px; line-height: 21px; color: var(--muted); }
 .dl-steps ul { margin: 0 0 6px; padding-left: 18px; font-size: 14px; line-height: 21px; color: var(--muted); }
 .dl-steps .dl-never { color: var(--ink); font-weight: 500; }
+/* Reduced motion: the six crystals stand still, nested from dark to light. */
 @media (prefers-reduced-motion: reduce) {
-  .acervus-loader-ring, .acervus-loader svg { animation: none; }
-  .acervus-loader-ring { border-color: color-mix(in srgb, currentColor 35%, transparent); border-top-color: currentColor; }
+  .crystal { animation: none; visibility: visible; opacity: 0.8; transform: translate(-50%, -50%) scale(var(--s)); }
 }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions.end { justify-content: flex-end; }
@@ -607,6 +620,30 @@ textarea.input { min-height: 88px; resize: vertical; }
 .lp-card { border-radius: 22px; padding: 24px; background: linear-gradient(180deg, var(--surface-top), var(--surface)); border: 1px solid var(--border); box-shadow: var(--shadow-raised); }
 .lp-card h3 { margin-top: 22px; font-size: 16px; line-height: 22px; font-weight: 600; }
 .lp-card p { margin: 8px 0 0; font-size: 14px; line-height: 22px; color: var(--muted); }
+/* Get started (after Uiverse.io's shadow button by mrhyddenn): blue, glowing,
+   brighter on hover. */
+.lp-pill.lp-glow { height: auto; min-height: 42px; padding: 10px 20px; border: none; border-radius: 7px; background: rgb(0, 140, 255); color: #fff;
+  font-size: 17px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; box-shadow: 0 0 25px rgb(0, 140, 255);
+  transition: 0.5s; transition-property: box-shadow; }
+.lp-pill.lp-glow:hover { box-shadow: 0 0 5px rgb(0, 140, 255), 0 0 25px rgb(0, 140, 255), 0 0 50px rgb(0, 140, 255), 0 0 100px rgb(0, 140, 255); }
+.lp-nav .lp-pill.lp-glow { font-size: 14px; letter-spacing: 3px; }
+/* Features and Benefits (after Uiverse.io's glass card by Fcodingx): skewed
+   glass with window dots, opening to its full text on hover or focus. Where
+   there is no hover (phones) or motion is reduced, it stays open and straight. */
+.lp-grid.glass { align-items: start; gap: 24px; }
+.lp-card.lp-glass { height: 120px; padding: 0.5rem 1rem 1rem; border: none; border-radius: 8px; background: rgba(198, 198, 198, 0.34); backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px); border-bottom: 3px solid rgba(255, 255, 255, 0.44); border-left: 2px rgba(255, 255, 255, 0.545) outset;
+  box-shadow: -40px 50px 30px rgba(0, 0, 0, 0.28); transform: skewX(10deg); transition: 0.4s; overflow: hidden; color: var(--lp-glass-ink);
+  interpolate-size: allow-keywords; outline: none; }
+.lp-card.lp-glass:hover, .lp-card.lp-glass:focus-visible { height: auto; transform: skew(0deg); }
+.lp-card.lp-glass:focus-visible { box-shadow: -40px 50px 30px rgba(0, 0, 0, 0.28), 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+.lp-card.lp-glass h3 { margin-top: 14px; color: var(--lp-glass-title); text-shadow: var(--lp-glass-text-shadow); }
+.lp-card.lp-glass p { color: var(--lp-glass-body); }
+.lp-dots { display: flex; gap: 5px; padding: 0.5rem 0 0.75rem; }
+.lp-dots i { width: 10px; height: 10px; border-radius: 50%; box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.28); }
+.lp-dots i:nth-child(1) { background: #ff605c; } .lp-dots i:nth-child(2) { background: #ffbd44; } .lp-dots i:nth-child(3) { background: #00ca4e; }
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) { .lp-card.lp-glass { height: auto; transform: none; } }
+@media (max-width: 520px) { .lp-nav .lp-pill.lp-glow { font-size: 13px; letter-spacing: 2px; padding: 8px 12px; min-height: 38px; } }
 .lp-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-text); }
 .lp-ico svg { width: 19px; height: 19px; }
 .lp-ico.on { background: var(--ink); color: var(--ground); }

@@ -47,20 +47,18 @@ export function Button({
   );
 }
 
-/** The Acervus loading mark: a spinning ring (accent on top) around the
- *  three-bar mark, which pings. `page` for a whole screen that is loading,
- *  `small` for a part of one; buttons keep their own small spinner. With
- *  reduced motion it stands still. */
+/** The Acervus loader: six blue crystals that grow and fade in turn.
+ *  `page` for a whole screen that is loading, `small` for a part of one;
+ *  buttons keep their own small spinner. With reduced motion it stands
+ *  still. */
 export function AcervusLoader({ size = "page", label }: { size?: "page" | "small"; label?: string }) {
   const t = useT();
   return (
     <div className={`acervus-loader ${size}`} role="status" aria-live="polite">
-      <span className="acervus-loader-ring" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
-          <rect x="2" y="13" width="5" height="9" rx="1.2" opacity="0.55" />
-          <rect x="9.5" y="8" width="5" height="14" rx="1.2" opacity="0.8" />
-          <rect x="17" y="2" width="5" height="20" rx="1.2" />
-        </svg>
+      <span className="crystals" aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <i key={i} className="crystal" />
+        ))}
       </span>
       <span className="sr-only">{label ?? t("Loading Acervus Finance…", "Cargando Acervus Finance…")}</span>
     </div>
