@@ -11,11 +11,13 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { useT } from "../lib/i18n";
+import { holdSplash } from "../lib/splash";
 import { Icon, type IconName } from "./icons";
 import { useCountUp } from "./motion";
 
@@ -62,6 +64,41 @@ export function AcervusLoader({ size = "page", label }: { size?: "page" | "small
         ))}
       </span>
       <span className="sr-only">{label ?? t("Loading Acervus Finance…", "Cargando Acervus Finance…")}</span>
+    </div>
+  );
+}
+
+/** The whole screen while the app starts or loads a business: the launch
+ *  splash's Rising Bars (styled in index.html, where the first one shows
+ *  before the app's code loads). While it is on screen it keeps the launch
+ *  splash up, so that one opens straight onto the finished screen. */
+export function RisingBars() {
+  const t = useT();
+  useEffect(() => holdSplash(), []);
+  return (
+    <div className="boot waiting" role="status" aria-label={t("Loading Acervus Finance…", "Cargando Acervus Finance…")}>
+      <div className="boot-glow" />
+      <div className="boot-tile">
+        <svg viewBox="0 0 512 512" aria-hidden="true">
+          <rect width="512" height="512" rx="112" fill="#365CF5" />
+          <rect x="104" y="270" width="72" height="118" rx="16" fillOpacity=".55" />
+          <rect x="220" y="204" width="72" height="184" rx="16" fillOpacity=".8" />
+          <rect x="336" y="124" width="72" height="264" rx="16" />
+        </svg>
+      </div>
+      <div className="boot-word" aria-hidden="true">
+        {[..."Acervus"].map((c, i) => (
+          <span key={i} style={{ "--i": i } as CSSProperties}>
+            {c}
+          </span>
+        ))}
+      </div>
+      <div className="boot-sub" aria-hidden="true">
+        Finance
+      </div>
+      <div className="boot-line" aria-hidden="true">
+        <i />
+      </div>
     </div>
   );
 }

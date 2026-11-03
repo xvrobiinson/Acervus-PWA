@@ -7,6 +7,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useT } from "./lib/i18n";
+import { releaseSplash, splashProgress } from "./lib/splash";
 import { InviteScreen, SignIn, SignUp, Welcome } from "./screens/auth";
 import { ClientDetail, ClientForm, ClientsScreen } from "./screens/clients";
 import { ConfirmScreen, MessagesButton } from "./screens/collect";
@@ -23,7 +24,7 @@ import { SettingsScreen } from "./screens/settings";
 import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
-import { AcervusLoader, Banner, Button, Sheet } from "./ui/kit";
+import { Banner, Button, RisingBars, Sheet } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
 /** Running as the installed app (home screen or desktop window), where the
@@ -38,6 +39,11 @@ export function App() {
   const t = useT();
   const location = useLocation();
   const deletion = useQuery(api.account.status, app.mode === "online" ? {} : "skip");
+  // The launch splash: its line follows the start, and it opens once no
+  // loading screen holds it (src/lib/splash.ts).
+  const step = app.mode === "loading" ? 0.3 : app.mode === "signed_out" || app.businesses?.length === 0 ? 1 : app.businesses === null ? 0.55 : app.snapshot ? 1 : 0.8;
+  useEffect(() => splashProgress(step), [step]);
+  useEffect(() => releaseSplash());
 
   // The Terms and the Privacy Policy are public: readable signed in or out.
   if (location.pathname === "/terms") return <LegalScreen page="terms" />;
@@ -146,8 +152,8 @@ function AccountDeleting({ deletesAt }: { deletesAt: number }) {
 /** How long the start screen waits before saying it is slow. */
 const SLOW_MS = 15_000;
 
-/** The start screen: the loader while signing in and loading the business,
- *  or a message. Never a spinner forever: when the server takes too long it
+/** The start screen: Rising Bars while signing in and loading the business,
+ *  or a message. Never a splash forever: when the server takes too long it
  *  says so and offers to try again (or to go on offline when this device
  *  has a copy). */
 function Splash({ message }: { message?: string }) {
@@ -159,29 +165,23 @@ function Splash({ message }: { message?: string }) {
     const timer = setTimeout(() => setSlow(true), SLOW_MS);
     return () => clearTimeout(timer);
   }, [message]);
+  if (!message && !slow) return <RisingBars />;
   return (
     <div className="auth splash">
       <div className="panel stack" style={{ alignItems: "center", textAlign: "center" }}>
+        <img className="logo" src="/pwa-192x192.png" alt="" />
         {message ? (
-          <>
-            <img className="logo" src="/pwa-192x192.png" alt="" />
-            <p>{message}</p>
-          </>
+          <p>{message}</p>
         ) : (
           <>
-            <AcervusLoader />
-            {slow && (
-              <>
-                <p>{t("This is taking longer than usual. Check your connection, then try again.", "Esto está tardando más de lo normal. Revisa tu conexión y vuelve a intentarlo.")}</p>
-                <Button variant="primary" icon="sync" onClick={() => window.location.reload()}>
-                  {t("Try again", "Reintentar")}
-                </Button>
-                {app.canGoOffline && <Button onClick={app.continueOffline}>{t("Continue offline", "Continuar sin conexión")}</Button>}
-              </>
-            )}
+            <p>{t("This is taking longer than usual. Check your connection, then try again.", "Esto está tardando más de lo normal. Revisa tu conexión y vuelve a intentarlo.")}</p>
+            <Button variant="primary" icon="sync" onClick={() => window.location.reload()}>
+              {t("Try again", "Reintentar")}
+            </Button>
+            {app.canGoOffline && <Button onClick={app.continueOffline}>{t("Continue offline", "Continuar sin conexión")}</Button>}
           </>
         )}
-        {(message || slow) && app.user && (
+        {app.user && (
           <Button variant="ghost" icon="logout" onClick={() => void app.signOut()}>
             {t("Sign out", "Cerrar sesión")}
           </Button>

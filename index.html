@@ -16,11 +16,64 @@
     <link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preload" href="/fonts/Inter-SemiBold.ttf" as="font" type="font/ttf" crossorigin />
+    <!-- The launch splash, "Rising Bars" (picked by the owner 2026-11-03).
+         Styled here so it shows before the app's code has loaded; the app's
+         own loading screen (RisingBars in src/ui/kit.tsx) uses the same
+         classes. One dark look in both themes, like a launch screen.
+         public/splash.js opens it onto the app. -->
+    <style>
+      @font-face { font-family: "Inter"; src: url("/fonts/Inter-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+      .boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+        padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); overflow: hidden; color: #f1f2f5; -webkit-user-select: none; user-select: none;
+        background: radial-gradient(70% 55% at 50% 42%, #1f1a47 0%, #121226 45%, #0d0e13 80%); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      .boot.gone { opacity: 0; pointer-events: none; transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+      .boot-glow { position: absolute; left: 50%; top: 46%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); pointer-events: none;
+        background: radial-gradient(circle, rgba(110, 91, 246, 0.32), transparent 62%); animation: boot-breath 3.4s ease-in-out infinite; }
+      .boot-tile { position: relative; width: clamp(78px, 18vmin, 124px); aspect-ratio: 1; animation: boot-pop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+      .boot-tile svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 18px 40px rgba(54, 92, 245, 0.45)); }
+      /* The three bars grow in turn, then breathe while the app gets ready. */
+      .boot-tile rect + rect { fill: #fff; transform-box: fill-box; transform-origin: 50% 100%;
+        animation: boot-grow 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 0.28s both, boot-pulse 1.9s cubic-bezier(0.45, 0, 0.55, 1) 1.4s infinite; }
+      .boot-tile rect:nth-child(3) { animation-delay: 0.4s, 1.56s; }
+      .boot-tile rect:nth-child(4) { animation-delay: 0.52s, 1.72s; }
+      .boot-word { position: relative; display: flex; overflow: hidden; padding: 0 0.04em 0.12em; font-size: clamp(32px, 7.4vmin, 52px); font-weight: 600; letter-spacing: -0.025em; line-height: 1; }
+      .boot-word span { display: inline-block; animation: boot-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(0.62s + var(--i) * 45ms); }
+      .boot-sub { position: relative; margin-top: -8px; padding-left: 0.46em; font-size: 11px; font-weight: 600; letter-spacing: 0.46em; text-transform: uppercase; color: #a3a7b4; animation: boot-fade 0.8s 1s both; }
+      .boot-line { position: relative; width: 148px; height: 2px; margin-top: 10px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.1); animation: boot-fade 0.6s 1.1s both; }
+      .boot-line i { display: block; height: 100%; background: linear-gradient(90deg, #6e5bf6, #8fa4ff); transform-origin: left; transform: scaleX(0.08); transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+      /* The app's own loading screen has no progress to show: its line sweeps. */
+      .boot.waiting .boot-line i { width: 40%; transform: none; animation: boot-sweep 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+      .boot.out .boot-tile { animation: boot-zoom 1s cubic-bezier(0.7, 0, 0.2, 1) forwards; }
+      .boot.out .boot-tile svg { filter: none; }
+      .boot.out .boot-word, .boot.out .boot-sub, .boot.out .boot-line { opacity: 0; transform: translateY(10px); transition: opacity 0.3s, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+      @keyframes boot-breath { 50% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.08); } }
+      @keyframes boot-pop { from { transform: scale(0.45); opacity: 0; } }
+      @keyframes boot-grow { from { transform: scaleY(0); } }
+      @keyframes boot-pulse { 50% { transform: scaleY(0.84); } }
+      @keyframes boot-rise { from { transform: translateY(110%); } }
+      @keyframes boot-fade { from { opacity: 0; transform: translateY(6px); } }
+      @keyframes boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @keyframes boot-zoom { 0% { transform: scale(1); } 22% { transform: scale(0.9); } 70% { opacity: 1; } 100% { transform: scale(24); opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        .boot *, .boot.out .boot-tile { animation: none !important; }
+        .boot.out .boot-tile { opacity: 0; transition: opacity 0.25s; }
+        .boot.gone { transition-duration: 0.25s; }
+      }
+    </style>
     <title>Acervus Finance</title>
   </head>
   <body>
     <div id="root"></div>
-    <noscript>Acervus Finance needs JavaScript.</noscript>
+    <div id="boot" class="boot" role="status" aria-label="Acervus Finance">
+      <div class="boot-glow"></div>
+      <div class="boot-tile"><svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#365CF5" /><rect x="104" y="270" width="72" height="118" rx="16" fill-opacity=".55" /><rect x="220" y="204" width="72" height="184" rx="16" fill-opacity=".8" /><rect x="336" y="124" width="72" height="264" rx="16" /></svg></div>
+      <div class="boot-word" aria-hidden="true"><span style="--i: 0">A</span><span style="--i: 1">c</span><span style="--i: 2">e</span><span style="--i: 3">r</span><span style="--i: 4">v</span><span style="--i: 5">u</span><span style="--i: 6">s</span></div>
+      <div class="boot-sub" aria-hidden="true">Finance</div>
+      <div class="boot-line" aria-hidden="true"><i></i></div>
+    </div>
+    <noscript>Acervus Finance needs JavaScript.<style>#boot { display: none; }</style></noscript>
+    <script src="/splash.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
