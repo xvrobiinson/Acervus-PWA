@@ -51,6 +51,8 @@ interface AppState {
   /** Connected to the server right now. */
   connected: boolean;
   continueOffline: () => void;
+  /** This device has a signed-in person's copy to go on with offline. */
+  canGoOffline: boolean;
   businesses: BusinessSummary[] | null;
   businessId: Id<"businesses"> | null;
   setBusinessId: (id: Id<"businesses">) => void;
@@ -78,6 +80,8 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 const LAST_USER = "acervus.lastUser";
+/** The business last shown to a person on this device. */
+const lastBusinessKey = (userId: string) => `acervus.lastBusiness.${userId}`;
 
 function readLastUser(): User | null {
   try {
@@ -167,7 +171,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
 
   // ----- businesses -------------------------------------------------------
-  const liveBusinesses = useQuery(api.businesses.mine, mode === "online" ? {} : "skip");
+  // Asked as soon as the session is known, together with "who am I" rather
+  // than after it: the server checks the session for both, and nothing is
+  // shown until both are back (the mode stays "loading").
+  const liveBusinesses = useQuery(api.businesses.mine, isAuthenticated && mode !== "offline" ? {} : "skip");
   const [cachedBusinesses, setCachedBusinesses] = useState<BusinessSummary[] | null>(null);
   useEffect(() => {
     setCachedBusinesses(null);
@@ -202,6 +209,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   // ----- records ----------------------------------------------------------
+  // The business last shown on this device starts loading together with the
+  // two questions above, instead of after them: three waits for the server
+  // become one. The server checks access as always; a stale guess (left the
+  // team, another account) is one refused query and shows nothing.
+  const prewarmed = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || !lastUser || prewarmed.current) return;
+    prewarmed.current = true;
+    let remembered: string | null = null;
+    try {
+      remembered = localStorage.getItem(lastBusinessKey(lastUser.id));
+    } catch {
+      /* ignore */
+    }
+    if (remembered) convex.prewarmQuery({ query: api.data.snapshot, args: { businessId: remembered as Id<"businesses"> }, extendSubscriptionFor: 30_000 });
+  }, [isAuthenticated, lastUser, convex]);
+  useEffect(() => {
+    if (!userId || !businessId) return;
+    try {
+      localStorage.setItem(lastBusinessKey(userId), businessId);
+    } catch {
+      /* ignore */
+    }
+  }, [userId, businessId]);
   const live = useQuery(api.data.snapshot, mode === "online" && businessId ? { businessId } : "skip");
   const [cached, setCached] = useState<{ savedAt: number; data: Snapshot } | null>(null);
   useEffect(() => {
@@ -354,6 +385,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     try {
       localStorage.removeItem(LAST_USER);
+      if (id) localStorage.removeItem(lastBusinessKey(id));
       localStorage.removeItem("better-auth_session_data");
       localStorage.removeItem("better-auth_cookie");
     } catch {
@@ -371,6 +403,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     online,
     connected,
     continueOffline: () => setForcedOffline(true),
+    canGoOffline: !!lastUser && mode !== "offline",
     businesses,
     businessId,
     setBusinessId,

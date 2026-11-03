@@ -3,15 +3,13 @@
 // one the app has; the screenshots are the desktop app on synthetic demo
 // data (public/landing). No prices, testimonials or figures are claimed.
 
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router";
 import { useLang, useT } from "../lib/i18n";
 import { Icon, type IconName } from "../ui/icons";
+import { DownloadSheet } from "./landing-download";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
-
-/** The latest Windows installer, served from this site (worker/index.ts), so
- *  the download starts at once and the visitor stays on the page. */
-export const DESKTOP_DOWNLOAD = "/download/windows";
 
 type Pair = [string, string];
 
@@ -274,6 +272,40 @@ export function LandingScreen() {
     ["#faq", t("FAQ", "Preguntas")],
   ];
   const v = VIEWS[view];
+  // Every "Download" opens the same popup; the download itself starts only
+  // from its button.
+  const [download, setDownload] = useState(false);
+  const openDownload = (e: MouseEvent) => {
+    e.preventDefault();
+    setDownload(true);
+  };
+  /** From the menus: scroll to the download section first, then open. */
+  const goDownload = (e: MouseEvent) => {
+    e.preventDefault();
+    // The open phone menu is part of the header: close it first, so the
+    // scroll is measured on the page as it will be.
+    flushSync(() => setMenu(false));
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("ways")?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+    if (still) return setDownload(true);
+    // Open when the scroll ends (the popup locks scrolling), or after a
+    // moment where the browser doesn't say.
+    let done = false;
+    const open = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("scrollend", open);
+      setDownload(true);
+    };
+    window.addEventListener("scrollend", open);
+    setTimeout(open, 900);
+  };
+  const downloadLink = (cls?: string) => (
+    <a href="#ways" className={cls} onClick={goDownload}>
+      <Icon name="download" />
+      {t("Download", "Descargar")}
+    </a>
+  );
 
   return (
     <div className="lp">
@@ -290,6 +322,7 @@ export function LandingScreen() {
                 {label}
               </a>
             ))}
+            {downloadLink("lp-nav-download")}
           </nav>
           <div className="lp-right">
             <button type="button" className="lp-pill ghost bare lp-wide-only" onClick={flip}>
@@ -313,6 +346,7 @@ export function LandingScreen() {
                 {label}
               </a>
             ))}
+            {downloadLink("lp-menu-download")}
             <div className="lp-menu-row">
               <Link to="/sign-in" className="lp-pill ghost">
                 {t("Sign in", "Iniciar sesión")}
@@ -482,10 +516,10 @@ export function LandingScreen() {
                 <li><Check />{t("Backups on your PC or in your own Google Drive.", "Copias de seguridad en tu PC o en tu propio Google Drive.")}</li>
               </ul>
               <div className="lp-way-cta">
-                <a href={DESKTOP_DOWNLOAD} className="lp-pill light" download>
+                <button type="button" className="lp-pill light" onClick={openDownload}>
                   <Icon name="download" />
                   {t("Download for Windows", "Descargar para Windows")}
-                </a>
+                </button>
                 <span className="lp-small">{t("By VZ Labs", "Por VZ Labs")}</span>
               </div>
             </div>
@@ -525,12 +559,13 @@ export function LandingScreen() {
           </div>
           <div className="lp-foot-links">
             <LegalLinks />
-            <a href={DESKTOP_DOWNLOAD} download>
+            <a href="#ways" onClick={openDownload}>
               {t("Download for Windows", "Descargar para Windows")}
             </a>
           </div>
         </footer>
       </main>
+      {download && <DownloadSheet onClose={() => setDownload(false)} />}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { useLang, useT } from "../lib/i18n";
 import { CURRENCIES, roleLabel } from "../lib/labels";
 import { useApp } from "../state/app";
 import { Icon, type IconName } from "../ui/icons";
-import { Banner, Button, Field } from "../ui/kit";
+import { AcervusLoader, Banner, Button, Field } from "../ui/kit";
 import { LegalLinks } from "./legal";
 
 const INVITE_KEY = "acervus.inviteToken";
@@ -285,7 +285,7 @@ export function InviteScreen() {
       </AuthPanel>
     );
   }
-  if (preview === undefined) return <AuthPanel icon="mail" title={t("Invitation", "Invitación")}>{t("Loading…", "Cargando…")}</AuthPanel>;
+  if (preview === undefined) return <AuthPanel icon="mail" title={t("Invitation", "Invitación")}><div className="loading-block"><AcervusLoader size="small" label={t("Loading the invitation…", "Cargando la invitación…")} /></div></AuthPanel>;
   const sub = t(
     `You were invited to ${preview.businessName} as ${roleLabel(t, preview.role)}, with ${preview.email}.`,
     `Te invitaron a ${preview.businessName} como ${roleLabel(t, preview.role)}, con ${preview.email}.`,

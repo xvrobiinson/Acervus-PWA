@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LateFeeRecord, LoanRecord, PaymentRecord } from "../../shared/domain/records";
 import { useT } from "../lib/i18n";
 import { useBooks } from "../state/app";
-import { Button, Sheet } from "../ui/kit";
+import { Button, Empty, Sheet } from "../ui/kit";
 import { loanReceiptHtml, paymentReceiptHtml, pendingReceiptHtml, type ReceiptContext } from "./receipt";
 
 /** The logo as a data: URL, so it is inside the receipt (prints offline once loaded). */
@@ -99,7 +99,9 @@ export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan" |
           </p>
         </>
       ) : (
-        <p>{t("Loading…", "Cargando…")}</p>
+        // Everything a receipt needs is already on this device; missing means
+        // the record or the receipt settings aren't there, not still loading.
+        <Empty icon="receipt">{t("This receipt can't be shown: its record or the receipt settings are missing.", "No se puede mostrar este recibo: falta su registro o la configuración de recibos.")}</Empty>
       )}
     </Sheet>
   );

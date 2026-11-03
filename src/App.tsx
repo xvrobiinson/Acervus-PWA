@@ -23,7 +23,7 @@ import { SettingsScreen } from "./screens/settings";
 import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
-import { Banner, Button, Sheet } from "./ui/kit";
+import { AcervusLoader, Banner, Button, Sheet } from "./ui/kit";
 
 /** Running as the installed app (home screen or desktop window), where the
  *  public landing page is never shown. Covers installs made before the
@@ -128,15 +128,45 @@ function AccountDeleting({ deletesAt }: { deletesAt: number }) {
   );
 }
 
+/** How long the start screen waits before saying it is slow. */
+const SLOW_MS = 15_000;
+
+/** The start screen: the loader while signing in and loading the business,
+ *  or a message. Never a spinner forever: when the server takes too long it
+ *  says so and offers to try again (or to go on offline when this device
+ *  has a copy). */
 function Splash({ message }: { message?: string }) {
   const app = useApp();
   const t = useT();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (message) return;
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [message]);
   return (
     <div className="auth splash">
       <div className="panel stack" style={{ alignItems: "center", textAlign: "center" }}>
-        <img className="logo" src="/pwa-192x192.png" alt="" />
-        {message ? <p>{message}</p> : <span className="btn ghost" aria-busy="true"><span className="spinner" /> {t("Loading…", "Cargando…")}</span>}
-        {message && app.user && (
+        {message ? (
+          <>
+            <img className="logo" src="/pwa-192x192.png" alt="" />
+            <p>{message}</p>
+          </>
+        ) : (
+          <>
+            <AcervusLoader />
+            {slow && (
+              <>
+                <p>{t("This is taking longer than usual. Check your connection, then try again.", "Esto está tardando más de lo normal. Revisa tu conexión y vuelve a intentarlo.")}</p>
+                <Button variant="primary" icon="sync" onClick={() => window.location.reload()}>
+                  {t("Try again", "Reintentar")}
+                </Button>
+                {app.canGoOffline && <Button onClick={app.continueOffline}>{t("Continue offline", "Continuar sin conexión")}</Button>}
+              </>
+            )}
+          </>
+        )}
+        {(message || slow) && app.user && (
           <Button variant="ghost" icon="logout" onClick={() => void app.signOut()}>
             {t("Sign out", "Cerrar sesión")}
           </Button>

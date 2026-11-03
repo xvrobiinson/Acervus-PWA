@@ -346,6 +346,35 @@ table.data tr.dim td { color: var(--muted); }
 .btn.block { width: 100%; }
 .btn .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* AcervusLoader (after Uiverse.io's spinner by TamaniPhiri): the ring spins,
+   the mark inside pings. A fixed box, so nothing moves around it. */
+.acervus-loader { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--accent); }
+.acervus-loader-ring { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 8px solid color-mix(in srgb, var(--ink) 16%, transparent); border-top-color: currentColor; animation: spin 1s linear infinite; }
+.acervus-loader.page .acervus-loader-ring { width: 112px; height: 112px; font-size: 36px; }
+.acervus-loader.small .acervus-loader-ring { width: 40px; height: 40px; border-width: 4px; font-size: 14px; }
+.acervus-loader svg { display: block; animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+.loading-block { display: flex; justify-content: center; padding: 24px 0; }
+/* The Windows download popup (landing page). */
+.dl > p { margin: 0; }
+.dl-facts { border: 1px solid var(--rule); border-radius: 12px; padding: 12px 16px; }
+.dl-facts dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+.dl-facts dt { color: var(--muted); }
+.dl-facts dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.dl-facts .dl-file { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.dl-facts .loading-block { padding: 8px 0; }
+.dl-facts p { margin: 8px 0 0; }
+.dl-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 14px; }
+.dl-steps > li { counter-increment: step; position: relative; padding-left: 40px; }
+.dl-steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-text); font-weight: 600; font-size: 13px; }
+.dl-steps h3 { margin: 3px 0 4px; font-size: 15px; line-height: 22px; font-weight: 600; }
+.dl-steps p { margin: 0 0 6px; font-size: 14px; line-height: 21px; color: var(--muted); }
+.dl-steps ul { margin: 0 0 6px; padding-left: 18px; font-size: 14px; line-height: 21px; color: var(--muted); }
+.dl-steps .dl-never { color: var(--ink); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) {
+  .acervus-loader-ring, .acervus-loader svg { animation: none; }
+  .acervus-loader-ring { border-color: color-mix(in srgb, currentColor 35%, transparent); border-top-color: currentColor; }
+}
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions.end { justify-content: flex-end; }
 
@@ -526,6 +555,9 @@ textarea.input { min-height: 88px; resize: vertical; }
 .lp-mark i:nth-child(1) { height: 6px; opacity: 0.55; } .lp-mark i:nth-child(2) { height: 10px; opacity: 0.8; } .lp-mark i:nth-child(3) { height: 15px; }
 .lp-links { display: flex; gap: 28px; flex: 1; justify-content: center; font-size: 14px; }
 .lp-links a { color: var(--muted); text-decoration: none; } .lp-links a:hover { color: var(--ink); }
+.lp-links a.lp-nav-download { display: inline-flex; align-items: center; gap: 6px; margin: -6px 0; padding: 6px 12px; border: 1px solid var(--control); border-radius: 16px; color: var(--ink); }
+.lp-links a.lp-nav-download:hover { background: var(--hover); }
+.lp-nav-download svg, .lp-menu-download svg { width: 15px; height: 15px; }
 .lp-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .lp-pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 20px; border-radius: 21px; border: 1px solid transparent;
   font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; text-decoration: none !important; background: none; color: var(--ink); transition: transform 160ms var(--spring), background 160ms; }
@@ -543,6 +575,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .lp-burger svg { width: 20px; height: 20px; }
 .lp-menu { display: flex; flex-direction: column; padding-bottom: 16px; }
 .lp-menu a { padding: 12px 4px; color: var(--ink); text-decoration: none; font-size: 16px; }
+.lp-menu a.lp-menu-download { display: inline-flex; align-items: center; gap: 8px; }
 .lp-menu-row { display: flex; gap: 10px; margin-top: 8px; } .lp-menu-row .lp-pill { flex: 1; }
 .lp-hero { position: relative; margin-top: 22px; border-radius: 30px; overflow: hidden; min-height: clamp(600px, 44vw, 760px); color: #fff;
   background: radial-gradient(700px 420px at 85% 0%, rgba(124, 108, 255, 0.38), transparent 70%), radial-gradient(600px 400px at 0% 100%, rgba(240, 138, 44, 0.16), transparent 70%), linear-gradient(160deg, #151829, #0b0c12);

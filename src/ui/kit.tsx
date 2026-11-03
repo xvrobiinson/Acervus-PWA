@@ -47,6 +47,26 @@ export function Button({
   );
 }
 
+/** The Acervus loading mark: a spinning ring (accent on top) around the
+ *  three-bar mark, which pings. `page` for a whole screen that is loading,
+ *  `small` for a part of one; buttons keep their own small spinner. With
+ *  reduced motion it stands still. */
+export function AcervusLoader({ size = "page", label }: { size?: "page" | "small"; label?: string }) {
+  const t = useT();
+  return (
+    <div className={`acervus-loader ${size}`} role="status" aria-live="polite">
+      <span className="acervus-loader-ring" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em">
+          <rect x="2" y="13" width="5" height="9" rx="1.2" opacity="0.55" />
+          <rect x="9.5" y="8" width="5" height="14" rx="1.2" opacity="0.8" />
+          <rect x="17" y="2" width="5" height="20" rx="1.2" />
+        </svg>
+      </span>
+      <span className="sr-only">{label ?? t("Loading Acervus Finance…", "Cargando Acervus Finance…")}</span>
+    </div>
+  );
+}
+
 export function LinkButton({ to, variant = "secondary", icon, children, size }: { to: string; variant?: Variant; icon?: IconName; children?: ReactNode; size?: "small" }) {
   return (
     <Link to={to} className={["btn", variant === "secondary" ? "" : variant, size, !children ? "icon" : ""].filter(Boolean).join(" ")}>

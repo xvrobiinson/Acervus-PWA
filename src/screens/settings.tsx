@@ -15,7 +15,7 @@ import { useLang, useT } from "../lib/i18n";
 import { CURRENCIES, frequencyLabel, roleLabel } from "../lib/labels";
 import { defaultRules, tagList, whenHint, withRules, withText, Wording, wordingProblem, type RuleLine, type RuleSet, type When } from "../receipts/wording";
 import { useBooks } from "../state/app";
-import { Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
+import { AcervusLoader, Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
 import { Icon, type IconName } from "../ui/icons";
 import { receiptShow, type ReceiptShow } from "../receipts/receipt";
 import { NewBusinessForm, PendingInvites } from "./auth";
@@ -915,7 +915,7 @@ function PeopleCard({ members, person, onPerson, onGone }: { members: Member[] |
   return (
     <Card title={t("People", "Personas")} className="section">
       <div className="card-body stack">
-        {members === undefined && <div className="small muted">{t("Loading…", "Cargando…")}</div>}
+        {members === undefined && <div className="loading-block"><AcervusLoader size="small" label={t("Loading the team…", "Cargando el equipo…")} /></div>}
         {members !== undefined &&
           ROLE_ORDER.map((r) => {
             const people = active.filter((m) => m.role === r);

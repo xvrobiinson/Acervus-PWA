@@ -5,7 +5,7 @@ import { usePaginatedQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useT } from "../lib/i18n";
 import { useBooks } from "../state/app";
-import { Banner, Button, Card, Empty, Pill } from "../ui/kit";
+import { AcervusLoader, Banner, Button, Card, Empty, Pill } from "../ui/kit";
 
 const MONEY_FIELDS = new Set(["amount", "principal", "interest", "fee", "fee_base", "received", "capital"]);
 
@@ -61,6 +61,7 @@ export function HistoryScreen() {
             </li>
           ))}
         </ul>
+        {status === "LoadingFirstPage" && mode === "online" && <div className="loading-block"><AcervusLoader size="small" label={t("Loading the history…", "Cargando el historial…")} /></div>}
         {results.length === 0 && status !== "LoadingFirstPage" && <Empty icon="history">{t("No changes yet.", "Aún no hay cambios.")}</Empty>}
       </Card>
       {status === "CanLoadMore" && (
