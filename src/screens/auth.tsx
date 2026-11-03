@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { authClient } from "../lib/auth-client";
 import { describeError } from "../lib/errors";
+import { splashNext } from "../lib/splash";
 import { useLang, useT } from "../lib/i18n";
 import { CURRENCIES, roleLabel } from "../lib/labels";
 import { useApp } from "../state/app";
@@ -85,6 +86,7 @@ function authError(t: ReturnType<typeof useT>, e: AuthFailure): string | null {
 const sendCode = (email: string) => authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" });
 
 function enterApp() {
+  splashNext("enter");
   const invite = sessionStorage.getItem(INVITE_KEY);
   location.assign(invite ? `/invite#token=${invite}` : "/");
 }
@@ -95,7 +97,14 @@ function GoogleButton() {
   return (
     <>
       <div className="auth-or">{t("Or continue with", "O continúa con")}</div>
-      <button type="button" className="auth-google" onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: `${location.origin}${sessionStorage.getItem(INVITE_KEY) ? "/invite" : "/"}` })}>
+      <button
+        type="button"
+        className="auth-google"
+        onClick={() => {
+          splashNext("enter");
+          void authClient.signIn.social({ provider: "google", callbackURL: `${location.origin}${sessionStorage.getItem(INVITE_KEY) ? "/invite" : "/"}` });
+        }}
+      >
         <GoogleMark />
         {t("Continue with Google", "Continuar con Google")}
       </button>

@@ -45,12 +45,15 @@ export function App() {
   useEffect(() => splashProgress(step), [step]);
   useEffect(() => releaseSplash());
 
+  // Signing out: the splash until the sign-in page takes over.
+  if (app.leaving) return <RisingBars />;
   // The Terms and the Privacy Policy are public: readable signed in or out.
   if (location.pathname === "/terms") return <LegalScreen page="terms" />;
   if (location.pathname === "/privacy") return <LegalScreen page="privacy" />;
   // Someone who has never signed in on this device sees the landing page at
-  // once, without waiting for the sign-in check.
-  if (app.mode === "loading" && location.pathname === "/" && !localStorage.getItem("acervus.lastUser") && !installedApp()) return <LandingScreen />;
+  // once, without waiting for the sign-in check; not while the launch
+  // splash is still up (public/splash.js).
+  if (app.mode === "loading" && location.pathname === "/" && !localStorage.getItem("acervus.lastUser") && !installedApp() && !document.getElementById("boot")) return <LandingScreen />;
   if (app.mode === "loading") return <Splash />;
   if (app.mode === "signed_out") {
     return (

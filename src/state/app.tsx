@@ -11,6 +11,7 @@ import { todayIn, type Day } from "../../shared/domain/dates";
 import { authClient, cachedSessionUser } from "../lib/auth-client";
 import { errorData, isNetworkError } from "../lib/errors";
 import { makeFmt, type Fmt } from "../lib/format";
+import { SPLASH_INTRO_MS, splashNext } from "../lib/splash";
 import { useLang } from "../lib/i18n";
 import { enqueue, retryOp, syncOnce, withOutboxLock, type Classifier, type Sender, type SyncReport } from "../offline/outbox";
 import {
@@ -75,6 +76,8 @@ interface AppState {
   discard: (op: QueuedOp) => Promise<void>;
   retry: (op: QueuedOp, args?: Record<string, unknown>) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Signing out: the splash covers the screen until the sign-in page. */
+  leaving: boolean;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -376,8 +379,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     [refreshOps, syncNow],
   );
 
+  const [leaving, setLeaving] = useState(false);
   const signOut = useCallback(async () => {
     const id = userId;
+    // The splash comes up at once and plays its intro while the session
+    // ends, so the sign-in screen never flashes before it.
+    setLeaving(true);
+    // A little under the intro: the reload takes the rest.
+    const intro = new Promise((r) => setTimeout(r, SPLASH_INTRO_MS - 300));
     try {
       await authClient.signOut();
     } catch {
@@ -394,6 +403,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (id) await clearCachedData(id);
     setLastUser(null);
     setForcedOffline(false);
+    await intro;
+    splashNext("leave");
     location.assign("/sign-in");
   }, [userId]);
 
@@ -425,6 +436,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     discard,
     retry,
     signOut,
+    leaving,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
