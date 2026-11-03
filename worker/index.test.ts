@@ -37,13 +37,27 @@ describe("installer info", () => {
     expect(info.size).toBeNull();
   });
 
-  it("falls back to the download itself when the API refuses, without a date", async () => {
+  it("falls back to the download itself and the feed when the API refuses", async () => {
     stub((url) => {
       if (url.includes("api.github.com")) return new Response("rate limited", { status: 403 });
+      if (url.endsWith("releases.atom"))
+        return new Response(
+          `<feed><entry><updated>2026-11-04T00:00:00Z</updated><link rel="alternate" href="https://github.com/xvrobiinson/ACERVUS-APP/releases/tag/v0.13.0-beta"/></entry><entry><updated>2026-11-03T00:02:16Z</updated><link rel="alternate" href="https://github.com/xvrobiinson/ACERVUS-APP/releases/tag/v0.12.2"/></entry></feed>`,
+        );
       if (url.endsWith("/releases/latest")) return new Response(null, { status: 302, headers: { location: "https://github.com/xvrobiinson/ACERVUS-APP/releases/tag/v0.12.2" } });
       return new Response(null, { status: 200, headers: { "content-length": "11642900" } });
     });
-    expect(await installerInfo()).toEqual({ available: true, version: "0.12.2", published: null, file: "AcervusFinance-Setup.exe", size: 11642900 });
+    expect(await installerInfo()).toEqual({ available: true, version: "0.12.2", published: "2026-11-03T00:02:16Z", file: "AcervusFinance-Setup.exe", size: 11642900 });
+  });
+
+  it("leaves the date out when the feed has no entry for the version", async () => {
+    stub((url) => {
+      if (url.includes("api.github.com")) return new Response("rate limited", { status: 403 });
+      if (url.endsWith("releases.atom")) return new Response("<feed></feed>");
+      if (url.endsWith("/releases/latest")) return new Response(null, { status: 302, headers: { location: "https://github.com/xvrobiinson/ACERVUS-APP/releases/tag/v0.12.2" } });
+      return new Response(null, { status: 200, headers: { "content-length": "5" } });
+    });
+    expect((await installerInfo()).published).toBeNull();
   });
 
   it("invents nothing when GitHub can't be reached", async () => {

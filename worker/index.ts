@@ -100,8 +100,10 @@ async function fromApi(): Promise<InstallerInfo | null> {
   }
 }
 
-/** When GitHub's API says no: the version from where "latest" leads, the
- *  size from the installer itself. No date. */
+/** When GitHub's API says no (it allows few requests per address, and
+ *  Cloudflare's addresses are shared): the version from where "latest"
+ *  leads, the date from the public releases feed, the size from the
+ *  installer itself. */
 async function fromDownload(): Promise<InstallerInfo> {
   let version: string | null = null;
   try {
@@ -121,7 +123,27 @@ async function fromDownload(): Promise<InstallerInfo> {
   } catch {
     /* unavailable */
   }
-  return { available, version, published: null, file: FILE_NAME, size };
+  return { available, version, published: version ? await feedDate(version) : null, file: FILE_NAME, size };
+}
+
+/** The release's date from the releases feed, only for the entry of that
+ *  very version. */
+async function feedDate(version: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://github.com/${REPO}/releases.atom`, { headers: { "User-Agent": "acervus-finance-pwa" } });
+    if (!r.ok) return null;
+    const feed = await r.text();
+    for (const entry of feed.split("<entry>").slice(1)) {
+      const tag = /\/releases\/tag\/v?([^"/?#<]+)/.exec(entry)?.[1];
+      if (tag && decodeURIComponent(tag) === version) {
+        const when = /<updated>([^<]+)<\/updated>/.exec(entry)?.[1]?.trim();
+        return when && !Number.isNaN(Date.parse(when)) ? when : null;
+      }
+    }
+  } catch {
+    /* unknown */
+  }
+  return null;
 }
 
 function json(body: unknown): Response {
