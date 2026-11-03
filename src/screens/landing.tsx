@@ -241,13 +241,25 @@ function Mark() {
   );
 }
 
-/** The three window dots on top of a glass card. */
-function Dots() {
+/** A Features or Benefits card (after Uiverse.io's card by 00Kubi): the
+ *  site's own white or black with blue touches; on hover it lifts, a blue
+ *  wash and glow fade in, and the corner light pulses. */
+function BlueCard({ icon, title, body }: { icon: IconName; title: string; body: string }) {
   return (
-    <div className="lp-dots" aria-hidden="true">
-      <i />
-      <i />
-      <i />
+    <div className="lp-card lp-blue">
+      <div className="lp-blue-dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      <div className="lp-blue-body">
+        <span className="lp-ico">
+          <Icon name={icon} />
+        </span>
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      <div className="lp-blue-orb" aria-hidden="true" />
     </div>
   );
 }
@@ -430,16 +442,9 @@ export function LandingScreen() {
             "Hecho para cómo trabajan los prestamistas: quién debe qué, qué vence esta semana y a dónde fue cada peso.",
           )}
         >
-          <div className="lp-grid four glass">
-            {FEATURES.map((f, i) => (
-              <div key={f.title[0]} className="lp-card lp-glass" tabIndex={0}>
-                <Dots />
-                <span className={`lp-ico ${i === 0 ? "on" : ""}`}>
-                  <Icon name={f.icon} />
-                </span>
-                <h3>{f.title[es]}</h3>
-                <p>{f.body[es]}</p>
-              </div>
+          <div className="lp-grid four">
+            {FEATURES.map((f) => (
+              <BlueCard key={f.title[0]} icon={f.icon} title={f.title[es]} body={f.body[es]} />
             ))}
           </div>
         </Section>
@@ -459,16 +464,9 @@ export function LandingScreen() {
         </Section>
 
         <Section id="benefits" kicker={t("Benefits", "Beneficios")} title={t("Spend less time managing records. More time growing your business.", "Menos tiempo con los registros. Más tiempo para hacer crecer tu negocio.")}>
-          <div className="lp-grid three glass">
+          <div className="lp-grid three">
             {BENEFITS.map((b) => (
-              <div key={b.title[0]} className="lp-card lp-glass" tabIndex={0}>
-                <Dots />
-                <span className="lp-ico">
-                  <Icon name={b.icon} />
-                </span>
-                <h3>{b.title[es]}</h3>
-                <p>{b.body[es]}</p>
-              </div>
+              <BlueCard key={b.title[0]} icon={b.icon} title={b.title[es]} body={b.body[es]} />
             ))}
           </div>
         </Section>
