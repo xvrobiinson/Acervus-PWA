@@ -116,3 +116,15 @@ translation, marked Beta until a native speaker has reviewed it.
 Settings on both apps. Seven-day wait with Keep; the only admin of a business must
 hand over or delete it first; old records show "Former team member". Hourly cron
 `delete accounts`. No confirmation email is sent.
+
+## Arrange the Overview, 2026-11-03
+
+The Overview's arrange button (sliders icon) lets each person show or hide
+blocks (figures, Growth, Needs attention, Recent payments; collectors: My
+recent payments) and figures, put them in their own order, and set blocks to
+Half or Full width (two halves sit side by side from 1100px; a phone stacks
+everything). The first figure shown is the large one. Moving works by dragging
+with a mouse or with the arrows (touch). Reset puts the shipped layout back.
+Kept on the device, per person (`acervus.overview.<userId>` in localStorage),
+like the Windows app keeps it per PC. Model and tests:
+`src/lib/overview-layout.ts`.

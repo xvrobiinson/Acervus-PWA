@@ -1,0 +1,147 @@
+// How a person arranged their Overview on this device: which blocks and
+// figures show, in what order, and which blocks take half the width (two
+// half blocks in a row sit side by side on wide screens; a phone stacks
+// everything in order). Kept in this device's storage, per person, the way
+// the Windows app keeps it per PC.
+
+export type Block = "figures" | "growth" | "attention" | "mine" | "recent";
+export type Figure =
+  | "portfolio"
+  | "availableCapital"
+  | "availableInterest"
+  | "lentOut"
+  | "interestEarned"
+  | "active"
+  | "overdue"
+  | "receivable"
+  | "toConfirm";
+
+export const BLOCKS: Block[] = ["figures", "growth", "attention", "mine", "recent"];
+export const FIGURES: Figure[] = [
+  "portfolio",
+  "availableCapital",
+  "availableInterest",
+  "lentOut",
+  "interestEarned",
+  "active",
+  "overdue",
+  "receivable",
+  "toConfirm",
+];
+
+export interface OverviewLayout {
+  /** Every block, in order (hidden ones keep their place). */
+  blocks: Block[];
+  hidden: Block[];
+  half: Block[];
+  figures: Figure[];
+  hiddenFigures: Figure[];
+}
+
+/** The Overview as the app ships: figures, then the chart beside the
+ *  loans that need attention, then the payments. */
+export function defaultLayout(): OverviewLayout {
+  return { blocks: [...BLOCKS], hidden: [], half: ["growth", "attention"], figures: [...FIGURES], hiddenFigures: [] };
+}
+
+/** Whether a block can take half the width (the figures always span it). */
+export const sizable = (b: Block) => b !== "figures";
+
+function known<T extends string>(all: readonly T[], v: unknown): T[] {
+  if (!Array.isArray(v)) return [];
+  const out: T[] = [];
+  for (const x of v) if (all.includes(x as T) && !out.includes(x as T)) out.push(x as T);
+  return out;
+}
+
+function complete<T>(order: T[], all: readonly T[]): T[] {
+  return [...order, ...all.filter((x) => !order.includes(x))];
+}
+
+/** Reads a saved layout. Unknown names are dropped and anything missing
+ *  comes back at the end, so an older or newer app never loses a block. */
+export function parseLayout(text: string | null): OverviewLayout {
+  const d = defaultLayout();
+  if (!text) return d;
+  let raw: Partial<Record<keyof OverviewLayout, unknown>>;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return d;
+  }
+  if (!raw || typeof raw !== "object") return d;
+  return {
+    blocks: complete(raw.blocks ? known(BLOCKS, raw.blocks) : d.blocks, BLOCKS),
+    hidden: raw.hidden ? known(BLOCKS, raw.hidden) : d.hidden,
+    half: (raw.half ? known(BLOCKS, raw.half) : d.half).filter(sizable),
+    figures: complete(raw.figures ? known(FIGURES, raw.figures) : d.figures, FIGURES),
+    hiddenFigures: raw.hiddenFigures ? known(FIGURES, raw.hiddenFigures) : d.hiddenFigures,
+  };
+}
+
+/** The shown blocks among `allowed`, in rows: two half blocks next to each
+ *  other share a row; a half block with no half partner fills its row. */
+export function layoutRows(l: OverviewLayout, allowed: Block[]): Block[][] {
+  const shown = l.blocks.filter((b) => allowed.includes(b) && !l.hidden.includes(b));
+  const rows: Block[][] = [];
+  for (let i = 0; i < shown.length; i++) {
+    const next = shown[i + 1];
+    if (next && l.half.includes(shown[i]) && l.half.includes(next)) {
+      rows.push([shown[i], next]);
+      i++;
+    } else rows.push([shown[i]]);
+  }
+  return rows;
+}
+
+function swap<T>(all: T[], a: T, b: T): T[] {
+  const out = [...all];
+  const i = out.indexOf(a);
+  const j = out.indexOf(b);
+  if (i >= 0 && j >= 0) [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
+/** Moves a block one place (`by` -1 or 1) among the shown, allowed ones, so
+ *  every press visibly moves it. */
+export function nudge(l: OverviewLayout, b: Block, by: -1 | 1, allowed: Block[]): OverviewLayout {
+  const shown = l.blocks.filter((x) => allowed.includes(x) && !l.hidden.includes(x));
+  const other = shown[shown.indexOf(b) + by];
+  return other ? { ...l, blocks: swap(l.blocks, b, other) } : l;
+}
+
+export function nudgeFigure(l: OverviewLayout, f: Figure, by: -1 | 1, allowed: Figure[]): OverviewLayout {
+  const shown = l.figures.filter((x) => allowed.includes(x));
+  const other = shown[shown.indexOf(f) + by];
+  return other ? { ...l, figures: swap(l.figures, f, other) } : l;
+}
+
+/** Puts `moved` where `onto` is: a drag dropped on another block. */
+function place<T>(all: T[], moved: T, onto: T): T[] {
+  const out = all.filter((x) => x !== moved);
+  const to = all.indexOf(onto);
+  if (to < 0 || moved === onto) return all;
+  out.splice(to, 0, moved);
+  return out;
+}
+
+export const dropOnto = (l: OverviewLayout, moved: Block, onto: Block): OverviewLayout => ({ ...l, blocks: place(l.blocks, moved, onto) });
+export const dropFigureOnto = (l: OverviewLayout, moved: Figure, onto: Figure): OverviewLayout => ({
+  ...l,
+  figures: place(l.figures, moved, onto),
+});
+
+export function setShown(l: OverviewLayout, b: Block, shown: boolean): OverviewLayout {
+  const hidden = l.hidden.filter((x) => x !== b);
+  return { ...l, hidden: shown ? hidden : [...hidden, b] };
+}
+
+export function setFigureShown(l: OverviewLayout, f: Figure, shown: boolean): OverviewLayout {
+  const hidden = l.hiddenFigures.filter((x) => x !== f);
+  return { ...l, hiddenFigures: shown ? hidden : [...hidden, f] };
+}
+
+export function setHalf(l: OverviewLayout, b: Block, half: boolean): OverviewLayout {
+  const rest = l.half.filter((x) => x !== b);
+  return { ...l, half: half && sizable(b) ? [...rest, b] : rest };
+}
