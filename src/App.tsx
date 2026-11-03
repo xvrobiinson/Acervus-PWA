@@ -1,8 +1,8 @@
 // Routes, the signed-in shell (side rail on wide screens, tab bar and "+"
 // button on phones), the offline/sync banner and the update prompt.
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigationType } from "react-router";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -24,6 +24,7 @@ import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
 import { AcervusLoader, Banner, Button, Sheet } from "./ui/kit";
+import { usePresence } from "./ui/motion";
 
 /** Running as the installed app (home screen or desktop window), where the
  *  public landing page is never shown. Covers installs made before the
@@ -84,6 +85,7 @@ export function App() {
   return (
     <FormsProvider>
       <Shell>
+        <ScreenMotion>
         <Routes>
           <Route path="/" element={<OverviewScreen />} />
           <Route path="/clients" element={<ClientsScreen />} />
@@ -101,8 +103,21 @@ export function App() {
           <Route path="/more" element={<MoreScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ScreenMotion>
       </Shell>
     </FormsProvider>
+  );
+}
+
+/** Each screen slides in from the side: from the right going forward, from
+ *  the left going back. Only the new screen moves, so nothing waits. */
+function ScreenMotion({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const back = useNavigationType() === "POP";
+  return (
+    <div key={pathname} className={`screen-in ${back ? "back" : ""}`}>
+      {children}
+    </div>
   );
 }
 
@@ -333,17 +348,36 @@ function StatusBanner({ waiting, review }: { waiting: number; review: number }) 
   const app = useApp();
   const t = useT();
   const when = app.savedAt ? new Date(app.savedAt).toLocaleString(app.fmt.lang === "es" ? "es" : "en", { dateStyle: "medium", timeStyle: "short" }) : "—";
+  const offline = app.mode === "offline" || !app.connected;
+  // The offline banner stays a moment when the connection is back, to slide away.
+  const offlineShown = usePresence(offline ? ["offline"] : [], (x) => x, 240);
+  // Changes that finish sending say so for a moment, with a check.
+  const [upToDate, setUpToDate] = useState(false);
+  const hadWaiting = useRef(waiting);
+  useEffect(() => {
+    const before = hadWaiting.current;
+    hadWaiting.current = waiting;
+    if (before > 0 && waiting === 0 && !offline) {
+      setUpToDate(true);
+      const timer = setTimeout(() => setUpToDate(false), 2200);
+      return () => clearTimeout(timer);
+    }
+  }, [waiting, offline]);
   return (
     <>
-      {app.mode === "offline" || !app.connected ? (
-        <Banner tone="offline" icon="cloudOff">
+      {offlineShown.length > 0 ? (
+        <Banner tone="offline" icon="cloudOff" className={offlineShown[0].leaving ? "leaving" : ""}>
           <strong>{t("Offline.", "Sin conexión.")}</strong>{" "}
           {t(`Showing the copy saved on this device (${when}).`, `Mostrando la copia guardada en este dispositivo (${when}).`)}{" "}
           {waiting > 0 && t(`${waiting} change(s) will sync when you're back online.`, `${waiting} cambio(s) se sincronizarán al volver la conexión.`)}
         </Banner>
       ) : waiting > 0 ? (
-        <Banner tone="info" icon="sync" action={<NavLink to="/sync" className="btn small ghost">{t("View", "Ver")}</NavLink>}>
+        <Banner tone="info" icon="sync" className={app.syncing ? "syncing" : ""} action={<NavLink to="/sync" className="btn small ghost">{t("View", "Ver")}</NavLink>}>
           {app.syncing ? t(`Syncing ${waiting} change(s)…`, `Sincronizando ${waiting} cambio(s)…`) : t(`${waiting} change(s) waiting to sync.`, `${waiting} cambio(s) esperando sincronizar.`)}
+        </Banner>
+      ) : upToDate ? (
+        <Banner tone="ok" icon="check" className="done">
+          {t("Up to date. Your changes reached the server.", "Al día. Tus cambios llegaron al servidor.")}
         </Banner>
       ) : null}
       {review > 0 && (

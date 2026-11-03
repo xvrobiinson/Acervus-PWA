@@ -17,6 +17,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { useT } from "../lib/i18n";
 import { Icon, type IconName } from "./icons";
+import { useCountUp } from "./motion";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "danger-ghost";
 
@@ -100,9 +101,13 @@ export function Stat({
   tone,
   icon,
   hue = "accent",
+  count,
 }: {
   label: string;
   value: string;
+  /** The number behind `value` and how to write it: counts up from 0 the
+   *  first time the figure is shown. */
+  count?: { value: number; format: (n: number) => string };
   caption?: ReactNode;
   lead?: boolean;
   tone?: "pos" | "neg" | "warn";
@@ -122,10 +127,21 @@ export function Stat({
         <div className="label">{label}</div>
       )}
       <div className={`value num-left ${tone ?? ""}`} style={{ textAlign: "left" }}>
-        {value}
+        {count ? <CountUp value={count.value} format={count.format} final={value} /> : value}
       </div>
       {caption && <div className="caption">{caption}</div>}
     </div>
+  );
+}
+
+/** A figure counting up; screen readers get the final value at once. */
+function CountUp({ value, format, final }: { value: number; format: (n: number) => string; final: string }) {
+  const shown = useCountUp(value);
+  return (
+    <>
+      <span aria-hidden="true">{shown === value ? final : format(Math.round(shown))}</span>
+      <span className="sr-only">{final}</span>
+    </>
   );
 }
 
@@ -151,6 +167,7 @@ export function Row({
   sub,
   trail,
   muted,
+  meter,
 }: {
   to?: string;
   onClick?: () => void;
@@ -159,6 +176,8 @@ export function Row({
   sub?: ReactNode;
   trail?: ReactNode;
   muted?: boolean;
+  /** 0 to 1: a thin bar under the text that fills when the row appears. */
+  meter?: { value: number; label: string };
 }) {
   const body = (
     <>
@@ -166,6 +185,11 @@ export function Row({
       <div className="grow">
         <div className="title">{title}</div>
         {sub && <div className="sub">{sub}</div>}
+        {meter && (
+          <div className="meter" role="img" aria-label={meter.label}>
+            <i style={{ width: `${Math.round(Math.min(1, Math.max(0, meter.value)) * 100)}%` }} />
+          </div>
+        )}
       </div>
       {trail && <div className="trail">{trail}</div>}
     </>
@@ -197,9 +221,21 @@ export function Empty({ icon = "search", children }: { icon?: IconName; children
   );
 }
 
-export function Banner({ tone, icon, children, action }: { tone: "offline" | "warn" | "error" | "info"; icon: IconName; children: ReactNode; action?: ReactNode }) {
+export function Banner({
+  tone,
+  icon,
+  children,
+  action,
+  className,
+}: {
+  tone: "offline" | "warn" | "error" | "info" | "ok";
+  icon: IconName;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={`banner ${tone}`} role={tone === "error" ? "alert" : "status"}>
+    <div className={`banner ${tone} ${className ?? ""}`} role={tone === "error" ? "alert" : "status"}>
       <Icon name={icon} />
       <div className="grow">{children}</div>
       {action}
@@ -435,9 +471,22 @@ interface Toast {
   error?: boolean;
 }
 const ToastCtx = createContext<(text: string, error?: boolean) => void>(() => {});
+const SavedCtx = createContext<(text: string) => void>(() => {});
+
+/** Shows a check that draws itself, with `text`, for a moment: for saves
+ *  that matter (a payment). */
+export function useSaved() {
+  return useContext(SavedCtx);
+}
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [saved, setSaved] = useState<{ id: number; text: string } | null>(null);
+  const flash = useCallback((text: string) => {
+    const id = Date.now() + Math.random();
+    setSaved({ id, text });
+    setTimeout(() => setSaved((x) => (x?.id === id ? null : x)), 1500);
+  }, []);
   const push = useCallback((text: string, error?: boolean) => {
     const id = Date.now() + Math.random();
     setToasts((ts) => [...ts, { id, text, error }]);
@@ -445,7 +494,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
   return (
     <ToastCtx.Provider value={push}>
-      {children}
+      <SavedCtx.Provider value={flash}>{children}</SavedCtx.Provider>
+      {saved && (
+        <div key={saved.id} className="saved-flash" role="status">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <circle cx="36" cy="36" r="33" />
+            <path d="M22 37l9 9 19-20" pathLength={1} />
+          </svg>
+          <b>{saved.text}</b>
+        </div>
+      )}
       <div className="toasts" aria-live="polite">
         {toasts.map((x) => (
           <div key={x.id} className={`toast ${x.error ? "error" : ""}`}>

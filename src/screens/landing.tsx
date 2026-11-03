@@ -3,11 +3,12 @@
 // one the app has; the screenshots are the desktop app on synthetic demo
 // data (public/landing). No prices, testimonials or figures are claimed.
 
-import { useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { Link } from "react-router";
 import { useLang, useT } from "../lib/i18n";
 import { Icon, type IconName } from "../ui/icons";
+import { reducedMotion } from "../ui/motion";
 import { DownloadSheet } from "./landing-download";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 
@@ -231,6 +232,44 @@ function Shot({ name, alt, className, eager }: { name: string; alt: string; clas
   );
 }
 
+/** Behind the page: stars that twinkle (dark) and clouds that drift (light). */
+function SkyLife() {
+  return (
+    <>
+      <div className="lp-stars">
+        {Array.from({ length: 44 }, (_, i) => (
+          <i key={i} style={{ left: `${(i * 37 + 11) % 100}%`, top: `${(i * 53 + 7) % 62}%`, animationDelay: `${(i % 11) * 0.37}s` }} />
+        ))}
+      </div>
+      <div className="lp-clouds">
+        {[0, 1, 2, 3].map((i) => (
+          <i key={i} style={{ top: `${8 + i * 13}%`, width: `${220 + i * 70}px`, animationDelay: `${-i * 17}s` }} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** The headline's last word, changing every few seconds (still with reduced
+ *  motion). All the words sit in one box, so nothing around it moves. */
+function Rotator({ words }: { words: string[] }) {
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    if (reducedMotion()) return;
+    const timer = setInterval(() => setAt((i) => (i + 1) % words.length), 2600);
+    return () => clearInterval(timer);
+  }, [words.length]);
+  return (
+    <span className="lp-rot">
+      {words.map((w, i) => (
+        <span key={w} className={i === at ? "" : i === (at + words.length - 1) % words.length ? "up" : "down"}>
+          {w}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Mark() {
   return (
     <span className="lp-mark" aria-hidden="true">
@@ -285,6 +324,89 @@ export function LandingScreen() {
     ["#faq", t("FAQ", "Preguntas")],
   ];
   const v = VIEWS[view];
+  const root = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+  // On scroll: the reading line (--p), the screenshot's parallax (--para) and
+  // the nav bar firming up, at most once a frame.
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const still = reducedMotion();
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      el.style.setProperty("--p", String(max > 0 ? Math.min(1, y / max) : 0));
+      if (!still) el.style.setProperty("--para", `${Math.round(Math.min(y, 900) * 0.12)}px`);
+      setScrolled(y > 8);
+    };
+    const on = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", on, { passive: true });
+    window.addEventListener("resize", on);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", on);
+      window.removeEventListener("resize", on);
+    };
+  }, []);
+  // Sections below the first screen rise in when reached; the "How it works"
+  // line draws when its steps are in view. Nothing is hidden with reduced
+  // motion or without the observer.
+  useEffect(() => {
+    const el = root.current;
+    if (!el || reducedMotion() || typeof IntersectionObserver === "undefined") return;
+    const below = (n: Element, f: number) => n.getBoundingClientRect().top > window.innerHeight * f;
+    const sections = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add("lp-in");
+          sections.unobserve(e.target);
+        }
+      },
+      { threshold: 0.12 },
+    );
+    el.querySelectorAll(".lp-section, .lp-final").forEach((n) => {
+      if (!below(n, 0.92)) return;
+      n.classList.add("lp-reveal");
+      sections.observe(n);
+    });
+    const steps = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add("go");
+          steps.unobserve(e.target);
+        }
+      },
+      { threshold: 0.45 },
+    );
+    const grid = el.querySelector(".lp-steps");
+    if (grid && below(grid, 0.8)) {
+      grid.classList.add("armed");
+      steps.observe(grid);
+    }
+    return () => {
+      sections.disconnect();
+      steps.disconnect();
+    };
+  }, []);
+  // The showcase's selected tab: a thumb that glides to it.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const b = tabsRef.current?.querySelectorAll("button")[view];
+      if (b) setThumb({ left: b.offsetLeft, top: b.offsetTop, width: b.offsetWidth, height: b.offsetHeight });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [view, es]);
   // Every "Download" opens the same popup; the download itself starts only
   // from its button.
   const [download, setDownload] = useState(false);
@@ -321,9 +443,12 @@ export function LandingScreen() {
   );
 
   return (
-    <div className="lp">
-      <div className="lp-sky" aria-hidden="true" />
-      <header className="lp-nav">
+    <div className="lp" ref={root}>
+      <div className="lp-sky" aria-hidden="true">
+        <SkyLife />
+      </div>
+      <div className="lp-progress" aria-hidden="true" />
+      <header className={`lp-nav ${scrolled ? "scrolled" : ""}`}>
         <div className="lp-wrap lp-nav-in">
           <a href="#top" className="lp-brand">
             <Mark />
@@ -379,7 +504,22 @@ export function LandingScreen() {
               <i />
               {t("Lending, organized", "Préstamos, en orden")}
             </div>
-            <h1>{t("Take control of your lending business.", "Toma el control de tu negocio de préstamos.")}</h1>
+            <h1>
+              <span className="sr-only">{t("Take control of your lending business.", "Toma el control de tu negocio de préstamos.")}</span>
+              <span className="lp-words" aria-hidden="true">
+                {(es ? "Toma el control de tu" : "Take control of your").split(" ").map((w, i) => (
+                  // The space goes between the boxes: inside one it would be dropped.
+                  <Fragment key={i}>
+                    <span className="w" style={{ "--i": i } as CSSProperties}>
+                      {w}
+                    </span>{" "}
+                  </Fragment>
+                ))}
+                <span className="w" style={{ "--i": es ? 5 : 4 } as CSSProperties}>
+                  <Rotator key={es} words={es ? ["negocio.", "cartera.", "cobranza.", "dinero."] : ["business.", "portfolio.", "collections.", "money."]} />
+                </span>
+              </span>
+            </h1>
             <p>
               {t(
                 "Manage clients, loans, payments, expenses and income in one place. Acervus works out every split, due date and late fee, so you always know who owes what.",
@@ -387,7 +527,7 @@ export function LandingScreen() {
               )}
             </p>
             <div className="lp-cta">
-              <Link to="/sign-up" className="lp-pill lp-glow">
+              <Link to="/sign-up" className="lp-pill lp-glow lp-breathe">
                 {t("Get started", "Empezar")} <Icon name="chevron" />
               </Link>
               <a href="#features" className="lp-pill glass">
@@ -440,7 +580,8 @@ export function LandingScreen() {
         </Section>
 
         <Section id="showcase" center kicker={t("See it in action", "Míralo en acción")} title={t("This is what you get after signing up.", "Esto es lo que tendrás al registrarte.")}>
-          <div className="lp-tabs" role="tablist">
+          <div className="lp-tabs" role="tablist" ref={tabsRef} data-ready={thumb ? "" : undefined}>
+            {thumb && <span className="lp-tab-thumb" style={thumb} aria-hidden="true" />}
             {VIEWS.map((x, i) => (
               <button key={x.key} type="button" role="tab" aria-selected={i === view} className={i === view ? "on" : ""} onClick={() => setView(i)}>
                 {x.label[es]}
@@ -462,7 +603,7 @@ export function LandingScreen() {
         </Section>
 
         <Section id="how" kicker={t("How it works", "Cómo funciona")} title={t("Up and running in three steps.", "Listo en tres pasos.")}>
-          <div className="lp-grid three">
+          <div className="lp-grid three lp-steps">
             {STEPS.map((s, i) => (
               <div key={s.title[0]} className="lp-card">
                 <div className="lp-step">0{i + 1}</div>

@@ -3,7 +3,7 @@
 // person's messages (convex/lib/team.ts, convex/messages.ts).
 
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -15,6 +15,7 @@ import { useBooks } from "../state/app";
 import type { Snapshot } from "../state/types";
 import { Icon } from "../ui/icons";
 import { Avatar, Banner, Button, Card, Empty, Field, LinkButton, Pill, Row, Sheet, useToast } from "../ui/kit";
+import { usePresence } from "../ui/motion";
 
 type Pending = Snapshot["pending"][number];
 
@@ -104,11 +105,22 @@ export function MessagesButton() {
   const messages = useMessages();
   const [open, setOpen] = useState(false);
   const unread = messages.filter((m) => m.readAt === undefined).length;
+  // One more unread than before: the bell swings and its count pops.
+  const [ring, setRing] = useState(false);
+  const seen = useRef(unread);
+  useEffect(() => {
+    const more = unread > seen.current;
+    seen.current = unread;
+    if (!more) return;
+    setRing(true);
+    const timer = setTimeout(() => setRing(false), 800);
+    return () => clearTimeout(timer);
+  }, [unread]);
   return (
     <>
       <button
         type="button"
-        className="btn icon small bell"
+        className={`btn icon small bell ${ring ? "ring" : ""}`}
         aria-label={t(`Messages, ${unread} new`, `Mensajes, ${unread} nuevos`)}
         onClick={() => setOpen(true)}
       >
@@ -209,13 +221,17 @@ export function ConfirmScreen() {
   const [rejecting, setRejecting] = useState<Pending | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const decide = can("manage") && mode === "online";
-  const waiting = snapshot.pending.filter((p) => p.status === "waiting").sort((a, b) => a.createdAt - b.createdAt);
+  const waitingNow = snapshot.pending.filter((p) => p.status === "waiting").sort((a, b) => a.createdAt - b.createdAt);
+  // A payment just confirmed or rejected stays a moment to slide away.
+  const present = usePresence(waitingNow, (p) => p._id);
+  const leavingIds = new Set(present.filter((x) => x.leaving).map((x) => x.item._id));
+  const waiting = present.map((x) => x.item);
   const decided = snapshot.pending.filter((p) => p.status !== "waiting").sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0));
   const groups = [...new Set(waiting.map((p) => p.collectedBy))].map((who) => ({
     who,
     items: waiting.filter((p) => p.collectedBy === who),
   }));
-  const total = waiting.reduce((a, p) => a + p.amount, 0);
+  const total = waitingNow.reduce((a, p) => a + p.amount, 0);
   const clientName = (p: Pending) => books.clientById.get(p.clientId)?.client.fullName ?? "—";
   const loanNo = (p: Pending) => books.loanById.get(p.loanId)?.loan.recordNo;
 
@@ -240,8 +256,9 @@ export function ConfirmScreen() {
 
   const row = (p: Pending, actions: boolean) => {
     const st = pendingStatus(t, p);
+    const leaving = actions && leavingIds.has(p._id);
     return (
-      <li key={p._id}>
+      <li key={p._id} className={leaving ? "leaving" : undefined} aria-hidden={leaving || undefined}>
         <div className="list-row">
           <Avatar name={clientName(p)} />
           <div className="grow">
@@ -289,9 +306,9 @@ export function ConfirmScreen() {
         <div className="grow">
           <h1>{t("Payments to confirm", "Pagos por confirmar")}</h1>
           <div className="small muted">
-            {waiting.length === 0
+            {waitingNow.length === 0
               ? t("Nothing waiting.", "Nada pendiente.")
-              : t(`${fmt.money(total)} in ${waiting.length} payment(s)`, `${fmt.money(total)} en ${waiting.length} pago(s)`)}
+              : t(`${fmt.money(total)} in ${waitingNow.length} payment(s)`, `${fmt.money(total)} en ${waitingNow.length} pago(s)`)}
           </div>
         </div>
       </div>
@@ -307,7 +324,9 @@ export function ConfirmScreen() {
         </Card>
       )}
       {groups.map((g) => {
-        const sum = g.items.reduce((a, p) => a + p.amount, 0);
+        // Payments sliding away are already decided: not counted, not confirmed again.
+        const open = g.items.filter((p) => !leavingIds.has(p._id));
+        const sum = open.reduce((a, p) => a + p.amount, 0);
         return (
           <Card
             key={g.who}
@@ -318,9 +337,9 @@ export function ConfirmScreen() {
               </span>
             }
             action={
-              decide && g.items.length > 1 ? (
-                <Button size="small" variant="primary" disabled={busy !== null} onClick={() => void confirmMany(g.items)}>
-                  {t(`Confirm all ${g.items.length}`, `Confirmar los ${g.items.length}`)}
+              decide && open.length > 1 ? (
+                <Button size="small" variant="primary" disabled={busy !== null} onClick={() => void confirmMany(open)}>
+                  {t(`Confirm all ${open.length}`, `Confirmar los ${open.length}`)}
                 </Button>
               ) : null
             }

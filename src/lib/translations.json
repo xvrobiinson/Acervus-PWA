@@ -614,6 +614,7 @@
 "US dollar":["Dòler merikano","Amerikaanse dollar"],
 "Under the client's signature":["Bou di firma di e kliente","Onder de handtekening van de klant"],
 "Under the lender's signature":["Bou di firma di e fiadó","Onder de handtekening van de uitlener"],
+"Up to date. Your changes reached the server.":["Al dia. Bo kambionan a yega na e server.","Bijgewerkt. Je wijzigingen staan op de server."],
 "Upcoming":["Ta bin","Komend"],
 "Update":["Aktualisá","Bijwerken"],
 "Upload":["Subi","Uploaden"],
@@ -731,6 +732,7 @@
 "{0} {1} = {2} {3} (30-day month)":["{0} {1} = {2} {3} (luna di 30 dia)","{0} {1} = {2} {3} (maand van 30 dagen)"],
 "{0} {1}, oldest first":["{0} {1}, mas bieu promé","{0} {1}, oudste eerst"],
 "{0} · paid {1}":["{0} · pagá {1}","{0} · betaald {1}"],
+"{0}% of the capital paid back":["{0}% di e kapital a bolbe","{0}% van het kapitaal terugbetaald"],
 "{0}, collector":["{0}, kobradó","{0}, incasseerder"],
 "“Today” for due dates and late fees.":["E “awe” pa fecha di vensimentu i multa pa atraso.","“Vandaag” voor vervaldatums en boetes."],
 "…and {0} more.":["…i {0} mas.","…en nog {0}."]}

@@ -102,7 +102,10 @@ export function LoansScreen() {
 
 function LoanRow({ l }: { l: LoanView }) {
   const t = useT();
-  const { fmt } = useBooks();
+  const { fmt, snapshot } = useBooks();
+  // How much of the capital is back, for those who may see the amount lent.
+  const back = snapshot.me.view.amountLent && l.loan.principal > 0 ? l.position.principalPaid / l.loan.principal : null;
+  const pct = back === null ? 0 : Math.round(Math.min(1, back) * 100);
   const q = l.delinquency;
   const sub =
     l.display === "overdue"
@@ -116,6 +119,7 @@ function LoanRow({ l }: { l: LoanView }) {
       lead={<Avatar name={l.client?.fullName ?? "?"} />}
       title={`${l.client?.fullName ?? "—"} · #${l.loan.recordNo}`}
       sub={sub}
+      meter={back === null ? undefined : { value: back, label: t(`${pct}% of the capital paid back`, `${pct}% del capital devuelto`) }}
       trail={
         <>
           <span className="amount num">{fmt.money(l.payoff)}</span>

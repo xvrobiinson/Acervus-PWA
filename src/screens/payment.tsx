@@ -22,7 +22,7 @@ import { useT } from "../lib/i18n";
 import { ReceiptSheet } from "../receipts/view";
 import { useBooks } from "../state/app";
 import { DateInput, MoneyInput, useMoney, useParseError } from "../ui/inputs";
-import { Banner, Button, Field, Segmented, Sheet, useToast } from "../ui/kit";
+import { Banner, Button, Field, Segmented, Sheet, useSaved, useToast } from "../ui/kit";
 
 type Mode = "auto" | "installment" | "spread" | "custom";
 
@@ -31,6 +31,7 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
   const app = useBooks();
   const { books, fmt, snapshot, today, businessId, mode: appMode } = app;
   const toast = useToast();
+  const saved = useSaved();
   const update = useMutation(api.payments.update);
   const editing = paymentId ? snapshot.payments.find((p) => p._id === paymentId) : undefined;
   const [loan, setLoan] = useState<string>(editing?.loanId ?? loanId ?? "");
@@ -159,11 +160,11 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
         return;
       }
       if (r.status === "queued") {
-        toast(t("Saved on this device. It will sync when you're online.", "Guardado en este dispositivo. Se sincronizará al tener conexión."));
+        saved(t("Saved on this device. It will sync when you're online.", "Guardado en este dispositivo. Se sincronizará al tener conexión."));
         onClose();
         return;
       }
-      toast(
+      saved(
         app.role === "collector"
           ? t("Collected. It counts once the office confirms it.", "Cobrado. Cuenta cuando la oficina lo confirme.")
           : t("Payment recorded.", "Pago registrado."),

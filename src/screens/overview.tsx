@@ -68,12 +68,12 @@ export function OverviewScreen() {
         {/* The business's totals are for admins; collectors and viewers see their work. */}
         {!admin ? (
           <div className="stats">
-            <Stat lead icon="loans" label={t("Active loans", "Préstamos activos")} value={String(s.activeLoans)} caption={t(`${s.dueSoonLoans} due soon`, `${s.dueSoonLoans} vencen pronto`)} />
+            <Stat lead icon="loans" label={t("Active loans", "Préstamos activos")} value={String(s.activeLoans)} count={{ value: s.activeLoans, format: String }} caption={t(`${s.dueSoonLoans} due soon`, `${s.dueSoonLoans} vencen pronto`)} />
             <Stat
               icon="alert"
               hue={s.overdueAmount > 0 ? "neg" : "neutral"}
               label={t("Overdue", "Atrasado")}
-              value={fmt.money(s.overdueAmount)}
+              value={fmt.money(s.overdueAmount)} count={{ value: s.overdueAmount, format: fmt.money }}
               tone={s.overdueAmount > 0 ? "neg" : undefined}
               caption={t(`${s.overdueLoans} loans`, `${s.overdueLoans} préstamos`)}
             />
@@ -81,7 +81,7 @@ export function OverviewScreen() {
               icon="clock"
               hue="info"
               label={t("Receivable", "Por cobrar")}
-              value={fmt.money(s.interestReceivable + s.feesReceivable)}
+              value={fmt.money(s.interestReceivable + s.feesReceivable)} count={{ value: s.interestReceivable + s.feesReceivable, format: fmt.money }}
               caption={t("Interest and late fees due, unpaid", "Interés y mora vencidos sin pagar")}
             />
             {collector && (
@@ -89,7 +89,7 @@ export function OverviewScreen() {
                 icon="wallet"
                 hue={waiting.length > 0 ? "warn" : "neutral"}
                 label={t("To confirm", "Por confirmar")}
-                value={fmt.money(waitingSum)}
+                value={fmt.money(waitingSum)} count={{ value: waitingSum, format: fmt.money }}
                 caption={t(`${waiting.length} payment(s) waiting for the office`, `${waiting.length} pago(s) esperando a la oficina`)}
               />
             )}
@@ -100,22 +100,22 @@ export function OverviewScreen() {
               lead
               icon="wallet"
               label={t("Portfolio value", "Valor del portafolio")}
-              value={fmt.money(s.portfolioValue)}
+              value={fmt.money(s.portfolioValue)} count={{ value: s.portfolioValue, format: fmt.money }}
               caption={
                 <span className={gain(s) >= 0 ? "pos" : "neg"}>
                   {fmt.signed(gain(s))} {ret ? `(${ret})` : ""} · {t("on capital invested", "sobre capital invertido")}
                 </span>
               }
             />
-            <Stat icon="briefcase" label={t("Available capital", "Capital disponible")} value={fmt.money(s.availableCapital)} />
-            <Stat icon="receipt" hue="pos" label={t("Available interest", "Interés disponible")} value={fmt.money(s.availableInterest)} />
-            <Stat icon="loans" hue="info" label={t("Capital lent out", "Capital prestado")} value={fmt.money(s.outstandingPrincipal)} caption={t(`${s.activeLoans} active loans`, `${s.activeLoans} préstamos activos`)} />
-            <Stat icon="chart" hue="pos" label={t("Interest earned", "Interés cobrado")} value={fmt.money(realizedIncome(s))} caption={t(`${fmt.money(s.expectedMonthlyInterest)} expected a month`, `${fmt.money(s.expectedMonthlyInterest)} esperados al mes`)} />
+            <Stat icon="briefcase" label={t("Available capital", "Capital disponible")} value={fmt.money(s.availableCapital)} count={{ value: s.availableCapital, format: fmt.money }} />
+            <Stat icon="receipt" hue="pos" label={t("Available interest", "Interés disponible")} value={fmt.money(s.availableInterest)} count={{ value: s.availableInterest, format: fmt.money }} />
+            <Stat icon="loans" hue="info" label={t("Capital lent out", "Capital prestado")} value={fmt.money(s.outstandingPrincipal)} count={{ value: s.outstandingPrincipal, format: fmt.money }} caption={t(`${s.activeLoans} active loans`, `${s.activeLoans} préstamos activos`)} />
+            <Stat icon="chart" hue="pos" label={t("Interest earned", "Interés cobrado")} value={fmt.money(realizedIncome(s))} count={{ value: realizedIncome(s), format: fmt.money }} caption={t(`${fmt.money(s.expectedMonthlyInterest)} expected a month`, `${fmt.money(s.expectedMonthlyInterest)} esperados al mes`)} />
             <Stat
               icon="alert"
               hue={s.overdueAmount > 0 ? "neg" : "neutral"}
               label={t("Overdue", "Atrasado")}
-              value={fmt.money(s.overdueAmount)}
+              value={fmt.money(s.overdueAmount)} count={{ value: s.overdueAmount, format: fmt.money }}
               tone={s.overdueAmount > 0 ? "neg" : undefined}
               caption={t(`${s.overdueLoans} loans · ${s.dueSoonLoans} due soon`, `${s.overdueLoans} préstamos · ${s.dueSoonLoans} vencen pronto`)}
             />
@@ -123,7 +123,7 @@ export function OverviewScreen() {
               icon="clock"
               hue="info"
               label={t("Receivable", "Por cobrar")}
-              value={fmt.money(s.interestReceivable + s.feesReceivable)}
+              value={fmt.money(s.interestReceivable + s.feesReceivable)} count={{ value: s.interestReceivable + s.feesReceivable, format: fmt.money }}
               caption={t("Interest and late fees due, unpaid", "Interés y mora vencidos sin pagar")}
             />
           </div>
