@@ -241,25 +241,15 @@ function Mark() {
   );
 }
 
-/** A Features or Benefits card (after Uiverse.io's card by 00Kubi): the
- *  site's own white or black with blue touches; on hover it lifts, a blue
- *  wash and glow fade in, and the corner light pulses. */
-function BlueCard({ icon, title, body }: { icon: IconName; title: string; body: string }) {
+/** A Features or Benefits card: the app's own card, lifting on hover. */
+function FeatureCard({ icon, title, body }: { icon: IconName; title: string; body: string }) {
   return (
-    <div className="lp-card lp-blue">
-      <div className="lp-blue-dots" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-      </div>
-      <div className="lp-blue-body">
-        <span className="lp-ico">
-          <Icon name={icon} />
-        </span>
-        <h3>{title}</h3>
-        <p>{body}</p>
-      </div>
-      <div className="lp-blue-orb" aria-hidden="true" />
+    <div className="lp-card lp-lift">
+      <span className="lp-ico">
+        <Icon name={icon} />
+      </span>
+      <h3>{title}</h3>
+      <p>{body}</p>
     </div>
   );
 }
@@ -444,7 +434,7 @@ export function LandingScreen() {
         >
           <div className="lp-grid four">
             {FEATURES.map((f) => (
-              <BlueCard key={f.title[0]} icon={f.icon} title={f.title[es]} body={f.body[es]} />
+              <FeatureCard key={f.title[0]} icon={f.icon} title={f.title[es]} body={f.body[es]} />
             ))}
           </div>
         </Section>
@@ -466,7 +456,7 @@ export function LandingScreen() {
         <Section id="benefits" kicker={t("Benefits", "Beneficios")} title={t("Spend less time managing records. More time growing your business.", "Menos tiempo con los registros. Más tiempo para hacer crecer tu negocio.")}>
           <div className="lp-grid three">
             {BENEFITS.map((b) => (
-              <BlueCard key={b.title[0]} icon={b.icon} title={b.title[es]} body={b.body[es]} />
+              <FeatureCard key={b.title[0]} icon={b.icon} title={b.title[es]} body={b.body[es]} />
             ))}
           </div>
         </Section>

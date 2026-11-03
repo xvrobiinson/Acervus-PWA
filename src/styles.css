@@ -46,9 +46,6 @@
   --app-deco: none;
   /* Landing page screenshots: one per theme. */
   --lp-light: block; --lp-dark: none; --lp-muted: #3f4352;
-  --lp-blue-wash-1: rgba(0, 140, 255, 0.10); --lp-blue-wash-2: rgba(56, 189, 248, 0.07); --lp-blue-glow: rgba(0, 140, 255, 0.24);
-  --lp-blue-dot: #008cff; --lp-blue-orb: rgba(0, 140, 255, 0.24); --lp-blue-title-a: #17181c; --lp-blue-title-b: #0a5fb8; --lp-blue-title-c: #008cff;
-  --lp-blue-ico: #e3f1ff; --lp-blue-ico-ink: #0070d1;
   /* The selected sidebar item: an accent tint in light, a framed neutral chip in dark. */
   --rail-on: var(--accent-tint); --rail-on-edge: transparent; --rail-on-ink: var(--accent-text); --rail-on-icon: var(--accent-text);
   --overlay: rgba(11, 16, 32, 0.32);
@@ -80,9 +77,6 @@
     --negative: #f87171; --negative-tint: #351c1e; --info: #7fb2ff; --info-tint: #1b2538; --neutral-tint: #26272e; --grid: #26272c;
     --chart-reference: #f59e42; --overlay: rgba(0, 0, 0, 0.5);
     --app-sky: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--ground) 100%); --app-deco: ""; --lp-light: none; --lp-dark: block; --lp-muted: #a7aab6;
-  --lp-blue-wash-1: rgba(0, 140, 255, 0.26); --lp-blue-wash-2: rgba(56, 189, 248, 0.16); --lp-blue-glow: rgba(0, 140, 255, 0.32);
-  --lp-blue-dot: #7cc4ff; --lp-blue-orb: rgba(96, 180, 255, 0.24); --lp-blue-title-a: #ffffff; --lp-blue-title-b: #e0f1ff; --lp-blue-title-c: #9fd3ff;
-  --lp-blue-ico: #0e2a47; --lp-blue-ico-ink: #7cc4ff;
     --rail-on: var(--neutral-tint); --rail-on-edge: var(--border); --rail-on-ink: var(--ink); --rail-on-icon: var(--accent-text);
     --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 6px -1px rgba(0, 0, 0, 0.16), 0 8px 24px -6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.045);
     --shadow-floating: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 20px -4px rgba(0, 0, 0, 0.48), 0 24px 56px -12px rgba(0, 0, 0, 0.8);
@@ -99,9 +93,6 @@
   --negative: #f87171; --negative-tint: #351c1e; --info: #7fb2ff; --info-tint: #1b2538; --neutral-tint: #26272e; --grid: #26272c;
   --chart-reference: #f59e42; --overlay: rgba(0, 0, 0, 0.5);
   --app-sky: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 40%, var(--ground) 100%); --app-deco: ""; --lp-light: none; --lp-dark: block; --lp-muted: #a7aab6;
-  --lp-blue-wash-1: rgba(0, 140, 255, 0.26); --lp-blue-wash-2: rgba(56, 189, 248, 0.16); --lp-blue-glow: rgba(0, 140, 255, 0.32);
-  --lp-blue-dot: #7cc4ff; --lp-blue-orb: rgba(96, 180, 255, 0.24); --lp-blue-title-a: #ffffff; --lp-blue-title-b: #e0f1ff; --lp-blue-title-c: #9fd3ff;
-  --lp-blue-ico: #0e2a47; --lp-blue-ico-ink: #7cc4ff;
   --rail-on: var(--neutral-tint); --rail-on-edge: var(--border); --rail-on-ink: var(--ink); --rail-on-icon: var(--accent-text);
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 6px -1px rgba(0, 0, 0, 0.16), 0 8px 24px -6px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.045);
   --shadow-floating: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 20px -4px rgba(0, 0, 0, 0.48), 0 24px 56px -12px rgba(0, 0, 0, 0.8);
@@ -633,31 +624,12 @@ textarea.input { min-height: 88px; resize: vertical; }
   transition: 0.5s; transition-property: box-shadow; }
 .lp-pill.lp-glow:hover { box-shadow: 0 0 5px rgb(0, 140, 255), 0 0 25px rgb(0, 140, 255), 0 0 50px rgb(0, 140, 255), 0 0 100px rgb(0, 140, 255); }
 .lp-nav .lp-pill.lp-glow { font-size: 14px; letter-spacing: 3px; }
-/* Features and Benefits (after Uiverse.io's card by 00Kubi): the site's
-   own white or black with blue touches; on hover it lifts, a blue wash and
-   glow fade in, and the corner light pulses. */
-.lp-card.lp-blue { position: relative; overflow: hidden; display: flex; flex-direction: column; border-width: 2px; transition: transform 0.5s, box-shadow 0.5s; }
-.lp-card.lp-blue::before { content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: opacity 0.5s; pointer-events: none;
-  background: linear-gradient(135deg, var(--lp-blue-wash-1), var(--lp-blue-wash-2) 45%, transparent 75%); }
-.lp-card.lp-blue::after { content: ""; position: absolute; inset: 0; opacity: 0.35; pointer-events: none; background: radial-gradient(circle at 50% 50%, var(--lp-blue-wash-1), transparent 60%); }
-.lp-blue-dots { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 1; }
-.lp-blue-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--lp-blue-dot); }
-.lp-blue-dots i:nth-child(1) { opacity: 0.5; } .lp-blue-dots i:nth-child(2) { opacity: 0.3; } .lp-blue-dots i:nth-child(3) { opacity: 0.1; }
-.lp-blue-orb { position: absolute; left: 16px; bottom: 16px; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--lp-blue-orb), transparent); filter: blur(4px); }
-.lp-blue-body { position: relative; z-index: 1; padding-bottom: 28px; transition: transform 0.3s; }
-.lp-card.lp-blue .lp-ico { background: var(--lp-blue-ico); color: var(--lp-blue-ico-ink); }
-.lp-card.lp-blue h3 { width: fit-content; max-width: 100%; font-size: 22px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance;
-  background: linear-gradient(90deg, var(--lp-blue-title-a), var(--lp-blue-title-b), var(--lp-blue-title-c)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.lp-card.lp-blue:hover { transform: translateY(-4px); box-shadow: 0 25px 50px -12px var(--lp-blue-glow); }
-.lp-card.lp-blue:hover::before { opacity: 1; }
-.lp-card.lp-blue:hover .lp-blue-body { transform: translateY(-2px); }
-.lp-card.lp-blue:hover::after, .lp-card.lp-blue:hover .lp-blue-orb { animation: lp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-@keyframes lp-pulse { 50% { opacity: 0.5; } }
-@media (prefers-reduced-motion: reduce) {
-  .lp-card.lp-blue, .lp-card.lp-blue::before, .lp-blue-body { transition: none; }
-  .lp-card.lp-blue:hover, .lp-card.lp-blue:hover .lp-blue-body { transform: none; }
-  .lp-card.lp-blue:hover::after, .lp-card.lp-blue:hover .lp-blue-orb { animation: none; }
-}
+/* Features and Benefits: the app's own cards; on hover a card lifts, its
+   shadow deepens with a hint of the accent, and its border picks it up. */
+.lp-card.lp-lift { transition: transform 0.4s, box-shadow 0.4s, border-color 0.4s; }
+.lp-card.lp-lift:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: var(--shadow-raised), 0 24px 48px -16px color-mix(in srgb, var(--accent) 28%, transparent); }
+@media (prefers-reduced-motion: reduce) { .lp-card.lp-lift { transition: none; } .lp-card.lp-lift:hover { transform: none; } }
 @media (max-width: 520px) { .lp-nav .lp-pill.lp-glow { font-size: 13px; letter-spacing: 2px; padding: 8px 12px; min-height: 38px; } }
 .lp-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-text); }
 .lp-ico svg { width: 19px; height: 19px; }
