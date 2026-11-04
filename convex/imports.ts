@@ -22,11 +22,12 @@ import {
   type PaymentRecord,
 } from "../shared/domain/records";
 import type { Id } from "./_generated/dataModel";
-import { mutation } from "./_generated/server";
+import { mutation, type MutationCtx } from "./_generated/server";
 import { businessArgs, startBusiness } from "./businesses";
-import { requireIdentity } from "./lib/access";
+import { requireIdentity, requireMember } from "./lib/access";
 import { checkCash } from "./lib/books";
 import { fail } from "./lib/errors";
+import { hitLimit } from "./rateLimit";
 import { amount, day, rate, text } from "./lib/validate";
 import { account, allocationMode, applied, contractStatus, frequency, installment, method } from "./schema";
 
@@ -309,6 +310,142 @@ export function figureDifferences(
   return out;
 }
 
+/** The cloud's figures for the book as of `today`, worked out from the book
+ *  alone (nothing is read from the database). */
+function figuresOf(b: DesktopBook, today: string) {
+  const whole = buildBook(engineBook(b));
+  return {
+    summary: { ...summary(whole, today) },
+    loans: whole.loans.map((l) => {
+      const { lastEvent: _l, periods: _p, ...pos } = bookPosition(l, today);
+      const late = bookDelinquency(l, today);
+      return { no: Number(l.id.slice(5)), ...pos, overdueAmount: late.overdueAmount, daysOverdue: late.daysOverdue };
+    }),
+  };
+}
+
+/** Every check that needs no database: same day as the export, every stored
+ *  split and late fee as the engine works them out, every figure as the
+ *  desktop has it. Fails before anything is written. */
+function verify(b: DesktopBook, expected: Infer<typeof figures>, today: string) {
+  check(b);
+  // Figures from another day would differ for reasons that aren't errors
+  // (interest due, late fees); export again on the day of the import.
+  if (expected.asOf !== today) fail("import_stale", { exportedOn: expected.asOf, today });
+  const problems = mismatches(b, today);
+  if (problems.length) fail("import_mismatch", { differences: problems.map((p) => `loan ${p.loanNo}: ${p.reason}`) });
+  const actual = figuresOf(b, today);
+  const differences = figureDifferences(expected, actual);
+  if (differences.length) fail("import_mismatch", { differences: differences.slice(0, 50) });
+  return actual;
+}
+
+/** What a client keeps across a restore, by record number. */
+type Kept = { collectorId?: string; photoId?: Id<"_storage"> };
+
+/** Writes the book's records into `businessId` (empty of them), numbered as
+ *  in the book. `kept` gives clients back their collector and ID photo. */
+async function writeBook(
+  ctx: MutationCtx,
+  businessId: Id<"businesses">,
+  b: DesktopBook,
+  who: { userId: string; name: string },
+  kept: Map<number, Kept> = new Map(),
+) {
+  const stamps = (createdAt: number) => ({ createdAt, createdBy: who.userId, updatedAt: createdAt, version: 1 });
+  const clientIds = new Map<number, Id<"clients">>();
+  for (const c of b.clients) {
+    const { no, createdAt, ...rest } = c;
+    const k = kept.get(no) ?? {};
+    clientIds.set(
+      no,
+      await ctx.db.insert("clients", {
+        businessId,
+        recordNo: no,
+        ...rest,
+        ...(k.collectorId ? { collectorId: k.collectorId } : {}),
+        ...(k.photoId ? { photoId: k.photoId } : {}),
+        ...stamps(createdAt),
+      }),
+    );
+  }
+  const loanIds = new Map<number, Id<"loans">>();
+  const plans = hasPlan(b);
+  for (const l of b.loans) {
+    const { no, clientNo, createdAt, ...rest } = l;
+    loanIds.set(
+      no,
+      await ctx.db.insert("loans", { businessId, recordNo: no, clientId: clientIds.get(clientNo)!, ...rest, ...stamps(createdAt) }),
+    );
+  }
+  for (const e of b.statusEvents) {
+    const { loanNo, ...rest } = e;
+    await ctx.db.insert("loanStatusEvents", { businessId, loanId: loanIds.get(loanNo)!, ...rest, createdBy: who.userId });
+  }
+  const paymentIds = new Map<number, Id<"payments">>();
+  for (const p of b.payments) {
+    paymentIds.set(
+      p.no,
+      await ctx.db.insert("payments", {
+        businessId,
+        loanId: loanIds.get(p.loanNo)!,
+        recordNo: p.no,
+        paidOn: p.paidOn,
+        amount: p.amount,
+        notes: p.notes,
+        ...paymentFields(p, plans.get(p.loanNo)!),
+        recordedOffline: false,
+        ...stamps(p.createdAt),
+      }),
+    );
+  }
+  for (const f of b.lateFees) {
+    const { loanNo, ...rest } = f;
+    await ctx.db.insert("lateFees", { businessId, loanId: loanIds.get(loanNo)!, ...rest });
+  }
+  const capitalIds = new Map<number, Id<"capitalTxs">>();
+  for (const c of b.capital) {
+    const { no, createdAt, ...rest } = c;
+    capitalIds.set(no, await ctx.db.insert("capitalTxs", { businessId, recordNo: no, ...rest, ...stamps(createdAt) }));
+  }
+  const entryIds = new Map<number, Id<"cashEntries">>();
+  for (const e of b.entries) {
+    const { no, createdAt, ...rest } = e;
+    entryIds.set(
+      no,
+      await ctx.db.insert("cashEntries", { businessId, recordNo: no, ...rest, recordedOffline: false, ...stamps(createdAt) }),
+    );
+  }
+  // Rows that can't go below zero at any point: the desktop has the same
+  // rule, so this only fails for a book changed outside the app.
+  await checkCash(ctx, businessId);
+
+  // The desktop's edit and deletion history, as written there. Records that
+  // were deleted on the desktop keep their desktop number.
+  const known: Record<string, Map<number, string>> = {
+    client: clientIds,
+    loan: loanIds,
+    payment: paymentIds,
+    capital: capitalIds,
+    entry: entryIds,
+  };
+  for (const c of b.changes) {
+    await ctx.db.insert("changeLog", {
+      businessId,
+      entity: c.entity,
+      entityId: known[c.entity]?.get(c.entityNo) ?? `desktop:${c.entity}:${c.entityNo}`,
+      loanId: c.loanNo !== undefined ? loanIds.get(c.loanNo) : undefined,
+      action: c.action,
+      changes: c.changes,
+      reason: c.reason.slice(0, 2000),
+      userId: who.userId,
+      userName: `${who.name} (desktop)`,
+      createdAt: c.createdAt,
+    });
+  }
+  return { clientIds, loanIds, paymentIds };
+}
+
 export const desktopBook = mutation({
   args: { book, expected: figures },
   handler: async (ctx, { book: b, expected }) => {
@@ -321,111 +458,87 @@ export const desktopBook = mutation({
       nextRecordNo: Math.max(0, ...nos) + 1,
       reason: "Imported from the desktop app",
     });
-    const businessId = access.business._id;
+    const actual = verify(b, expected, access.today);
+    const { clientIds } = await writeBook(ctx, access.business._id, b, access);
+    return { businessId: access.business._id, clientIds: Object.fromEntries(clientIds), asOf: access.today, ...actual };
+  },
+});
 
-    // Figures from another day would differ for reasons that aren't errors
-    // (interest due, late fees); export again on the day of the import.
-    if (expected.asOf !== access.today) fail("import_stale", { exportedOn: expected.asOf, today: access.today });
-    const problems = mismatches(b, access.today);
-    if (problems.length) {
-      fail("import_mismatch", { differences: problems.map((p) => `loan ${p.loanNo}: ${p.reason}`) });
-    }
-
-    const stamps = (createdAt: number) => ({ createdAt, createdBy: who.userId, updatedAt: createdAt, version: 1 });
-    const clientIds = new Map<number, Id<"clients">>();
-    for (const c of b.clients) {
-      const { no, createdAt, ...rest } = c;
-      clientIds.set(no, await ctx.db.insert("clients", { businessId, recordNo: no, ...rest, ...stamps(createdAt) }));
-    }
-    const loanIds = new Map<number, Id<"loans">>();
-    const plans = hasPlan(b);
-    for (const l of b.loans) {
-      const { no, clientNo, createdAt, ...rest } = l;
-      loanIds.set(
-        no,
-        await ctx.db.insert("loans", { businessId, recordNo: no, clientId: clientIds.get(clientNo)!, ...rest, ...stamps(createdAt) }),
-      );
-    }
-    for (const e of b.statusEvents) {
-      const { loanNo, ...rest } = e;
-      await ctx.db.insert("loanStatusEvents", { businessId, loanId: loanIds.get(loanNo)!, ...rest, createdBy: who.userId });
-    }
-    const paymentIds = new Map<number, Id<"payments">>();
-    for (const p of b.payments) {
-      paymentIds.set(
-        p.no,
-        await ctx.db.insert("payments", {
-          businessId,
-          loanId: loanIds.get(p.loanNo)!,
-          recordNo: p.no,
-          paidOn: p.paidOn,
-          amount: p.amount,
-          notes: p.notes,
-          ...paymentFields(p, plans.get(p.loanNo)!),
-          recordedOffline: false,
-          ...stamps(p.createdAt),
-        }),
-      );
-    }
-    for (const f of b.lateFees) {
-      const { loanNo, ...rest } = f;
-      await ctx.db.insert("lateFees", { businessId, loanId: loanIds.get(loanNo)!, ...rest });
-    }
-    const capitalIds = new Map<number, Id<"capitalTxs">>();
-    for (const c of b.capital) {
-      const { no, createdAt, ...rest } = c;
-      capitalIds.set(no, await ctx.db.insert("capitalTxs", { businessId, recordNo: no, ...rest, ...stamps(createdAt) }));
-    }
-    const entryIds = new Map<number, Id<"cashEntries">>();
-    for (const e of b.entries) {
-      const { no, createdAt, ...rest } = e;
-      entryIds.set(
-        no,
-        await ctx.db.insert("cashEntries", { businessId, recordNo: no, ...rest, recordedOffline: false, ...stamps(createdAt) }),
-      );
-    }
-    // Rows that can't go below zero at any point: the desktop has the same
-    // rule, so this only fails for a book changed outside the app.
-    await checkCash(ctx, businessId);
-
-    // The desktop's edit and deletion history, as written there. Records that
-    // were deleted on the desktop keep their desktop number.
-    const known: Record<string, Map<number, string>> = {
-      client: clientIds,
-      loan: loanIds,
-      payment: paymentIds,
-      capital: capitalIds,
-      entry: entryIds,
+/** Puts a business's books back as they were in a backup, for every phone
+ *  and PC (admins only, once the business's name is typed). The backup is
+ *  checked like an import before anything changes; it replaces the clients,
+ *  loans, payments, late fees, money records and history. The team,
+ *  invitations, settings and logo stay; each client keeps its collector and
+ *  ID photo by record number, and collector payments keep their place when
+ *  their loan is in the backup (the others go). Record numbers carry on
+ *  after the highest ever given, so no receipt number is used twice. One
+ *  transaction: any failed check leaves the business as it was. */
+export const restoreBook = mutation({
+  args: { businessId: v.id("businesses"), confirmName: v.string(), backupDate: v.string(), book, expected: figures },
+  handler: async (ctx, a) => {
+    const access = await requireMember(ctx, a.businessId, "manage");
+    if (!(await hitLimit(ctx, `restore:${a.businessId}`, 5, 60 * 60_000))) fail("rate_limited");
+    if (a.confirmName.trim() !== access.business.name) fail("invalid", { field: "confirmName", reason: "name" });
+    const b = a.book;
+    verify(b, a.expected, access.today);
+    const businessId = a.businessId;
+    // The books a restore replaces, children before parents.
+    const current = {
+      payments: () => ctx.db.query("payments").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      lateFees: () => ctx.db.query("lateFees").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      loanStatusEvents: () => ctx.db.query("loanStatusEvents").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      loans: () => ctx.db.query("loans").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      clients: () => ctx.db.query("clients").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      capitalTxs: () => ctx.db.query("capitalTxs").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      cashEntries: () => ctx.db.query("cashEntries").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
+      changeLog: () => ctx.db.query("changeLog").withIndex("by_business", (q) => q.eq("businessId", businessId)).collect(),
     };
-    for (const c of b.changes) {
-      await ctx.db.insert("changeLog", {
-        businessId,
-        entity: c.entity,
-        entityId: known[c.entity]?.get(c.entityNo) ?? `desktop:${c.entity}:${c.entityNo}`,
-        loanId: c.loanNo !== undefined ? loanIds.get(c.loanNo) : undefined,
-        action: c.action,
-        changes: c.changes,
-        reason: c.reason.slice(0, 2000),
-        userId: who.userId,
-        userName: `${access.name} (desktop)`,
-        createdAt: c.createdAt,
-      });
+
+    // What stays, by record number, before the current books go.
+    const oldClients = await current.clients();
+    const oldLoans = await current.loans();
+    const kept = new Map<number, Kept>(oldClients.map((c) => [c.recordNo, { collectorId: c.collectorId, photoId: c.photoId }]));
+    const clientNo = new Map(oldClients.map((c) => [c._id as string, c.recordNo]));
+    const loanNo = new Map(oldLoans.map((l) => [l._id as string, l.recordNo]));
+    for (const rows of Object.values(current)) {
+      for (const doc of await rows()) await ctx.db.delete(doc._id);
     }
 
-    // The cloud's figures as of today, for the script to compare with the
-    // desktop's.
-    const whole = buildBook(engineBook(b));
-    const actual = {
-      summary: { ...summary(whole, access.today) },
-      loans: whole.loans.map((l) => {
-        const { lastEvent: _l, periods: _p, ...pos } = bookPosition(l, access.today);
-        const late = bookDelinquency(l, access.today);
-        return { no: Number(l.id.slice(5)), ...pos, overdueAmount: late.overdueAmount, daysOverdue: late.daysOverdue };
-      }),
-    };
-    const differences = figureDifferences(expected, actual);
-    if (differences.length) fail("import_mismatch", { differences: differences.slice(0, 50) });
+    const { clientIds, loanIds, paymentIds } = await writeBook(ctx, businessId, b, access, kept);
 
-    return { businessId, clientIds: Object.fromEntries(clientIds), asOf: access.today, ...actual };
+    // Collector payments follow their loan and client to the restored ones.
+    const pending = await ctx.db
+      .query("pendingPayments")
+      .withIndex("by_business", (q) => q.eq("businessId", businessId))
+      .collect();
+    for (const p of pending) {
+      const loanId = loanIds.get(loanNo.get(p.loanId) ?? -1);
+      const clientId = clientIds.get(clientNo.get(p.clientId) ?? -1);
+      if (!loanId || !clientId) {
+        await ctx.db.delete(p._id);
+        continue;
+      }
+      await ctx.db.patch(p._id, { loanId, clientId, paymentId: p.paymentId ? paymentIds.get(p.recordNo) : undefined });
+    }
+    // ID photos of clients that aren't in the backup.
+    for (const c of oldClients) {
+      if (c.photoId && !clientIds.has(c.recordNo)) await ctx.storage.delete(c.photoId);
+    }
+
+    const nos = [b.clients, b.loans, b.payments, b.capital, b.entries].flat().map((x) => x.no);
+    const fresh = (await ctx.db.get(businessId))!;
+    await ctx.db.patch(businessId, { nextRecordNo: Math.max(fresh.nextRecordNo, Math.max(0, ...nos) + 1) });
+    await ctx.db.insert("changeLog", {
+      businessId,
+      entity: "settings",
+      entityId: businessId,
+      action: "update",
+      changes: [{ field: "backup_restored", old: "", new: a.backupDate }],
+      reason: `Books restored from a backup of ${a.backupDate}`,
+      userId: access.userId,
+      userName: access.name,
+      createdAt: Date.now(),
+    });
+    return { clientIds: Object.fromEntries(clientIds), asOf: access.today };
   },
 });

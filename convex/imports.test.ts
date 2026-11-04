@@ -111,3 +111,99 @@ describe("desktop import", () => {
     expect((await errorOf(t.mutation(api.imports.desktopBook, copy()))).code).toBe("unauthenticated");
   });
 });
+
+describe("restoring a backup", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${fixture.expected.asOf}T16:00:00Z`));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** A business made from the fixture, with one client added after it (as
+   *  if recorded after the backup was made). */
+  async function business() {
+    const t = convexTest(schema, modules);
+    const asOwner = t.withIdentity(owner);
+    const { businessId } = await asOwner.mutation(api.imports.desktopBook, copy());
+    const later = await asOwner.mutation(api.clients.create, {
+      businessId,
+      opId: "op-after-backup-000001",
+      fullName: "Cliente Nuevo",
+      phone: "",
+      email: "",
+      idNumber: "",
+      address: "",
+      notes: "",
+    });
+    const name = (await t.run((ctx) => ctx.db.get(businessId)))!.name;
+    return { t, asOwner, businessId, later, name };
+  }
+  const restore = (businessId: string, confirmName: string) => ({
+    businessId: businessId as never,
+    confirmName,
+    backupDate: "2026-11-01",
+    ...copy(),
+  });
+
+  it("puts the backup's books back for everyone, keeping collectors and record numbers", async () => {
+    const { t, asOwner, businessId, later, name } = await business();
+    const first = fixture.book.clients[0].no;
+    await t.run(async (ctx) => {
+      const c = (await ctx.db.query("clients").collect()).find((c) => c.recordNo === first)!;
+      await ctx.db.patch(c._id, { collectorId: "user_collector" });
+    });
+    const laterNo = (await asOwner.query(api.data.snapshot, { businessId })).clients.find((c) => c._id === later.clientId)!.recordNo;
+
+    await asOwner.mutation(api.imports.restoreBook, restore(businessId, ` ${name} `));
+    const snap = await asOwner.query(api.data.snapshot, { businessId });
+    expect(snap.clients.map((c) => c.recordNo).sort()).toEqual(fixture.book.clients.map((c) => c.no).sort());
+    expect(snap.loans).toHaveLength(fixture.book.loans.length);
+    expect(snap.payments).toHaveLength(fixture.book.payments.length);
+    const restored = await t.run((ctx) => ctx.db.query("clients").collect());
+    expect(restored.find((c) => c.recordNo === first)!.collectorId).toBe("user_collector");
+    // The history says so, and a new record never reuses a number given before.
+    const log = await t.run((ctx) => ctx.db.query("changeLog").collect());
+    expect(log.some((c) => c.reason === "Books restored from a backup of 2026-11-01")).toBe(true);
+    const again = await asOwner.mutation(api.clients.create, {
+      businessId,
+      opId: "op-after-restore-000001",
+      fullName: "Otro",
+      phone: "",
+      email: "",
+      idNumber: "",
+      address: "",
+      notes: "",
+    });
+    const after = await asOwner.query(api.data.snapshot, { businessId });
+    expect(after.clients.find((c) => c._id === again.clientId)!.recordNo).toBeGreaterThan(laterNo);
+  });
+
+  it("changes nothing without the business's exact name", async () => {
+    const { asOwner, businessId, name } = await business();
+    const before = await asOwner.query(api.data.snapshot, { businessId });
+    const err = await errorOf(asOwner.mutation(api.imports.restoreBook, restore(businessId, name.toLowerCase() + "x")));
+    expect(err.code).toBe("invalid");
+    expect((await asOwner.query(api.data.snapshot, { businessId })).clients).toHaveLength(before.clients.length);
+  });
+
+  it("changes nothing when the backup's figures don't add up", async () => {
+    const { asOwner, businessId, name } = await business();
+    const before = await asOwner.query(api.data.snapshot, { businessId });
+    const args = restore(businessId, name);
+    args.expected.summary.portfolioValue += 1;
+    expect((await errorOf(asOwner.mutation(api.imports.restoreBook, args))).code).toBe("import_mismatch");
+    const now = await asOwner.query(api.data.snapshot, { businessId });
+    expect(now.clients).toHaveLength(before.clients.length);
+    expect(now.payments).toHaveLength(before.payments.length);
+  });
+
+  it("is for admins only", async () => {
+    const { t, businessId, name } = await business();
+    const viewer = { subject: "user_viewer", email: "viewer@example.com", emailVerified: true, name: "Viewer" };
+    await t.run((ctx) =>
+      ctx.db.insert("members", { businessId, userId: viewer.subject, email: viewer.email, name: viewer.name, role: "viewer", active: true, joinedAt: 0 }),
+    );
+    const err = await errorOf(t.withIdentity(viewer).mutation(api.imports.restoreBook, restore(businessId, name)));
+    expect(err.code).toBe("forbidden");
+  });
+});

@@ -109,6 +109,7 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
       account: t("Account", "Cuenta"),
       address: t("Address", "Dirección"),
       allocation: t("Applied to", "Aplicado a"),
+      backup_restored: t("Backup restored, made on", "Copia restaurada, hecha el"),
       business_name: t("Business name", "Nombre del negocio"),
       client: t("Client", "Cliente"),
       collector: t("Collector", "Cobrador"),
