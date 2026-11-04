@@ -19,6 +19,7 @@ import {
 } from "../../shared/domain/records";
 import { describeError, describeErrorData, paymentErrorText, planErrorText } from "../lib/errors";
 import { useT } from "../lib/i18n";
+import { PAID_WITH, paidWithLabel, type PaidWith } from "../lib/labels";
 import { ReceiptSheet } from "../receipts/view";
 import { useBooks } from "../state/app";
 import { DateInput, MoneyInput, useMoney, useParseError } from "../ui/inputs";
@@ -40,6 +41,8 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
   const [fee, setFee] = useMoney(editing?.feeInput || null);
   const [on, setOn] = useState<Day>(editing?.paidOn ?? today);
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  // How it was paid: as recorded, or the way used last on this device.
+  const [paidWith, setPaidWith] = useState<PaidWith>(() => (editing ? (editing.paidWith ?? "cash") : lastPaidWith()));
   const [reason, setReason] = useState("");
   const [mode, setMode] = useState<Mode>((editing?.mode as Mode) ?? "auto");
   const [target, setTarget] = useState<number>(editing?.targetSeq ?? 0);
@@ -130,6 +133,7 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
           fee: feeValue,
           paidOn: on,
           notes,
+          paidWith,
           instruction: instruction as never,
           reason,
         });
@@ -144,9 +148,11 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
         fee: feeValue,
         paidOn: on,
         notes,
+        paidWith,
         instruction,
         ...(confirmedStale ? { confirmedStale: true } : {}),
       };
+      rememberPaidWith(paidWith);
       const r = await app.submit("payment.record", args, {
         title: view.client?.fullName ?? "—",
         subtitle: t(`Payment · loan #${view.loan.recordNo}`, `Pago · préstamo #${view.loan.recordNo}`),
@@ -315,6 +321,19 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
           </>
         )}
         <div className="span2">
+          <Field label={t("Paid with", "Forma de pago")}>
+            {(id) => (
+              <select id={id} className="input" value={paidWith} onChange={(e) => setPaidWith(e.target.value as PaidWith)}>
+                {PAID_WITH.map((p) => (
+                  <option key={p} value={p}>
+                    {paidWithLabel(t, p)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        </div>
+        <div className="span2">
           <Field label={t("Notes", "Notas")}>{(id) => <input id={id} className="input" maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} />}</Field>
         </div>
         {editing && (
@@ -376,3 +395,23 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
   );
 }
 
+
+/** The way of paying used last on this device: new payments start with it. */
+const LAST_PAID_WITH = "acervus.paidWith";
+
+function lastPaidWith(): PaidWith {
+  try {
+    const v = localStorage.getItem(LAST_PAID_WITH);
+    return PAID_WITH.includes(v as PaidWith) ? (v as PaidWith) : "cash";
+  } catch {
+    return "cash";
+  }
+}
+
+function rememberPaidWith(p: PaidWith) {
+  try {
+    localStorage.setItem(LAST_PAID_WITH, p);
+  } catch {
+    /* only a convenience */
+  }
+}

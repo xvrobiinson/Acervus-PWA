@@ -40,6 +40,10 @@ export const contractStatus = v.union(
 export const account = v.union(v.literal("capital"), v.literal("interest"));
 export const installment = v.object({ seq: v.number(), due: v.string(), principal: v.number(), interest: v.number() });
 export const applied = v.object({ seq: v.number(), principal: v.number(), interest: v.number(), fee: v.number() });
+/** How a payment was made, shown on its receipt. Unset on payments from
+ *  before 2026-11 and from older desktop builds. */
+export const paidWith = v.union(v.literal("cash"), v.literal("transfer"), v.literal("card"), v.literal("check"), v.literal("other"));
+
 export const allocationMode = v.union(
   v.literal("auto"),
   v.literal("installment"),
@@ -199,6 +203,7 @@ export default defineSchema({
     custom: v.optional(v.object({ principal: v.number(), interest: v.number(), fee: v.number() })),
     /** Entered fee (interest-only loans) — an input, kept as typed. */
     feeInput: v.number(),
+    paidWith: v.optional(paidWith),
     /** The split, worked out by the engine and kept in step on every change. */
     principal: v.number(),
     interest: v.number(),
@@ -228,6 +233,7 @@ export default defineSchema({
     /** Entered fee (interest-only loans). */
     fee: v.number(),
     notes: v.string(),
+    paidWith: v.optional(paidWith),
     mode: allocationMode,
     targetSeq: v.optional(v.number()),
     targets: v.optional(v.array(v.object({ seq: v.number(), amount: v.number() }))),

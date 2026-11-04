@@ -30,6 +30,7 @@ import {
 import { fail } from "./lib/errors";
 import { adminIds, canSee, limited, notify } from "./lib/team";
 import { amount, day, notFuture, text } from "./lib/validate";
+import { paidWith } from "./schema";
 
 export const instruction = v.union(
   v.object({ kind: v.literal("auto") }),
@@ -77,6 +78,8 @@ export const record = mutation({
     fee: v.number(),
     paidOn: v.string(),
     notes: v.string(),
+    /** How it was paid (cash, transfer…); older apps leave it out. */
+    paidWith: v.optional(paidWith),
     instruction,
     deviceRecordedAt: v.optional(v.number()),
   },
@@ -146,6 +149,7 @@ export const record = mutation({
         amount: a.amount,
         fee: a.fee,
         notes,
+        paidWith: a.paidWith,
         ...instructionFields(a.instruction),
         collectedBy: access.userId,
         collectorName: access.name,
@@ -173,6 +177,7 @@ export const record = mutation({
       paidOn,
       amount: a.amount,
       notes,
+      paidWith: a.paidWith,
       ...instructionFields(a.instruction),
       feeInput: a.fee,
       // Placeholder split; reallocate() works out the real one below.
@@ -198,6 +203,7 @@ export const record = mutation({
       .added("principal", saved.principal)
       .added("interest", saved.interest)
       .added("fee", saved.fee)
+      .added("paid_with", a.paidWith ?? "")
       .added("notes", notes);
     const reason = a.deviceRecordedAt ? (a.confirmedStale ? "Recorded offline; confirmed after the loan changed" : "Recorded offline") : "";
     await logChange(ctx, access, "payment", paymentId, "create", d, reason, { loanId: loan._id, opId: a.opId });
@@ -226,6 +232,7 @@ export const confirm = mutation({
       paidOn: p.paidOn,
       amount: p.amount,
       notes: p.notes,
+      paidWith: p.paidWith,
       mode: p.mode,
       targetSeq: p.targetSeq,
       targets: p.targets,
@@ -306,6 +313,8 @@ export const update = mutation({
     fee: v.number(),
     paidOn: v.string(),
     notes: v.string(),
+    /** Left out (older apps): kept as it was. */
+    paidWith: v.optional(paidWith),
     instruction,
     reason: v.string(),
   },
@@ -330,6 +339,7 @@ export const update = mutation({
       .field("fee", old.feeInput, a.fee)
       .field("paid_on", old.paidOn, paidOn)
       .field("allocation", describe(old), describe(fields))
+      .field("paid_with", old.paidWith ?? "", a.paidWith ?? old.paidWith ?? "")
       .field("notes", old.notes, notes);
     if (d.empty) return;
     await ctx.db.patch(old._id, {
@@ -337,6 +347,7 @@ export const update = mutation({
       feeInput: a.fee,
       paidOn,
       notes,
+      ...(a.paidWith ? { paidWith: a.paidWith } : {}),
       ...fields,
       version: old.version + 1,
       updatedAt: Date.now(),

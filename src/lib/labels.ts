@@ -24,6 +24,18 @@ export const frequencyPer = (t: T, f: Frequency) =>
     monthly: t("a month", "mensual"),
   })[f];
 
+/** How a payment was made (convex/schema.ts `paidWith`). */
+export type PaidWith = "cash" | "transfer" | "card" | "check" | "other";
+export const PAID_WITH: PaidWith[] = ["cash", "transfer", "card", "check", "other"];
+export const paidWithLabel = (t: T, p: PaidWith) =>
+  ({
+    cash: t("Cash", "Efectivo"),
+    transfer: t("Transfer", "Transferencia"),
+    card: t("Card", "Tarjeta"),
+    check: t("Check", "Cheque"),
+    other: t("Other", "Otro"),
+  })[p];
+
 export const methodLabel = (t: T, m: Method) =>
   ({
     declining: t("Installments · declining balance", "Cuotas · saldo decreciente"),

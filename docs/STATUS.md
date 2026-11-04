@@ -98,10 +98,11 @@ Problems found and fixed while testing:
 
 26. **Desktop: account required, cloud backups, restore for everyone.** Done 2026-11-04 (owner's decisions after two rounds of questions). The desktop needs an account (sign in or create one; Google brings the app back); it always shows a cloud business (welcome screen to create, accept an invitation or choose; sidebar switcher; "Use on this PC" gone); books kept only on a PC are offered once to move into a new business (`imports:desktopBook`, same mapping as `scripts/import-desktop.mjs`). Backups: Google Drive copies are on for accounts whose Google connection has `drive.file` (asked at Google sign-in), others can connect Drive; a daily local copy keeps the newest 7. Restore (admins): `imports:restoreBook` replaces a business's clients, loans, payments, late fees, money records and history with a backup's, checked like an import in one transaction; the team, invitations, settings, logo, each client's collector and ID photo (by record number) and collector payments whose loan is in the backup stay; record numbers carry on after the highest ever given; the desktop saves a copy first and asks for the business name.
 
+27. **Payment method on payments.** Done 2026-11-04 (desktop 0.13): `paidWith` (cash, transfer, card, check, other) on payments and collector payments, chosen when recording or editing (both apps start with the way used last on that device), printed on receipts, named in the history; older apps leave it out and edits from them keep it.
+
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
 - **Pricing and subscription plans:** plans, prices and billing; then a pricing section on the landing page.
-- **Payment method on payments:** record how each payment was made (cash, transfer, …) and let receipts show it. Not recorded today, so receipts can't show it yet.
 
 ## Waiting on you
 1. Deployment, email and Google sign-in are done.

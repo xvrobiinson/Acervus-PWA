@@ -29,7 +29,7 @@ import { checkCash } from "./lib/books";
 import { fail } from "./lib/errors";
 import { hitLimit } from "./rateLimit";
 import { amount, day, rate, text } from "./lib/validate";
-import { account, allocationMode, applied, contractStatus, frequency, installment, method } from "./schema";
+import { account, allocationMode, applied, contractStatus, frequency, installment, method, paidWith } from "./schema";
 
 const client = v.object({
   no: v.number(),
@@ -68,6 +68,7 @@ const payment = v.object({
   paidOn: v.string(),
   amount: v.number(),
   notes: v.string(),
+  paidWith: v.optional(paidWith),
   mode: allocationMode,
   targetSeq: v.optional(v.number()),
   targets: v.optional(v.array(v.object({ seq: v.number(), amount: v.number() }))),
@@ -393,6 +394,7 @@ async function writeBook(
         paidOn: p.paidOn,
         amount: p.amount,
         notes: p.notes,
+        ...(p.paidWith ? { paidWith: p.paidWith } : {}),
         ...paymentFields(p, plans.get(p.loanNo)!),
         recordedOffline: false,
         ...stamps(p.createdAt),

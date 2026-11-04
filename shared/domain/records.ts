@@ -72,6 +72,8 @@ export interface PaymentRecord {
   fee: Cents;
   applied: Applied[];
   notes?: string;
+  /** How it was paid (cash, transfer…), for its receipt. */
+  paidWith?: "cash" | "transfer" | "card" | "check" | "other";
 }
 
 export interface LateFeeRecord {

@@ -17,6 +17,7 @@ import {
   frequencyLabel,
   frequencyPer,
   methodLabel,
+  paidWithLabel,
   roleLabel,
 } from "./labels";
 import { numberStyleLabel, type NumberStyle } from "../../shared/domain/money";
@@ -128,6 +129,7 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
       method: t("Loan type", "Tipo de préstamo"),
       occurred_on: t("Date", "Fecha"),
       paid_on: t("Paid on", "Pagado el"),
+      paid_with: t("Paid with", "Forma de pago"),
       payments: t("Payments", "Pagos"),
       phone: t("Phone", "Teléfono"),
       rate: t("Interest rate", "Tasa de interés"),
@@ -174,6 +176,8 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
         return frequencyLabel(t, v as never) ?? v;
       case "method":
         return methodLabel(t, v as never) ?? v;
+      case "paid_with":
+        return paidWithLabel(t, v as never) ?? v;
       case "status":
         return contractStatusLabel(t, v as never) ?? v;
       case "role":

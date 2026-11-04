@@ -32,7 +32,7 @@ import {
 } from "../../shared/domain/records";
 import type { Fmt } from "../lib/format";
 import type { T } from "../lib/i18n";
-import { frequencyLabel, frequencyPer, methodShort } from "../lib/labels";
+import { frequencyLabel, frequencyPer, methodShort, paidWithLabel } from "../lib/labels";
 import { fill, linesFor, Wording, type RuleSet, type Tags } from "./wording";
 
 export interface ReceiptSettings {
@@ -376,6 +376,7 @@ export function paymentReceiptHtml(
 
   const show = receiptShow(c.settings);
   const paid = [row(t("Amount paid", "Monto pagado"), m(payment.amount), "total")];
+  if (payment.paidWith) paid.push(row(t("Paid with", "Forma de pago"), esc(paidWithLabel(t, payment.paidWith)), "sub"));
   if (payment.fee > 0 && show.lateFees) paid.push(row(installmentLoan ? t("Late fees", "Cargos por mora") : t("Fee", "Cargo"), m(payment.fee), "sub"));
   if (show.split) {
     paid.push(row(t("Interest", "Interés"), m(payment.interest), "sub"));
