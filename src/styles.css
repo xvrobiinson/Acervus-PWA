@@ -871,3 +871,18 @@ a.list-row:active, button.list-row:active { transform: scale(0.985); background:
 @keyframes lp-drift { from { background-position: 50% 0%, 0% 50%; } to { background-position: 50% 0%, 100% 50%; } }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* History: each change in plain words, label then old → new. */
+.hist-row { align-items: flex-start; }
+.hist-when { margin-top: 2px; }
+.hist-lines { margin: 8px 0 0; display: grid; grid-template-columns: minmax(120px, max-content) 1fr; column-gap: 16px; row-gap: 4px; }
+.hist-lines > div { display: contents; }
+.hist-lines dt { color: var(--muted); }
+.hist-lines dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.hist-old { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 55%, transparent); }
+.hist-arrow { color: var(--faint); margin: 0 6px; }
+.hist-reason { margin-top: 6px; color: var(--muted); font-style: italic; }
+@media (max-width: 560px) {
+  .hist-lines { grid-template-columns: 1fr; row-gap: 0; }
+  .hist-lines dd { margin-bottom: 6px; }
+}

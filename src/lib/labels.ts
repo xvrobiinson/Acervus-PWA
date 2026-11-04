@@ -4,6 +4,7 @@ import type { ContractStatus, DisplayStatus } from "../../shared/domain/ledger";
 import type { InstallmentStatus } from "../../shared/domain/installments";
 import type { Frequency, Method } from "../../shared/domain/loans";
 import type { Account, CapitalKind, EntryKind } from "../../shared/domain/portfolio";
+import type { ReceiptShow } from "../receipts/receipt";
 import type { T } from "./i18n";
 
 export const frequencyLabel = (t: T, f: Frequency) =>
@@ -111,3 +112,44 @@ export const CURRENCIES = [
 export function currencySymbol(code: string): string {
   return (CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0]).symbol;
 }
+
+/** The receipt part switches, grouped as Settings shows them. */
+export const RECEIPT_PART_GROUPS: [[string, string], [keyof ReceiptShow, string, string][]][] = [
+  [
+    ["Loan details", "Datos del préstamo"],
+    [
+      ["loanNumber", "Loan number", "Número de préstamo"],
+      ["amountLent", "Amount lent", "Monto prestado"],
+      ["rate", "Interest rate", "Tasa de interés"],
+      ["cycle", "Payment cycle", "Frecuencia de pago"],
+    ],
+  ],
+  [
+    ["Payment details", "Datos del pago"],
+    [
+      ["installments", "Installments covered", "Cuotas cubiertas"],
+      ["split", "Interest and capital split", "División entre interés y capital"],
+      ["lateFees", "Late fees", "Mora"],
+    ],
+  ],
+  [
+    ["Balances", "Saldos"],
+    [
+      ["balance", "Remaining balance", "Saldo pendiente"],
+      ["history", "Payment history", "Historial de pagos"],
+    ],
+  ],
+];
+
+export type CollectorViewPart = "amountLent" | "rate" | "contact" | "idNumber" | "history" | "lateFees" | "notes";
+
+/** What a collector can be shown, as the Team page lists it. */
+export const COLLECTOR_VIEW_PARTS: [CollectorViewPart, string, string][] = [
+  ["amountLent", "Amount lent", "Monto prestado"],
+  ["rate", "Interest rate", "Tasa de interés"],
+  ["contact", "Client phone and address", "Teléfono y dirección del cliente"],
+  ["idNumber", "Client ID number", "Cédula del cliente"],
+  ["history", "Payment history", "Historial de pagos"],
+  ["lateFees", "Late fees", "Mora"],
+  ["notes", "Client notes", "Notas del cliente"],
+];

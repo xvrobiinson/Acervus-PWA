@@ -12,7 +12,7 @@ import { NUMBER_STYLES, numberStyleLabel, type NumberStyle } from "../../shared/
 import { describeError } from "../lib/errors";
 import { exportCsv, exportJson } from "../lib/export";
 import { useLang, useT } from "../lib/i18n";
-import { CURRENCIES, frequencyLabel, roleLabel } from "../lib/labels";
+import { CURRENCIES, frequencyLabel, roleLabel, COLLECTOR_VIEW_PARTS, RECEIPT_PART_GROUPS } from "../lib/labels";
 import { defaultRules, tagList, whenHint, withRules, withText, Wording, wordingProblem, type RuleLine, type RuleSet, type When } from "../receipts/wording";
 import { useBooks } from "../state/app";
 import { AcervusLoader, Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
@@ -445,33 +445,6 @@ function useSaveSettings() {
   };
 }
 
-/** The receipt part switches, grouped as Settings shows them. */
-const SHOW_GROUPS: [[string, string], [keyof ReceiptShow, string, string][]][] = [
-  [
-    ["Loan details", "Datos del préstamo"],
-    [
-      ["loanNumber", "Loan number", "Número de préstamo"],
-      ["amountLent", "Amount lent", "Monto prestado"],
-      ["rate", "Interest rate", "Tasa de interés"],
-      ["cycle", "Payment cycle", "Frecuencia de pago"],
-    ],
-  ],
-  [
-    ["Payment details", "Datos del pago"],
-    [
-      ["installments", "Installments covered", "Cuotas cubiertas"],
-      ["split", "Interest and capital split", "División entre interés y capital"],
-      ["lateFees", "Late fees", "Mora"],
-    ],
-  ],
-  [
-    ["Balances", "Saldos"],
-    [
-      ["balance", "Remaining balance", "Saldo pendiente"],
-      ["history", "Payment history", "Historial de pagos"],
-    ],
-  ],
-];
 
 /** The settings a page's form starts from, and a setter for one of them. */
 function useSettingsForm() {
@@ -624,7 +597,7 @@ function ReceiptPartsCard() {
             "Se aplican a los recibos de pago y de préstamo. El nombre del negocio, los montos pagados, las fechas y el número de recibo siempre se imprimen. El recibo del préstamo es el acuerdo con el cliente: sin la tasa o el monto, ya no muestra esos términos ni las líneas de \"Cómo funcionan los pagos\".",
           )}
         </p>
-        {SHOW_GROUPS.map(([title, keys]) => (
+        {RECEIPT_PART_GROUPS.map(([title, keys]) => (
           <div key={title[0]}>
             <div className="micro muted strong" style={{ textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 6 }}>{t(title[0], title[1])}</div>
             {keys.map(([k, en, es]) => (
@@ -798,15 +771,6 @@ function WordingCard() {
 }
 
 const FULL_VIEW = { amountLent: true, rate: true, contact: true, idNumber: true, history: true, lateFees: true, notes: true };
-const VIEW_PARTS: [keyof typeof FULL_VIEW, string, string][] = [
-  ["amountLent", "Amount lent", "Monto prestado"],
-  ["rate", "Interest rate", "Tasa de interés"],
-  ["contact", "Client phone and address", "Teléfono y dirección del cliente"],
-  ["idNumber", "Client ID number", "Cédula del cliente"],
-  ["history", "Payment history", "Historial de pagos"],
-  ["lateFees", "Late fees", "Mora"],
-  ["notes", "Client notes", "Notas del cliente"],
-];
 
 type Member = NonNullable<ReturnType<typeof useQuery<typeof api.businesses.members>>>[number];
 const ROLE_ORDER = ["admin", "collector", "viewer"] as const;
@@ -864,7 +828,7 @@ function PeopleCard({ members, person, onPerson, onGone }: { members: Member[] |
           {person.role === "collector" && (
             <div data-instant>
               <div className="small strong">{t("Sees, for their assigned clients", "Ve, de sus clientes asignados")}</div>
-              {VIEW_PARTS.map(([k, en, es]) => (
+              {COLLECTOR_VIEW_PARTS.map(([k, en, es]) => (
                 <Check
                   key={k}
                   checked={current[k]}
