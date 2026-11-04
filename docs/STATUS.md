@@ -13,7 +13,7 @@
 - **Engine** (`shared/domain`): port of the desktop engine and services logic.
 - **Backend** (`convex/`):
   - multi-tenant schema;
-  - Better Auth (email codes, Google, per-account and safe per-IP rate limits);
+  - Better Auth (email codes, Google, per-account and safe per-IP rate limits, and since 2026-11-04 at most 30 new accounts an hour across the app, counted on codes sent to addresses with no account yet, so existing users are never held up);
   - authorization on every function;
   - clients, loans (with edited schedules), payments (4 allocation modes), late fees and waivers, defaults;
   - capital, expenses, income, transfers, adjustments;

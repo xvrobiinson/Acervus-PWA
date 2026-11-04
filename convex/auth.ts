@@ -34,6 +34,12 @@ const ACCOUNT_LIMITS: Record<string, { max: number; windowMs: number }> = {
   [SIGN_IN_CODE_PATH]: { max: 10, windowMs: 15 * 60_000 },
 };
 
+/** New accounts across the whole app, counted when a code goes to an
+ *  address that has no account yet (the code's sign-in creates it). Caps a
+ *  flood of sign-ups from many addresses and IPs; people who already have
+ *  an account are never held up by it. Google sign-ups go through Google. */
+const NEW_ACCOUNTS = { key: "auth:new-accounts", max: 30, windowMs: 60 * 60_000 };
+
 const IP_HEADERS = ["cf-connecting-ip", "x-forwarded-for", "x-real-ip"];
 
 /** A per-IP limit, applied only when the request says which IP it came
@@ -98,6 +104,12 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
         });
         if (!allowed) {
           throw new APIError("TOO_MANY_REQUESTS", { message: "Too many attempts. Wait a few minutes and try again." });
+        }
+        if (mw.path === SEND_CODE_PATH) {
+          const existing = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: email }] });
+          if (!existing && !(await ctx.runMutation(internal.rateLimit.hit, NEW_ACCOUNTS))) {
+            throw new APIError("TOO_MANY_REQUESTS", { message: "Too many new accounts are being made right now. Try again in a little while." });
+          }
         }
       }),
       after: createAuthMiddleware(async (mw) => {
