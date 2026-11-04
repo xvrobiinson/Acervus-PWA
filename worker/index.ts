@@ -1,6 +1,8 @@
 // The only server code in front of the PWA: serves the Windows installer at
 // /download/windows from this site's own address, and what is known about it
-// at /download/windows/info. Everything else is the built app (dist/),
+// at /download/windows/info (also what the desktop app's "Update available"
+// reads: the newest version, its SHA-256 and what's new in plain words).
+// Everything else is the built app (dist/),
 // answered by Cloudflare's static assets as before.
 //
 // The installer lives in the desktop app's GitHub releases; every release
@@ -59,7 +61,16 @@ export interface InstallerInfo {
   file: string;
   /** In bytes. */
   size: number | null;
+  /** The installer's SHA-256 (hex), from the release's SHA256SUMS.txt: the
+   *  desktop checks its download against it before running it. */
+  sha256: string | null;
+  /** What's new in this version, in plain words (the release's
+   *  whats-new.json, written with the version in the desktop repo). */
+  notes: { en: string[]; es: string[] } | null;
 }
+
+/** What GitHub says about the release itself. */
+type Found = Omit<InstallerInfo, "sha256" | "notes">;
 
 // Kept for a few minutes per server instance, so visitors don't each ask
 // GitHub (whose API allows few requests without a key).
@@ -68,7 +79,9 @@ let kept: { at: number; info: InstallerInfo } | null = null;
 
 export async function installerInfo(now = Date.now()): Promise<InstallerInfo> {
   if (kept && now - kept.at < KEEP_MS) return kept.info;
-  const info = (await fromApi()) ?? (await fromDownload());
+  const found = (await fromApi()) ?? (await fromDownload());
+  const [sha256, notes] = found.version ? await Promise.all([sumOf(found.version), notesOf(found.version)]) : [null, null];
+  const info: InstallerInfo = { ...found, sha256, notes };
   // Only a full answer is kept; a failed look is tried again next time.
   if (info.available && info.version) kept = { at: now, info };
   return info;
@@ -80,7 +93,7 @@ export function forgetInstallerInfo() {
 }
 
 /** The release page's data: version, date and the installer's size. */
-async function fromApi(): Promise<InstallerInfo | null> {
+async function fromApi(): Promise<Found | null> {
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: "application/vnd.github+json", "User-Agent": "acervus-finance-pwa", "X-GitHub-Api-Version": "2022-11-28" },
@@ -104,7 +117,7 @@ async function fromApi(): Promise<InstallerInfo | null> {
  *  Cloudflare's addresses are shared): the version from where "latest"
  *  leads, the date from the public releases feed, the size from the
  *  installer itself. */
-async function fromDownload(): Promise<InstallerInfo> {
+async function fromDownload(): Promise<Found> {
   let version: string | null = null;
   try {
     const r = await fetch(`https://github.com/${REPO}/releases/latest`, { method: "HEAD", redirect: "manual" });
@@ -124,6 +137,42 @@ async function fromDownload(): Promise<InstallerInfo> {
     /* unavailable */
   }
   return { available, version, published: version ? await feedDate(version) : null, file: FILE_NAME, size };
+}
+
+/** The release's files, by version (never "latest", which could move on
+ *  between two requests). */
+const asset = (version: string, name: string) => `https://github.com/${REPO}/releases/download/v${encodeURIComponent(version)}/${name}`;
+
+/** The installer's SHA-256 from the release's checksums. */
+async function sumOf(version: string): Promise<string | null> {
+  try {
+    const r = await fetch(asset(version, "SHA256SUMS.txt"), { redirect: "follow" });
+    if (!r.ok) return null;
+    for (const line of (await r.text()).split(/\r?\n/)) {
+      const [hash, name] = line.trim().split(/\s+\*?/);
+      if (name === FILE_NAME && /^[0-9a-f]{64}$/i.test(hash ?? "")) return hash.toLowerCase();
+    }
+  } catch {
+    /* unknown */
+  }
+  return null;
+}
+
+/** What's new, when the release has notes for this version (same major and
+ *  minor: a patch release keeps its version's notes). */
+async function notesOf(version: string): Promise<{ en: string[]; es: string[] } | null> {
+  try {
+    const r = await fetch(asset(version, "whats-new.json"), { redirect: "follow" });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { version?: unknown; en?: unknown; es?: unknown };
+    const lines = (v: unknown) =>
+      Array.isArray(v) && v.length > 0 && v.length <= 20 && v.every((s) => typeof s === "string" && s.length > 0 && s.length <= 300) ? (v as string[]) : null;
+    const [en, es] = [lines(j.en), lines(j.es)];
+    const same = typeof j.version === "string" && version.split(".").slice(0, 2).join(".") === j.version.split(".").slice(0, 2).join(".");
+    return en && es && same ? { en, es } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The release's date from the releases feed, only for the entry of that
