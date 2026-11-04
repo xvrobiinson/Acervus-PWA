@@ -94,6 +94,7 @@ Problems found and fixed while testing:
 22. **Animated loading page.** Done 2026-11-03 (the Rising Bars launch splash, see 6).
 23. **History in plain words.** PWA done (2026-11-03): each change names its record ("Loan #5 · José Martínez"), every field by its name in the app, values written the way the app shows them, switch groups list only the switches that moved, and the app's own late fee updates fold into one entry per loan (src/lib/history-text.ts). Desktop done (2026-11-04) the same way (src/ui/history.rs): client names in titles, old values struck through, late fees folded, the app's own notes translated.
 24. **Desktop Team buttons.** "Remove member" and "Revoke invite" were never clicked in a real test.
+25. **"Update available" button (desktop).** Shows only when a newer version exists: "Update available" in the sidebar's footer card next to the version, or a chip in the header. Clicking it opens a window with the new version number, what's new in plain words (English and Spanish, like the rest of the app) and an "Update now" or "Download" button. Added 2026-11-04 at the owner's request.
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
