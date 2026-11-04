@@ -271,8 +271,8 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
       // The subject already says it: "Expense", "Capital added", the loan's client.
       if (ch.field === "kind" && (c.entity === "entry" || c.entity === "capital")) continue;
       if (ch.field === "client" && c.entity === "loan" && names.loan(c.entityId)) continue;
-      // No late fee in a payment: nothing to say.
-      if (ch.field === "fee" && c.entity === "payment" && (ch.new || ch.old) === "0") continue;
+      // A part of a payment that was zero: nothing to say.
+      if (c.entity === "payment" && (ch.new || ch.old) === "0") continue;
       // "10% a month" on one line.
       if (ch.field === "interest_period" && fieldOf("rate")) continue;
       if (ch.field === "rate" && fieldOf("interest_period")) {
@@ -380,15 +380,33 @@ function runs(nums: number[]): string {
  *  dropped, by installment, with the totals. */
 export function describeFeeGroup(list: StoredChange[], t: T, fmt: Fmt, names: HistoryNames): HistoryText {
   const amount = (c: StoredChange, side: "old" | "new") => Number(c.changes.find((x) => x.field === "amount")?.[side] || 0);
-  const seqs = (cs: StoredChange[]) => `${t("Installments", "Cuotas")} ${runs(cs.map((c) => Number(c.entityId)))}`;
-  const sum = (cs: StoredChange[], side: "old" | "new") => fmt.money(cs.reduce((a, c) => a + amount(c, side), 0));
-  const added = list.filter((c) => c.action === "create");
-  const changed = list.filter((c) => c.action === "update");
-  const dropped = list.filter((c) => c.action === "delete");
+  const which = (n: number[]) => (n.length === 1 ? `${t("Installment", "Cuota")} ${n[0]}` : `${t("Installments", "Cuotas")} ${runs(n)}`);
+  // Per installment (newest first in `list`): from what it was before the
+  // oldest change to what the newest one left.
+  const added: number[] = [];
+  const changed: number[] = [];
+  const dropped: number[] = [];
+  let [addedNew, changedOld, changedNew, droppedOld] = [0, 0, 0, 0];
+  for (const seq of [...new Set(list.map((c) => Number(c.entityId)))].sort((a, b) => a - b)) {
+    const of = list.filter((c) => Number(c.entityId) === seq);
+    const [newest, oldest] = [of[0], of[of.length - 1]];
+    if (newest.action === "delete") {
+      if (oldest.action === "create") continue; // charged and dropped again: nothing left to say
+      dropped.push(seq);
+      droppedOld += amount(oldest, "old");
+    } else if (oldest.action === "create") {
+      added.push(seq);
+      addedNew += amount(newest, "new");
+    } else {
+      changed.push(seq);
+      changedOld += amount(oldest, "old");
+      changedNew += amount(newest, "new");
+    }
+  }
   const lines: HistoryLine[] = [];
-  if (added.length) lines.push({ label: `${t("Charged", "Cobrada")} · ${seqs(added)}`, value: sum(added, "new") });
-  if (changed.length) lines.push({ label: `${t("Recalculated", "Recalculada")} · ${seqs(changed)}`, from: sum(changed, "old"), to: sum(changed, "new") });
-  if (dropped.length) lines.push({ label: `${t("No longer overdue", "Ya no está vencida")} · ${seqs(dropped)}`, from: sum(dropped, "old"), to: fmt.money(0) });
+  if (added.length) lines.push({ label: `${t("Charged", "Cobrada")} · ${which(added)}`, value: fmt.money(addedNew) });
+  if (changed.length) lines.push({ label: `${t("Recalculated", "Recalculada")} · ${which(changed)}`, from: fmt.money(changedOld), to: fmt.money(changedNew) });
+  if (dropped.length) lines.push({ label: `${t("No longer overdue", "Ya no está vencida")} · ${which(dropped)}`, from: fmt.money(droppedOld), to: fmt.money(0) });
   return {
     subject: `${t("Late fees", "Moras")} · ${loanTitle(list[0]?.loanId, t, names)}`,
     lines,

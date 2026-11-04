@@ -92,7 +92,7 @@ Problems found and fixed while testing:
 20. **Same settings in both apps.** Done: Team, business name and time zone in the desktop; Sign out directly on the PWA's Settings page. PC-only: Google Drive, database backups, Diagnostics, keyboard shortcuts. MIN_DESKTOP_VERSION is 0.12.1, so collectors can't skip the switches on an older desktop.
 21. **Animated landing page.** Done 2026-11-03 (motion picked from previews, see 6).
 22. **Animated loading page.** Done 2026-11-03 (the Rising Bars launch splash, see 6).
-23. **History in plain words.** PWA done (2026-11-03): each change names its record ("Loan #5 · José Martínez"), every field by its name in the app, values written the way the app shows them, switch groups list only the switches that moved, and the app's own late fee updates fold into one entry per loan (src/lib/history-text.ts). Still to do: the same check on the desktop's history.
+23. **History in plain words.** PWA done (2026-11-03): each change names its record ("Loan #5 · José Martínez"), every field by its name in the app, values written the way the app shows them, switch groups list only the switches that moved, and the app's own late fee updates fold into one entry per loan (src/lib/history-text.ts). Desktop done (2026-11-04) the same way (src/ui/history.rs): client names in titles, old values struck through, late fees folded, the app's own notes translated.
 24. **Desktop Team buttons.** "Remove member" and "Revoke invite" were never clicked in a real test.
 
 ## Planned (upcoming, not started)

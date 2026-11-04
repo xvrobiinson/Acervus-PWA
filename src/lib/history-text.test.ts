@@ -88,8 +88,14 @@ describe("history in plain words", () => {
     const d = describeFeeGroup(folded[0] as StoredChange[], t, fmt, names);
     expect(d.subject).toBe("Late fees · Loan #4 · María Rodríguez");
     expect(d.lines).toEqual([
-      { label: "Recalculated · Installments 1", from: "RD$74.17", to: "RD$93.75" },
+      { label: "Recalculated · Installment 1", from: "RD$74.17", to: "RD$93.75" },
       { label: "No longer overdue · Installments 4–5", from: "RD$148.34", to: "RD$0.00" },
+    ]);
+    // The same installment worked out twice: first value to last, not added up.
+    const twice = describeFeeGroup([fee(3, "update", "200", "550"), fee(3, "update", "725", "200"), fee(2, "delete", "375", "")], t, fmt, names);
+    expect(twice.lines).toEqual([
+      { label: "Recalculated · Installment 3", from: "RD$7.25", to: "RD$5.50" },
+      { label: "No longer overdue · Installment 2", from: "RD$3.75", to: "RD$0.00" },
     ]);
   });
 });
