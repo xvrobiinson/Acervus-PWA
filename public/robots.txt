@@ -1,0 +1,4 @@
+﻿User-agent: *
+Allow: /
+
+Sitemap: https://acervus-finance-pwa.vz-labs.workers.dev/sitemap.xml
