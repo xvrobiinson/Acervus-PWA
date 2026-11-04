@@ -8,6 +8,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useT } from "./lib/i18n";
 import { releaseSplash, splashProgress } from "./lib/splash";
+import { leaveDemo } from "./demo/demo";
 import { InviteScreen, SignIn, SignUp, Welcome } from "./screens/auth";
 import { ClientDetail, ClientForm, ClientsScreen } from "./screens/clients";
 import { ConfirmScreen, MessagesButton } from "./screens/collect";
@@ -366,6 +367,22 @@ function StatusBanner({ waiting, review }: { waiting: number; review: number }) 
       return () => clearTimeout(timer);
     }
   }, [waiting, offline]);
+  // The demo says so, with the way to start for real.
+  if (app.mode === "demo") {
+    return (
+      <Banner
+        tone="info"
+        icon="info"
+        action={
+          <Button size="small" variant="primary" onClick={() => leaveDemo("/sign-up")}>
+            {t("Create a free account", "Crea una cuenta gratis")}
+          </Button>
+        }
+      >
+        {t("You're trying Acervus Finance with sample data. Nothing you do here is saved.", "Estás probando Acervus Finance con datos de ejemplo. Nada de lo que hagas aquí se guarda.")}
+      </Banner>
+    );
+  }
   return (
     <>
       {offlineShown.length > 0 ? (

@@ -9,6 +9,7 @@ import { Link } from "react-router";
 import { useLang, useT } from "../lib/i18n";
 import { Icon, type IconName } from "../ui/icons";
 import { reducedMotion } from "../ui/motion";
+import { startDemo } from "../demo/demo";
 import { DownloadSheet } from "./landing-download";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 
@@ -530,9 +531,9 @@ export function LandingScreen() {
               <Link to="/sign-up" className="lp-pill lp-glow lp-breathe">
                 {t("Get started", "Empezar")} <Icon name="chevron" />
               </Link>
-              <a href="#features" className="lp-pill glass">
-                {t("Explore features", "Ver funciones")}
-              </a>
+              <button type="button" className="lp-pill glass" onClick={startDemo}>
+                {t("Try the demo", "Prueba la demo")}
+              </button>
             </div>
           </div>
           <Shot
@@ -686,6 +687,9 @@ export function LandingScreen() {
             <Link to="/sign-up" className="lp-pill lp-glow">
               {t("Get started", "Empezar")}
             </Link>
+            <button type="button" className="lp-pill glass" onClick={startDemo}>
+              {t("Try the demo", "Prueba la demo")}
+            </button>
             <Link to="/sign-in" className="lp-pill glass">
               {t("Sign in", "Iniciar sesión")}
             </Link>

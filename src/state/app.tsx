@@ -12,6 +12,7 @@ import { authClient, cachedSessionUser } from "../lib/auth-client";
 import { errorData, isNetworkError } from "../lib/errors";
 import { makeFmt, type Fmt } from "../lib/format";
 import { SPLASH_INTRO_MS, splashNext } from "../lib/splash";
+import { demoBusiness, demoError, demoSnapshot, inDemo, leaveDemo } from "../demo/demo";
 import { useLang } from "../lib/i18n";
 import { enqueue, retryOp, syncOnce, withOutboxLock, type Classifier, type Sender, type SyncReport } from "../offline/outbox";
 import {
@@ -30,7 +31,8 @@ import {
 import { computeBooks, type Books } from "./books";
 import { can, type BusinessSummary, type Role, type Snapshot } from "./types";
 
-export type Mode = "loading" | "signed_out" | "online" | "offline";
+/** "demo": the landing page's "Try the demo", on sample data (src/demo). */
+export type Mode = "loading" | "signed_out" | "online" | "offline" | "demo";
 export interface User {
   id: string;
   email: string;
@@ -165,12 +167,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [me]);
 
+  // The demo, unless someone signed in meanwhile.
+  const [demo] = useState(inDemo);
   let mode: Mode;
   if (isAuthenticated && me) mode = "online";
+  else if (demo) mode = "demo";
   else if (lastUser && (!online || forcedOffline)) mode = "offline";
   else if (authLoading || (isAuthenticated && me === undefined)) mode = "loading";
   else mode = "signed_out";
-  const user: User | null = mode === "online" ? { id: me!.id, email: me!.email, name: me!.name } : mode === "offline" ? lastUser : null;
+  const user: User | null =
+    mode === "online"
+      ? { id: me!.id, email: me!.email, name: me!.name }
+      : mode === "offline"
+        ? lastUser
+        : mode === "demo"
+          ? { id: "demo", email: "", name: "Demo" }
+          : null;
   const userId = user?.id ?? null;
 
   // ----- businesses -------------------------------------------------------
@@ -186,7 +198,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (userId && liveBusinesses) void saveBusinesses(userId, liveBusinesses);
   }, [userId, liveBusinesses]);
-  const businesses = liveBusinesses ?? cachedBusinesses;
+  const businesses = mode === "demo" ? [demoBusiness] : (liveBusinesses ?? cachedBusinesses);
 
   const businessKey = userId ? `acervus.business.${userId}` : null;
   const [chosen, setChosen] = useState<string | null>(null);
@@ -253,11 +265,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!userId || !businessId || !live) return;
     void saveSnapshot(userId, businessId, live).then(() => setSavedAt(Date.now()));
   }, [userId, businessId, live]);
-  const snapshot = live ?? cached?.data ?? null;
+  const snapshot = mode === "demo" ? demoSnapshot : (live ?? cached?.data ?? null);
   const source = live ? "live" : cached ? "cache" : null;
 
   const timezone = business?.timezone ?? snapshot?.business.timezone ?? "UTC";
-  const today = live?.today ?? todayIn(timezone);
+  const today = mode === "demo" ? demoSnapshot.today : (live?.today ?? todayIn(timezone));
   const books = useMemo(() => (snapshot ? computeBooks(snapshot, today) : null), [snapshot, today]);
   const fmt = useMemo(() => makeFmt(snapshot?.settings, lang, today), [snapshot?.settings, lang, today]);
   const role = (snapshot?.me.role ?? business?.role) as Role | undefined;
@@ -335,6 +347,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const submit = useCallback(
     async (kind: OpKind, args: Record<string, unknown>, summary: QueuedOp["summary"], opId?: string): Promise<SubmitResult> => {
+      if (mode === "demo") throw demoError();
       if (!userId || !businessId) throw new Error("no business");
       const offline = mode !== "online" || !navigator.onLine || !convex.connectionState().isWebSocketConnected;
       const fullArgs = offline ? { ...args, deviceRecordedAt: Date.now() } : { ...args };
@@ -380,7 +393,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   const [leaving, setLeaving] = useState(false);
+  // In the demo nothing reaches the server: every save says it's a demo.
+  useEffect(() => {
+    if (mode !== "demo") return;
+    const { mutation, action } = convex;
+    convex.mutation = (() => Promise.reject(demoError())) as typeof mutation;
+    convex.action = (() => Promise.reject(demoError())) as typeof action;
+    return () => {
+      convex.mutation = mutation;
+      convex.action = action;
+    };
+  }, [mode, convex]);
+
   const signOut = useCallback(async () => {
+    if (mode === "demo") return leaveDemo();
     const id = userId;
     // The splash comes up at once and plays its intro while the session
     // ends, so the sign-in screen never flashes before it.
@@ -406,7 +432,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     await intro;
     splashNext("leave");
     location.assign("/sign-in");
-  }, [userId]);
+  }, [userId, mode]);
 
   const value: AppState = {
     mode,

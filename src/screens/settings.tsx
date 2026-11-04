@@ -48,9 +48,10 @@ function SignOutButton() {
 /** Deleting your own account: waits 7 days, and can be cancelled meanwhile. */
 function DeleteAccount() {
   const t = useT();
-  const { fmt } = useBooks();
+  const { fmt, mode } = useBooks();
   const toast = useToast();
-  const status = useQuery(api.account.status, {});
+  // The demo has no account to ask about.
+  const status = useQuery(api.account.status, mode === "demo" ? "skip" : {});
   const request = useMutation(api.account.requestDeletion);
   const [asking, setAsking] = useState(false);
   if (!status) return null;
@@ -780,10 +781,10 @@ const ROLE_ORDER = ["admin", "collector", "viewer"] as const;
  *  removes them. The cloud checks every change; this only asks for it. */
 function PeopleCard({ members, person, onPerson, onGone }: { members: Member[] | undefined; person: Member | undefined; onPerson: (id: Id<"members">) => void; onGone: () => void }) {
   const t = useT();
-  const { businessId, fmt, user } = useBooks();
+  const { businessId, fmt, user, mode } = useBooks();
   const toast = useToast();
   const guard = useSheetGuard();
-  const invites = useQuery(api.invites.list, { businessId });
+  const invites = useQuery(api.invites.list, mode === "demo" ? "skip" : { businessId });
   const invite = useAction(api.invites.create);
   const revoke = useMutation(api.invites.revoke);
   const setRole = useMutation(api.businesses.setRole);

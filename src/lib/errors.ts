@@ -178,6 +178,8 @@ export function describeError(t: T, f: Fmt, e: unknown): string {
 
 export function describeErrorData(t: T, f: Fmt, d: ErrorData): string {
   switch (d.code) {
+    case "demo":
+      return t("This is a demo with sample data, so nothing is saved. Create a free account to start your own.", "Esta es una demostración con datos de ejemplo, así que no se guarda nada. Crea una cuenta gratis para empezar la tuya.");
     case "unauthenticated":
       return t("Your session ended. Sign in again.", "Tu sesión terminó. Inicia sesión de nuevo.");
     case "email_not_verified":
