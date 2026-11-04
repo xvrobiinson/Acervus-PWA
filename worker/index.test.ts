@@ -97,7 +97,12 @@ describe("installer info", () => {
   });
 
   it("keeps a full answer for a while, and asks again after a failure", async () => {
-    const calls = stub(() => Response.json({ tag_name: "v1.0.0", published_at: null, assets: [{ name: "AcervusFinance-Setup.exe", size: 5 }] }));
+    // Every release publishes its checksums.
+    const sums = `${"a".repeat(64)}  AcervusFinance-Setup.exe
+`;
+    const calls = stub((url) =>
+      url.endsWith("SHA256SUMS.txt") ? new Response(sums) : Response.json({ tag_name: "v1.0.0", published_at: null, assets: [{ name: "AcervusFinance-Setup.exe", size: 5 }] }),
+    );
     const lookups = () => calls.filter((c) => c.includes("api.github.com")).length;
     await installerInfo(1_000);
     await installerInfo(2_000);
@@ -105,4 +110,12 @@ describe("installer info", () => {
     await installerInfo(1_000 + 11 * 60_000);
     expect(lookups()).toBe(2);
   });
+
+  it("doesn't keep an answer without the checksum (the desktop needs it to install)", async () => {
+    const calls = stub(() => Response.json({ tag_name: "v1.0.0", published_at: null, assets: [{ name: "AcervusFinance-Setup.exe", size: 5 }] }));
+    await installerInfo(1_000);
+    await installerInfo(2_000);
+    expect(calls.filter((c) => c.includes("api.github.com"))).toHaveLength(2);
+  });
+
 });

@@ -82,8 +82,9 @@ export async function installerInfo(now = Date.now()): Promise<InstallerInfo> {
   const found = (await fromApi()) ?? (await fromDownload());
   const [sha256, notes] = found.version ? await Promise.all([sumOf(found.version), notesOf(found.version)]) : [null, null];
   const info: InstallerInfo = { ...found, sha256, notes };
-  // Only a full answer is kept; a failed look is tried again next time.
-  if (info.available && info.version) kept = { at: now, info };
+  // Only a full answer is kept (the checksum included: the desktop needs it
+  // to install); a failed look is tried again next time.
+  if (info.available && info.version && info.sha256) kept = { at: now, info };
   return info;
 }
 
