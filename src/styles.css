@@ -685,7 +685,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .lp-tabs { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 5px; border-radius: 16px; background: var(--neutral-tint); margin-top: 40px; }
 .lp-tabs button { height: 38px; padding: 0 16px; border-radius: 12px; border: 0; background: none; color: var(--muted); font-weight: 500; font-size: 14px; cursor: pointer; }
 .lp-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px rgba(15, 18, 40, 0.1); }
-.lp-frame { margin-top: 22px; border-radius: 22px; padding: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 40px 90px rgba(15, 18, 40, 0.18); }
+.lp-frame { max-width: 1080px; margin: 22px auto 0; border-radius: 22px; padding: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 40px 90px rgba(15, 18, 40, 0.18); }
 .lp-frame img { width: 100%; border-radius: 14px; }
 .lp-caption { margin: 16px 0 0; color: var(--muted); font-size: 14px; }
 .lp-ways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 44px; }

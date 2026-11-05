@@ -100,7 +100,7 @@ Problems found and fixed while testing:
 
 27. **Payment method on payments.** Done 2026-11-04 (desktop 0.13): `paidWith` (cash, transfer, card, check, other) on payments and collector payments, chosen when recording or editing (both apps start with the way used last on that device), printed on receipts, named in the history; older apps leave it out and edits from them keep it.
 
-28. **Landing: smaller "what you get after signing up" screenshots.** The showcase pictures are too wide; make them more compact. Show the owner a preview with a few sizes before deploying. (Added 2026-11-05; the four showcase pictures were retaken in US$ the same day.)
+28. **Landing: smaller "what you get after signing up" screenshots.** Done 2026-11-05: the showcase frame is at most 1080px wide (owner picked Medium from a preview of four sizes); the four pictures were retaken in US$ the same day.
 29. **Light and dark switch on the landing page and in the apps.** A button at the top of the landing page (and in the apps) to switch between light and dark.
 30. **Desktop sidebar: Settings next to Back up.** Move Settings just above or below the Back up button at the sidebar's foot.
 31. **Messages as a single icon at the top.** Messages becomes one bell icon at the top instead of a sidebar row; show the owner examples to pick from first.
