@@ -1,7 +1,8 @@
 // The public landing page: what Acervus is, for visitors who are not signed
 // in. Signed-in people go straight to their app. Every feature named here is
 // one the app has; the screenshots are the desktop app on synthetic demo
-// data (public/landing). No prices, testimonials or figures are claimed.
+// data (public/landing; the hero's story is landing-hero.tsx). No prices,
+// testimonials or figures are claimed.
 
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -11,6 +12,7 @@ import { Icon, type IconName } from "../ui/icons";
 import { reducedMotion } from "../ui/motion";
 import { startDemo } from "../demo/demo";
 import { DownloadSheet } from "./landing-download";
+import { HeroDemo } from "./landing-hero";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 
 type Pair = [string, string];
@@ -184,8 +186,8 @@ const FAQ: { q: Pair; a: Pair }[] = [
   {
     q: ["Do I need internet to use Acervus?", "¿Necesito internet para usar Acervus?"],
     a: [
-      "The web and phone app needs a connection to start, then keeps working offline for recording clients, payments, expenses and income, and syncs when you are back online. The Windows app can work fully offline with no account at all.",
-      "La app web y de teléfono necesita conexión para empezar; luego sigue funcionando sin conexión para registrar clientes, pagos, gastos e ingresos, y se sincroniza cuando vuelves a conectarte. La app de Windows puede funcionar totalmente sin internet y sin cuenta.",
+      "The web and phone app needs a connection to start, then keeps working offline for recording clients, payments, expenses and income, and syncs when you are back online. The Windows app keeps working offline once you are signed in, and catches up when you are back online.",
+      "La app web y de teléfono necesita conexión para empezar; luego sigue funcionando sin conexión para registrar clientes, pagos, gastos e ingresos, y se sincroniza cuando vuelves a conectarte. La app de Windows sigue funcionando sin conexión una vez que inicias sesión, y se pone al día cuando vuelves a conectarte.",
     ],
   },
   {
@@ -536,11 +538,13 @@ export function LandingScreen() {
               </button>
             </div>
           </div>
-          <Shot
-            name="overview"
-            eager
-            className="lp-hero-shot"
-            alt={t("The Acervus Overview: portfolio value, capital lent out, interest earned and loans that need attention", "El Resumen de Acervus: valor del portafolio, capital prestado, interés cobrado y préstamos que requieren atención")}
+          <HeroDemo
+            es={!!es}
+            saved={t("Payment saved", "Pago guardado")}
+            alt={t(
+              "The Acervus Windows app recording a US$3,000 payment: the Overview, the payment form with the split into interest and capital, then the updated figures and the new payment on the Payments list",
+              "La app de Windows de Acervus registrando un pago de US$3,000: el Resumen, el formulario con la división entre interés y capital, y luego las cifras al día y el pago nuevo en la lista de Pagos",
+            )}
           />
         </div>
         <div className="lp-bar">
@@ -654,9 +658,9 @@ export function LandingScreen() {
               <h3>{t("Windows desktop app", "App de escritorio para Windows")}</h3>
               <ul>
                 <li><Check />{t("For Windows 10 and 11 (64-bit).", "Para Windows 10 y 11 (64 bits).")}</li>
-                <li><Check />{t("Works fully offline and private on your PC, no account needed.", "Funciona totalmente sin internet y en privado en tu PC, sin cuenta.")}</li>
-                <li><Check />{t("Or sign in to keep it in step with the web and phone app.", "O inicia sesión para mantenerla al día con la app web y de teléfono.")}</li>
-                <li><Check />{t("Backups on your PC or in your own Google Drive.", "Copias de seguridad en tu PC o en tu propio Google Drive.")}</li>
+                <li><Check />{t("Sign in with the same account and business as the web and phone app.", "Inicia sesión con la misma cuenta y el mismo negocio que en la app web y de teléfono.")}</li>
+                <li><Check />{t("Keeps working offline and catches up when you are back online.", "Sigue funcionando sin conexión y se pone al día cuando vuelves a conectarte.")}</li>
+                <li><Check />{t("Daily backups in your own Google Drive and on your PC.", "Copias de seguridad diarias en tu propio Google Drive y en tu PC.")}</li>
               </ul>
               <div className="lp-way-cta">
                 <button type="button" className="lp-pill light" onClick={openDownload}>

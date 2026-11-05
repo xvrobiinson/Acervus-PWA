@@ -832,6 +832,28 @@ a.list-row:active, button.list-row:active { transform: scale(0.985); background:
 .lp-rot > span.down { transform: translateY(55%); opacity: 0; transition: none; }
 /* The screenshot tilts into place, then trails the scroll a little. */
 .lp-hero-shot { transform: translateY(var(--para, 0px)); animation: lp-tilt 1100ms var(--spring) backwards 200ms; }
+/* The hero's app window (landing-hero.tsx): its whole width in view, so the
+   pointer's clicks are; the right edge runs off the hero. Pictures are 4:3. */
+.lp-hero-shot.lp-demo { left: 49%; top: 64px; width: 51%; min-width: 0; aspect-ratio: 1200 / 900; overflow: hidden; border-radius: 14px 0 0 14px; border-right: 0; background: #0f1220; }
+.lp-demo img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 240ms ease; user-select: none; -webkit-user-drag: none; }
+.lp-demo img.on { opacity: 1; } .lp-demo img.instant { transition: none; }
+.lp-demo img.typing { opacity: 1; transition: none; }
+.lp-demo-cover, .lp-demo-caret, .lp-demo-glow, .lp-demo-ripple, .lp-demo-cursor { position: absolute; pointer-events: none; }
+.lp-demo-caret { background: currentColor; animation: lp-blink 1s steps(1) infinite; }
+@keyframes lp-blink { 50% { opacity: 0; } }
+.lp-demo-glow { border-radius: 1.2%; opacity: 0; transition: opacity 300ms ease; box-shadow: 0 0 0 2px rgba(124, 108, 255, 0.85), 0 0 24px 4px rgba(124, 108, 255, 0.45); }
+.lp-demo-glow.on { opacity: 1; animation: lp-glow 1600ms ease-in-out infinite; }
+@keyframes lp-glow { 50% { box-shadow: 0 0 0 2px rgba(124, 108, 255, 0.6), 0 0 34px 8px rgba(124, 108, 255, 0.3); } }
+.lp-demo-toast { position: absolute; left: 50%; bottom: 6%; transform: translate(-50%, 160%); opacity: 0; display: flex; align-items: center; gap: 0.7em; padding: 0.85em 1.25em; border-radius: 0.9em;
+  background: #15171f; color: #fff; font-size: clamp(9px, 1vw, 15px); font-weight: 500; line-height: 1; white-space: nowrap; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 420ms var(--spring), opacity 240ms ease; }
+.lp-demo-toast.on { transform: translate(-50%, 0); opacity: 1; }
+.lp-demo-toast svg { width: 1.2em; height: 1.2em; }
+.lp-demo-cursor { z-index: 5; width: clamp(13px, 2.1%, 24px); transform: translate(-12%, -6%); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); transition: scale 110ms ease; }
+.lp-demo-cursor.down { scale: 0.86; } .lp-demo-cursor svg { display: block; width: 100%; height: auto; }
+.lp-demo-ripple { z-index: 4; width: 4.2%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(124, 108, 255, 0.9); transform: translate(-50%, -50%) scale(0.2); opacity: 0.9; animation: lp-ripple 520ms ease-out forwards; }
+@keyframes lp-ripple { to { transform: translate(-50%, -50%) scale(1.25); opacity: 0; } }
+@media (max-width: 900px) { .lp-hero-shot.lp-demo { left: auto; top: auto; width: calc(100% - 24px); } }
 @keyframes lp-tilt { from { transform: perspective(1400px) rotateX(22deg) translateY(70px) scale(0.94); opacity: 0; } }
 /* The main Get started glow breathes. */
 .lp-breathe { animation: lp-breathe 2.8s ease-in-out infinite; }
