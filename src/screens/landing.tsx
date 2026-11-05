@@ -9,6 +9,7 @@ import { flushSync } from "react-dom";
 import { Link } from "react-router";
 import { useLang, useT } from "../lib/i18n";
 import { Icon, type IconName } from "../ui/icons";
+import { ThemeButton } from "../ui/theme";
 import { reducedMotion } from "../ui/motion";
 import { startDemo } from "../demo/demo";
 import { DownloadSheet } from "./landing-download";
@@ -466,6 +467,7 @@ export function LandingScreen() {
             {downloadLink("lp-nav-download")}
           </nav>
           <div className="lp-right">
+            <ThemeButton className="lp-theme lp-wide-only" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
             <button type="button" className="lp-pill ghost bare lp-wide-only" onClick={flip}>
               {other}
             </button>
@@ -495,6 +497,7 @@ export function LandingScreen() {
               <button type="button" className="lp-pill ghost" onClick={flip}>
                 {other}
               </button>
+              <ThemeButton className="lp-theme" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
             </div>
           </div>
         )}

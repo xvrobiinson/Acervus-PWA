@@ -626,6 +626,10 @@ textarea.input { min-height: 88px; resize: vertical; }
 .lp-pill.glass { background: rgba(255, 255, 255, 0.08); color: #fff; border-color: rgba(255, 255, 255, 0.3); }
 .lp-pill.square { border-radius: 14px; height: 48px; }
 .lp-pill.big { height: 50px; padding: 0 26px; font-size: 15px; }
+.lp-theme { box-sizing: border-box; width: 42px; height: 42px; flex: 0 0 42px; border-radius: 21px; border: 1px solid var(--control); background: none; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background 160ms ease; }
+.lp-theme:hover { background: var(--hover, rgba(127,127,127,.1)); }
+.lp-theme:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lp-theme svg { width: 18px; height: 18px; }
 .lp-burger { display: none; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--control); background: none; color: var(--ink); align-items: center; justify-content: center; cursor: pointer; }
 .lp-burger svg { width: 20px; height: 20px; }
 .lp-menu { display: flex; flex-direction: column; padding-bottom: 16px; }

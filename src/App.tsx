@@ -25,6 +25,7 @@ import { SettingsScreen } from "./screens/settings";
 import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
+import { ThemeButton } from "./ui/theme";
 import { Banner, Button, RisingBars, Sheet } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
@@ -251,6 +252,7 @@ function Shell({ children }: { children: ReactNode }) {
           <img src="/pwa-64x64.png" alt="" />
           <span className="ellipsis grow">{app.business?.name}</span>
           {app.mode === "online" && <MessagesButton />}
+          <ThemeButton className="btn icon small" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
         </div>
         {nav.map(([to, icon, label]) => (
           <NavLink key={to} to={to} end={to === "/"}>

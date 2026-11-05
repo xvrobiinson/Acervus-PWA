@@ -30,6 +30,7 @@ import { useApp, useBooks } from "../state/app";
 import { GrowthChart } from "../ui/chart";
 import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented, Stat } from "../ui/kit";
 import { Icon } from "../ui/icons";
+import { ThemeButton } from "../ui/theme";
 import { useFlip } from "../ui/motion";
 import type { Fmt } from "../lib/format";
 
@@ -535,6 +536,9 @@ export function OverviewScreen() {
                 <MessagesButton />
               </span>
             )}
+            <span className="phone-only">
+              <ThemeButton className="btn icon small" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
+            </span>
             <Button variant="ghost" size="small" icon="sliders" aria-label={t("Arrange your Overview", "Organiza tu Resumen")} title={t("Arrange your Overview", "Organiza tu Resumen")} onClick={() => arrange(true)} />
             {can("record") && (
               <Button variant="primary" size="small" icon="receipt" onClick={() => open({ kind: "payment" })}>
