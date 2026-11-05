@@ -49,6 +49,10 @@ const paths: Record<string, string> = {
   arrows: "M7 16V4M3 8l4-4 4 4M17 8v12M21 16l-4 4-4-4",
   sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41",
   moon: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z",
+  caret: "m6 9 6 6 6-6",
+  calendar: "M4 5h16v16H4zM4 10h16M9 3v4M15 3v4",
+  panelClose: "M3 3h18v18H3zM9 3v18M16 15l-3-3 3-3",
+  panelOpen: "M3 3h18v18H3zM9 3v18M14 9l3 3-3 3",
 };
 
 export type IconName = keyof typeof paths;

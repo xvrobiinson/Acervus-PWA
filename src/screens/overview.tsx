@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEven
 import { addMonths, maxDay } from "../../shared/domain/dates";
 import { firstActivity, gain, history, netInvested, realizedIncome } from "../../shared/domain/portfolio";
 import { ratioLabel } from "../../shared/domain/money";
-import { useForms } from "../App";
 import { useT } from "../lib/i18n";
 import { displayStatusLabel } from "../lib/labels";
 import {
@@ -26,16 +25,16 @@ import {
   type OverviewLayout,
 } from "../lib/overview-layout";
 import { needsAttention } from "../state/books";
+import { PERIODS, interestIn, spans, type Period } from "../lib/periods";
 import { useApp, useBooks } from "../state/app";
 import { GrowthChart } from "../ui/chart";
 import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented, Stat } from "../ui/kit";
 import { Icon } from "../ui/icons";
-import { ThemeButton } from "../ui/theme";
 import { useFlip } from "../ui/motion";
 import type { Fmt } from "../lib/format";
 
 const fmtMoney = (fmt: Fmt, v: number) => fmt.money(v);
-import { MessagesButton, pendingStatus } from "./collect";
+import { pendingStatus } from "./collect";
 import { statusTone } from "./loans";
 
 /** The person's arrangement on this device, and a way to change it. */
@@ -63,14 +62,86 @@ function useOverviewLayout(userId: string | undefined) {
   return [layout, save] as const;
 }
 
+/** The period Interest earned shows, kept on this device per person. */
+function useStoredPeriod(userId: string | undefined) {
+  const key = `acervus.interestPeriod.${userId ?? "anon"}`;
+  const read = (): Period => {
+    try {
+      const v = localStorage.getItem(key) as Period | null;
+      return v && PERIODS.includes(v) ? v : "month";
+    } catch {
+      return "month";
+    }
+  };
+  const [period, set] = useState(read);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => set(read()), [key]);
+  const save = (p: Period) => {
+    set(p);
+    try {
+      localStorage.setItem(key, p);
+    } catch {
+      // Still applies until the app closes.
+    }
+  };
+  return [period, save] as const;
+}
+
+/** The small calendar button by Interest earned's title: a menu of periods. */
+function PeriodPicker({ value, names, onChange }: { value: Period; names: Record<Period, string>; onChange: (p: Period) => void }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  const label = t("Choose the period", "Elegir el período");
+  return (
+    <span className="period-pick" ref={box}>
+      <button type="button" className={`period-btn ${open ? "on" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}>
+        <Icon name="calendar" />
+      </button>
+      {open && (
+        <span className="period-menu" role="menu">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="menuitemradio"
+              aria-checked={p === value}
+              className={p === value ? "on" : ""}
+              onClick={() => {
+                onChange(p);
+                setOpen(false);
+              }}
+            >
+              {names[p]}
+              {p === value && <Icon name="check" />}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** What is being dragged while arranging. */
 type Dragged = { kind: "block"; id: Block } | { kind: "figure"; id: Figure };
 
 export function OverviewScreen() {
   const t = useT();
-  const { books, fmt, snapshot, today, can, role, mode } = useBooks();
+  const { books, fmt, snapshot, today, can, role } = useBooks();
   const { user } = useApp();
-  const open = useForms();
   const admin = can("manage");
   const s = books.summary;
   const [range, setRange] = useState<"3" | "6" | "12" | "all">("6");
@@ -88,6 +159,8 @@ export function OverviewScreen() {
   // A collector's own payments, waiting or decided, newest first.
   const mine = [...snapshot.pending].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
   const ret = ratioLabel(gain(s), netInvested(s));
+  const [period, setPeriod] = useStoredPeriod(user?.id);
+  const span = spans(period, today);
 
   // Arranging: what this person may see, in their order.
   const [layout, saveLayout] = useOverviewLayout(user?.id);
@@ -174,7 +247,25 @@ export function OverviewScreen() {
             />
           ),
         };
-      case "interestEarned":
+      case "interestEarned": {
+        const now = span ? interestIn(books.book, span.now) : realizedIncome(s);
+        const before = span ? interestIn(books.book, span.before) : 0;
+        const diff = now - before;
+        const pct = before > 0 ? ` (${diff >= 0 ? "+" : ""}${((diff / before) * 100).toFixed(1)}%)` : "";
+        const versus: Record<Period, string> = {
+          day: t("vs yesterday", "vs ayer"),
+          week: t("vs last week", "vs la semana pasada"),
+          month: t("vs last month", "vs el mes pasado"),
+          year: t("vs last year", "vs el año pasado"),
+          all: "",
+        };
+        const named: Record<Period, string> = {
+          day: t("Today", "Hoy"),
+          week: t("This week", "Esta semana"),
+          month: t("This month", "Este mes"),
+          year: t("This year", "Este año"),
+          all: t("All time", "Todo el tiempo"),
+        };
         return {
           label: t("Interest earned", "Interés cobrado"),
           el: (
@@ -183,12 +274,31 @@ export function OverviewScreen() {
               icon="chart"
               hue="pos"
               label={t("Interest earned", "Interés cobrado")}
-              value={fmt.money(realizedIncome(s))}
-              count={{ value: realizedIncome(s), format: fmt.money }}
-              caption={t(`${fmt.money(s.expectedMonthlyInterest)} expected a month`, `${fmt.money(s.expectedMonthlyInterest)} esperados al mes`)}
+              value={fmt.money(now)}
+              count={{ value: now, format: fmt.money }}
+              action={
+                editing ? undefined : (
+                  <PeriodPicker value={period} names={named} onChange={setPeriod} />
+                )
+              }
+              above={named[period]}
+              caption={
+                span ? (
+                  <>
+                    <span className={diff > 0 ? "pos" : diff < 0 ? "neg" : ""}>
+                      {fmt.signed(diff)}
+                      {pct}
+                    </span>{" "}
+                    {versus[period]}
+                  </>
+                ) : (
+                  t(`${fmt.money(s.expectedMonthlyInterest)} expected a month`, `${fmt.money(s.expectedMonthlyInterest)} esperados al mes`)
+                )
+              }
             />
           ),
         };
+      }
       case "active":
         return {
           label: t("Active loans", "Préstamos activos"),
@@ -529,24 +639,6 @@ export function OverviewScreen() {
           <h1>{greeting(t)}</h1>
           <div className="small muted ellipsis">{snapshot.business.name}</div>
         </div>
-        {!editing && (
-          <>
-            {mode === "online" && (
-              <span className="phone-only">
-                <MessagesButton />
-              </span>
-            )}
-            <span className="phone-only">
-              <ThemeButton className="btn icon small" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
-            </span>
-            <Button variant="ghost" size="small" icon="sliders" aria-label={t("Arrange your Overview", "Organiza tu Resumen")} title={t("Arrange your Overview", "Organiza tu Resumen")} onClick={() => arrange(true)} />
-            {can("record") && (
-              <Button variant="primary" size="small" icon="receipt" onClick={() => open({ kind: "payment" })}>
-                {t("Payment", "Pago")}
-              </Button>
-            )}
-          </>
-        )}
       </div>
       {editing && (
         <div className="ov-editbar">
@@ -595,6 +687,14 @@ export function OverviewScreen() {
           </div>
         )}
       </div>
+      {!editing && (
+        <div className="ov-arrange">
+          <button type="button" onClick={() => arrange(true)}>
+            <Icon name="sliders" />
+            {t("Arrange this Overview", "Organizar este Resumen")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

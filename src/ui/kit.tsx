@@ -139,7 +139,13 @@ export function Stat({
   icon,
   hue = "accent",
   count,
+  action,
+  above,
 }: {
+  /** A small line above the value (the period shown). */
+  above?: ReactNode;
+  /** A small control on the label's row (the period switch). */
+  action?: ReactNode;
   label: string;
   value: string;
   /** The number behind `value` and how to write it: counts up from 0 the
@@ -159,10 +165,12 @@ export function Stat({
             <Icon name={icon} />
           </span>
           {label}
+          {action}
         </div>
       ) : (
         <div className="label">{label}</div>
       )}
+      {above && <div className="above">{above}</div>}
       <div className={`value num-left ${tone ?? ""}`} style={{ textAlign: "left" }}>
         {count ? <CountUp value={count.value} format={count.format} final={value} /> : value}
       </div>

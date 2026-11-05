@@ -22,25 +22,36 @@ import { NewBusinessForm, PendingInvites } from "./auth";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 import { RateInput, useParseError, useRate } from "../ui/inputs";
 
-/** Sign out, on the page itself; warns when changes haven't reached the server. */
-function SignOutButton() {
+/** Signing out, warning first when changes haven't reached the server:
+ *  `start` begins it, `confirm` is the warning to render. Used by the
+ *  Settings page and the account menu. */
+export function useSignOut() {
   const t = useT();
   const app = useBooks();
   const [confirmOut, setConfirmOut] = useState(false);
   const unsynced = app.ops.filter((o) => o.status !== "synced").length;
+  const start = () => (unsynced ? setConfirmOut(true) : void app.signOut());
+  const confirm = confirmOut ? (
+    <Confirm title={t("Sign out with unsynced changes?", "¿Cerrar sesión con cambios sin sincronizar?")} confirmLabel={t("Sign out", "Cerrar sesión")} onClose={() => setConfirmOut(false)} onConfirm={() => app.signOut()}>
+      {t(
+        `${unsynced} change(s) made on this device haven't reached the server. They stay on this device and sync the next time you sign in here; the offline copy of the business is removed.`,
+        `${unsynced} cambio(s) hechos en este dispositivo no han llegado al servidor. Se quedan aquí y se sincronizan la próxima vez que inicies sesión en este dispositivo; la copia sin conexión del negocio se borra.`,
+      )}
+    </Confirm>
+  ) : null;
+  return { start, confirm };
+}
+
+/** Sign out, on the page itself. */
+function SignOutButton() {
+  const t = useT();
+  const { start, confirm } = useSignOut();
   return (
     <>
-      <Button icon="logout" onClick={() => (unsynced ? setConfirmOut(true) : void app.signOut())}>
+      <Button icon="logout" onClick={start}>
         {t("Sign out", "Cerrar sesión")}
       </Button>
-      {confirmOut && (
-        <Confirm title={t("Sign out with unsynced changes?", "¿Cerrar sesión con cambios sin sincronizar?")} confirmLabel={t("Sign out", "Cerrar sesión")} onClose={() => setConfirmOut(false)} onConfirm={() => app.signOut()}>
-          {t(
-            `${unsynced} change(s) made on this device haven't reached the server. They stay on this device and sync the next time you sign in here; the offline copy of the business is removed.`,
-            `${unsynced} cambio(s) hechos en este dispositivo no han llegado al servidor. Se quedan aquí y se sincronizan la próxima vez que inicies sesión en este dispositivo; la copia sin conexión del negocio se borra.`,
-          )}
-        </Confirm>
-      )}
+      {confirm}
     </>
   );
 }

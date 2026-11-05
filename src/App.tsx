@@ -25,8 +25,8 @@ import { SettingsScreen } from "./screens/settings";
 import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
-import { ThemeButton } from "./ui/theme";
-import { Banner, Button, RisingBars, Sheet } from "./ui/kit";
+import { AccountButton, BusinessSwitch, ThemePill } from "./ui/account";
+import { Banner, Button, RisingBars } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
 /** Running as the installed app (home screen or desktop window), where the
@@ -227,7 +227,6 @@ function Shell({ children }: { children: ReactNode }) {
   const app = useApp();
   const t = useT();
   const open = useForms();
-  const [quick, setQuick] = useState(false);
   const waiting = app.ops.filter((o) => o.status === "pending" || o.status === "syncing").length;
   const review = app.ops.filter((o) => o.status === "needs_review").length;
   const toConfirm = app.snapshot?.pending.filter((p) => p.status === "waiting").length ?? 0;
@@ -245,107 +244,149 @@ function Shell({ children }: { children: ReactNode }) {
     [t("Expense", "Gasto"), "wallet", () => open({ kind: "entry", entry: "expense" }), app.can("record")],
     [t("Income", "Ingreso"), "wallet", () => open({ kind: "entry", entry: "income" }), app.can("record")],
   ];
+  // The sidebar folded to icons, remembered on this device.
+  const [railed, setRailed] = useState(() => {
+    try {
+      return localStorage.getItem("acervus.rail") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const fold = () => {
+    const next = !railed;
+    setRailed(next);
+    try {
+      localStorage.setItem("acervus.rail", next ? "1" : "0");
+    } catch {
+      /* still folded for this visit */
+    }
+  };
+  const mark = <img src="/pwa-64x64.png" alt="" />;
   return (
-    <div className="shell">
+    <div className={`shell ${railed ? "railed" : ""}`}>
       <nav className="nav-rail" aria-label={t("Sections", "Secciones")}>
         <div className="brand">
-          <img src="/pwa-64x64.png" alt="" />
-          <span className="ellipsis grow">{app.business?.name}</span>
-          {app.mode === "online" && <MessagesButton />}
-          <ThemeButton className="btn icon small" label={(n) => (n === "dark" ? t("Switch to dark", "Cambiar a oscuro") : t("Switch to light", "Cambiar a claro"))} />
+          <BusinessSwitch>
+            {mark}
+            <span className="grow rail-label biz-name">{app.business?.name}</span>
+          </BusinessSwitch>
+          <button
+            type="button"
+            className="btn icon small ghost rail-fold"
+            aria-label={railed ? t("Show the sidebar", "Mostrar el menú") : t("Hide the sidebar", "Ocultar el menú")}
+            title={railed ? t("Show the sidebar", "Mostrar el menú") : t("Hide the sidebar", "Ocultar el menú")}
+            onClick={fold}
+          >
+            <Icon name={railed ? "panelOpen" : "panelClose"} />
+          </button>
         </div>
         {nav.map(([to, icon, label]) => (
-          <NavLink key={to} to={to} end={to === "/"}>
+          <NavLink key={to} to={to} end={to === "/"} title={label}>
             <Icon name={icon} />
-            {label}
+            <span className="rail-label">{label}</span>
           </NavLink>
         ))}
         {app.can("manage") && (
-          <NavLink to="/reports">
+          <NavLink to="/reports" title={t("Reports", "Reportes")}>
             <Icon name="chart" />
-            {t("Reports", "Reportes")}
+            <span className="rail-label">{t("Reports", "Reportes")}</span>
           </NavLink>
         )}
         {team && toConfirm > 0 && (
-          <NavLink to="/confirm">
+          <NavLink to="/confirm" title={t("To confirm", "Por confirmar")}>
             <Icon name="check" />
-            {t("To confirm", "Por confirmar")}
-            <span className="pill warn" style={{ marginLeft: "auto" }}>{toConfirm}</span>
+            <span className="rail-label">{t("To confirm", "Por confirmar")}</span>
+            <span className="pill warn rail-label" style={{ marginLeft: "auto" }}>{toConfirm}</span>
           </NavLink>
         )}
         {team && (
-          <NavLink to="/history">
+          <NavLink to="/history" title={t("History", "Historial")}>
             <Icon name="history" />
-            {t("History", "Historial")}
+            <span className="rail-label">{t("History", "Historial")}</span>
           </NavLink>
-        )}
-        <NavLink to="/sync">
-          <Icon name="sync" />
-          {t("Sync", "Sincronización")}
-          {waiting + review > 0 && <span className="pill warn" style={{ marginLeft: "auto" }}>{waiting + review}</span>}
-        </NavLink>
-        <NavLink to="/settings">
-          <Icon name="settings" />
-          {t("Settings", "Ajustes")}
-        </NavLink>
-        <div className="spacer" />
-        {app.can("record") && (
-          <Button variant="primary" icon="plus" onClick={() => setQuick(true)}>
-            {t("New", "Nuevo")}
-          </Button>
         )}
       </nav>
       <main className="main">
+        <header className="apphead">
+          <div className="apphead-biz">
+            <BusinessSwitch>
+              {mark}
+              <span className="ellipsis">{app.business?.name}</span>
+            </BusinessSwitch>
+          </div>
+          <div className="grow" />
+          <ThemePill />
+          {app.mode === "online" && <MessagesButton />}
+          <AccountButton />
+        </header>
         <StatusBanner waiting={waiting} review={review} />
         <UpdatePrompt />
         {children}
       </main>
       <nav className="tabbar" aria-label={t("Sections", "Secciones")}>
-        {[...nav, ["/more", "more", t("More", "Más")] as [string, IconName, string]].map(([to, icon, label]) => (
+        {[...nav, ...(team ? [["/more", "more", t("More", "Más")] as [string, IconName, string]] : [])].map(([to, icon, label]) => (
           <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `tab ${isActive ? "active" : ""}`}>
             <Icon name={icon} />
             {label}
-            {to === "/more" && waiting + review > 0 && <span className="dot" />}
+            {to === "/more" && toConfirm > 0 && <span className="dot" />}
           </NavLink>
         ))}
       </nav>
-      {app.can("record") && (
-        <button type="button" className="fab" aria-label={t("New", "Nuevo")} onClick={() => setQuick(true)}>
+      {app.can("record") && <AddButton items={quickItems.filter(([, , , ok]) => ok)} note={app.mode !== "online" && app.can("manage")} />}
+    </div>
+  );
+}
+
+/** The "+" button, bottom right on every screen: opens a stack of what can
+ *  be added, Record payment (used most) nearest the button. */
+function AddButton({ items, note }: { items: [string, IconName, () => void, boolean][]; note: boolean }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    first.current?.focus();
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [open]);
+  // Shown top to bottom; the first item (Record payment) ends up last, by the button.
+  const stack = [...items].reverse();
+  return (
+    <>
+      <div className={`add-scrim ${open ? "on" : ""}`} onClick={() => setOpen(false)} aria-hidden="true" />
+      <div className={`add ${open ? "open" : ""}`}>
+        <div className="add-stack" role="menu" aria-label={t("Add", "Agregar")} aria-hidden={!open}>
+          {note && <p className="add-note">{t("New loans need a connection.", "Los préstamos nuevos necesitan conexión.")}</p>}
+          {stack.map(([label, icon, go], i) => {
+            const primary = i === stack.length - 1;
+            return (
+              <button
+                key={label}
+                ref={primary ? first : undefined}
+                type="button"
+                role="menuitem"
+                tabIndex={open ? 0 : -1}
+                className={`add-item ${primary ? "primary" : ""}`}
+                style={{ transitionDelay: open ? `${(stack.length - 1 - i) * 30}ms` : "0ms" }}
+                onClick={() => {
+                  setOpen(false);
+                  go();
+                }}
+              >
+                <span className="ic">
+                  <Icon name={icon} />
+                </span>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" className="fab" aria-label={open ? t("Close", "Cerrar") : t("Add", "Agregar")} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
           <Icon name="plus" />
         </button>
-      )}
-      {quick && (
-        <Sheet title={t("New", "Nuevo")} onClose={() => setQuick(false)}>
-          <ul className="list">
-            {quickItems
-              .filter(([, , , ok]) => ok)
-              .map(([label, icon, go]) => (
-                <li key={label}>
-                  <button
-                    type="button"
-                    className="list-row"
-                    onClick={() => {
-                      setQuick(false);
-                      go();
-                    }}
-                  >
-                    <span className="avatar">
-                      <Icon name={icon} width={18} height={18} />
-                    </span>
-                    <span className="title grow">{label}</span>
-                    <Icon name="chevron" width={18} height={18} />
-                  </button>
-                </li>
-              ))}
-          </ul>
-          {app.mode !== "online" && app.can("manage") && (
-            <p className="small muted">
-              {t("New loans need a connection: they move money between accounts.", "Los préstamos nuevos necesitan conexión: mueven dinero entre cuentas.")}
-            </p>
-          )}
-        </Sheet>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
 
