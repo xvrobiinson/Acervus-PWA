@@ -104,6 +104,7 @@ Problems found and fixed while testing:
 29. **Light and dark switch on the landing page and in the apps.** A button at the top of the landing page (and in the apps) to switch between light and dark.
 30. **Desktop sidebar: Settings next to Back up.** Move Settings just above or below the Back up button at the sidebar's foot.
 31. **Messages as a single icon at the top.** Messages becomes one bell icon at the top instead of a sidebar row; show the owner examples to pick from first.
+32. **Interest earned card on the Overview.** A card showing the interest earned, with a filter for Today, This week, This month, This year and All time. Both apps, and it works with Arrange the Overview (can be shown, hidden and moved). Added 2026-11-05 at the owner's request. To decide: whether collectors and viewers see it, since business totals are hidden from them (see 1).
 
 ## Planned (upcoming, not started)
 - **Custom domain:** serve Acervus Finance from the owner's own domain instead of only the Cloudflare Workers address.
