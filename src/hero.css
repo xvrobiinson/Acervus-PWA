@@ -426,8 +426,8 @@
 @media (prefers-color-scheme: dark) { :root.hero-ui:not([data-theme="light"]) { --hero-bad: #ff8a8a; } }
 .fig-row b.chip-bad { background: none; padding: 0; border-radius: 0; color: var(--hero-bad); font-weight: 600; }
 
-/* ----- the landing page in the same look (owner, 2026-11-06) ----- */
-.lp {
+/* ----- the landing page and the sign-in pages in the same look (owner, 2026-11-06) ----- */
+.lp, .auth {
   --ground: #e6e9eb; --surface: #ffffff; --surface-top: #ffffff; --raised: #f6f7f8; --hover: #f1f3f4; --active: #e8ebed;
   --border: #e3e6e9; --rule: #eef0f2; --control: #d3d7da; --ink: #1a1d21; --lp-muted: #5f656b; --faint: #7d838a;
   --accent: #3b3e41; --accent-deep: #25282b; --accent-tint: #eceef0; --accent-text: #25282b; --on-accent: #ffffff;
@@ -435,7 +435,7 @@
   --lp-img: url("/hero/fog.jpg"); --lp-base: #a4a8aa; --lp-cta: #3b3e41; --lp-cta-ink: #ffffff;
   background: var(--ground);
 }
-:root[data-theme="dark"] .lp {
+:root[data-theme="dark"] .lp, :root[data-theme="dark"] .auth {
   --ground: #0b0c0e; --surface: #15181c; --surface-top: #191c21; --raised: #1b1f24; --hover: #21252b; --active: #292e35;
   --border: #262b32; --rule: #1f2329; --control: #363c44; --ink: #eceef0; --lp-muted: #9ba2a9; --faint: #858c93;
   --accent: #eceef0; --accent-deep: #ffffff; --accent-tint: #262b31; --accent-text: #eceef0; --on-accent: #15181b;
@@ -443,7 +443,7 @@
   --lp-img: url("/hero/streaks.jpg"); --lp-base: #040405; --lp-cta: #f1f2f3; --lp-cta-ink: #111316;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .lp {
+  :root:not([data-theme="light"]) .lp, :root:not([data-theme="light"]) .auth {
     --ground: #0b0c0e; --surface: #15181c; --surface-top: #191c21; --raised: #1b1f24; --hover: #21252b; --active: #292e35;
     --border: #262b32; --rule: #1f2329; --control: #363c44; --ink: #eceef0; --lp-muted: #9ba2a9; --faint: #858c93;
     --accent: #eceef0; --accent-deep: #ffffff; --accent-tint: #262b31; --accent-text: #eceef0; --on-accent: #15181b;
@@ -478,3 +478,12 @@
 /* The landing demo's typed amount: right-aligned digits over the field. */
 .lp-demo-cover { display: flex; align-items: center; justify-content: flex-end; padding: 0; font-family: Inter, system-ui, sans-serif; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
 .lp-demo-cover[hidden] { display: none; }
+
+/* The sign-in pages (and the start-up messages): the fog or the streaks behind one solid card. */
+.auth { --muted: var(--lp-muted); background: linear-gradient(180deg, transparent 55%, color-mix(in srgb, var(--ground) 70%, transparent) 100%), var(--lp-img) center / cover no-repeat, var(--lp-base); }
+.auth::before, .auth::after { display: none; }
+.auth-card, .auth .panel { background: var(--surface); border: 1px solid var(--border); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 30px 60px -24px rgba(10, 12, 16, 0.45); }
+.auth .panel { border-radius: 22px; padding: 28px; }
+.auth-tile { background: var(--raised); box-shadow: none; border: 1px solid var(--border); }
+.auth-brand { color: var(--ink); }
+.auth-legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
