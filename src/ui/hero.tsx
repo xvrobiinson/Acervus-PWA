@@ -79,10 +79,20 @@ export interface NavItem {
 
 export function HeroHeader({ nav, right }: { nav: NavItem[]; right: ReactNode }) {
   const t = useT();
+  const app = useApp();
+  const { snapshot } = useBooks();
+  const name = app.business?.name ?? snapshot.business.name;
   useFold();
   return (
     <header className="hero-top">
       <div className="hero-bar">
+        {/* Phones: the business in the slim bar that stays on top. */}
+        <div className="bar-biz">
+          <BusinessSwitch>
+            <BizMark name={name} logo={snapshot.settings?.logoUrl ?? null} small />
+            <span className="bar-biz-name">{name}</span>
+          </BusinessSwitch>
+        </div>
         <nav className="hero-nav" aria-label={t("Sections", "Secciones")}>
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === "/"}>
@@ -124,7 +134,12 @@ function Identity() {
     <div className="hero-id">
       <div className="who">
         <div className="date">{date.charAt(0).toUpperCase() + date.slice(1)}</div>
-        <div className="greet">{greeting(t)}</div>
+        <div className="greet">
+          <span className="sep" aria-hidden="true">
+            {" · "}
+          </span>
+          {greeting(t)}
+        </div>
         <BusinessSwitch>
           <BizMark name={name} logo={logo} />
           <span className="biz-title">{name}</span>
@@ -175,6 +190,7 @@ export function SearchBox() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState(0);
+  const [full, setFull] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -185,7 +201,7 @@ export function SearchBox() {
       }
     };
     const away = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      if (box.current && !box.current.contains(e.target as Node) && !box.current.classList.contains("full")) setOpen(false);
     };
     document.addEventListener("keydown", key);
     document.addEventListener("pointerdown", away);
@@ -227,9 +243,13 @@ export function SearchBox() {
   useEffect(() => setAt(0), [q]);
   // Another page: the results close.
   const { pathname } = useLocation();
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+    setFull(false);
+  }, [pathname]);
   const go = (h: Hit) => {
     setOpen(false);
+    setFull(false);
     setQ("");
     input.current?.blur();
     navigate(h.to);
@@ -237,7 +257,19 @@ export function SearchBox() {
   const show = open && q.trim().length > 0;
   const label = t("Search clients and loans", "Buscar clientes y préstamos");
   return (
-    <div className="hero-search" ref={box}>
+    <div className={`hero-search ${full ? "full" : ""}`} ref={box}>
+      <button
+        type="button"
+        className="glass-pill icon search-open"
+        aria-label={label}
+        onClick={() => {
+          setFull(true);
+          setOpen(true);
+          requestAnimationFrame(() => input.current?.focus());
+        }}
+      >
+        <Icon name="search" />
+      </button>
       <label className="glass-pill search-pill">
         <input
           ref={input}
@@ -258,6 +290,7 @@ export function SearchBox() {
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               setOpen(false);
+              setFull(false);
               input.current?.blur();
             } else if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -274,6 +307,19 @@ export function SearchBox() {
         <span className="search-ic" aria-hidden="true">
           <Icon name="search" />
         </span>
+        {full && (
+          <button
+            type="button"
+            className="search-cancel"
+            onClick={() => {
+              setFull(false);
+              setOpen(false);
+              setQ("");
+            }}
+          >
+            {t("Cancel", "Cancelar")}
+          </button>
+        )}
       </label>
       {show && (
         <div className="hero-pop search-results" id="hero-search-results" role="listbox" aria-label={label}>

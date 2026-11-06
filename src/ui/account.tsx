@@ -14,6 +14,7 @@ import { useSignOut } from "../screens/settings";
 import { useApp } from "../state/app";
 import { Icon, type IconName } from "./icons";
 import { Sheet } from "./kit";
+import { openReports } from "../screens/reports-panel";
 
 type Theme = "light" | "dark";
 
@@ -156,9 +157,9 @@ function usePopover() {
   return { open, setOpen, box };
 }
 
-function MenuItem({ icon, title, sub, onClick, trail }: { icon: ReactNode; title: string; sub?: string; onClick: () => void; trail?: ReactNode }) {
+function MenuItem({ icon, title, sub, onClick, trail, className }: { icon: ReactNode; title: string; sub?: string; onClick: () => void; trail?: ReactNode; className?: string }) {
   return (
-    <button type="button" role="menuitem" className="menu-item" onClick={onClick}>
+    <button type="button" role="menuitem" className={`menu-item ${className ?? ""}`} onClick={onClick}>
       <span className="ic">{icon}</span>
       <span className="tx">
         <b>{title}</b>
@@ -304,6 +305,28 @@ export function AccountButton() {
               onNew={() => {
                 setOpen(false);
                 setCreating(true);
+              }}
+            />
+          </div>
+          <div className="acct-sec phone-only">
+            {role !== "collector" && (
+              <MenuItem
+                icon={<Icon name="receipt" />}
+                title={t("Reports", "Reportes")}
+                sub={t("Monthly statement, collections, overdue", "Estado mensual, cobros, atrasos")}
+                onClick={() => {
+                  setOpen(false);
+                  openReports();
+                }}
+              />
+            )}
+            <MenuItem
+              icon={<Icon name="sliders" />}
+              title={t("Customize figures", "Personalizar cifras")}
+              sub={t("Which figures the Overview shows", "Qué cifras muestra el Resumen")}
+              onClick={() => {
+                setOpen(false);
+                navigate("/?customize=1");
               }}
             />
           </div>

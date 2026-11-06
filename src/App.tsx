@@ -235,12 +235,15 @@ function Shell({ children }: { children: ReactNode }) {
   const review = app.ops.filter((o) => o.status === "needs_review").length;
   const toConfirm = app.snapshot?.pending.filter((p) => p.status === "waiting").length ?? 0;
   const team = app.role !== "collector";
-  // The phone's tab bar.
-  const nav: [string, IconName, string][] = [
+  // The phone's floating bar: Overview, Clients, the + (when the person may
+  // add), Loans, More (Payments, Portfolio, Money and History are there).
+  const canAdd = app.can("record");
+  const nav: ([string, IconName, string] | null)[] = [
     ["/", "home", t("Overview", "Resumen")],
     ["/clients", "users", t("Clients", "Clientes")],
+    ...(canAdd ? [null] : []),
     ["/loans", "loans", t("Loans", "Préstamos")],
-    ...(app.can("manage") ? [["/money", "wallet", t("Money", "Dinero")] as [string, IconName, string]] : []),
+    ["/more", "more", t("More", "Más")],
   ];
   // The hero's section nav (wide screens).
   const heroNav: NavItem[] = [
@@ -300,14 +303,19 @@ function Shell({ children }: { children: ReactNode }) {
             {children}
           </div>
         </main>
-      <nav className="tabbar" aria-label={t("Sections", "Secciones")}>
-        {[...nav, ...(team ? [["/more", "more", t("More", "Más")] as [string, IconName, string]] : [])].map(([to, icon, label]) => (
-          <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `tab ${isActive ? "active" : ""}`}>
-            <Icon name={icon} />
-            {label}
-            {to === "/more" && toConfirm > 0 && <span className="dot" />}
-          </NavLink>
-        ))}
+      <nav className={`tabbar pill-bar ${canAdd ? "with-add" : ""}`} aria-label={t("Sections", "Secciones")}>
+        {nav.map((item) =>
+          item === null ? (
+            // The + button (AddButton below) sits in this gap.
+            <span key="add" className="tab-gap" aria-hidden="true" />
+          ) : (
+            <NavLink key={item[0]} to={item[0]} end={item[0] === "/"} className={({ isActive }) => `tab ${isActive ? "active" : ""}`}>
+              <Icon name={item[1]} />
+              {item[2]}
+              {item[0] === "/more" && team && toConfirm > 0 && <span className="dot" />}
+            </NavLink>
+          ),
+        )}
       </nav>
         {app.can("record") && <AddButton items={quickItems.filter(([, , , ok]) => ok)} note={app.mode !== "online" && app.can("manage")} />}
       </div>

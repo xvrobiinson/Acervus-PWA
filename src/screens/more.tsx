@@ -1,4 +1,5 @@
-// The phone's "More" tab: the sections that don't fit the tab bar.
+// The phone's "More" tab: the sections that don't fit the floating bar
+// (Overview, Clients, +, Loans, More).
 
 import { useT } from "../lib/i18n";
 import { roleLabel } from "../lib/labels";
@@ -12,8 +13,10 @@ export function MoreScreen() {
   const toConfirm = snapshot.pending.filter((p) => p.status === "waiting").length;
   const team = role !== "collector";
   const items: [string, IconName, string, number?][] = [
-    ...(team && toConfirm > 0 ? [["/confirm", "check", t("To confirm", "Por confirmar"), toConfirm] as [string, IconName, string, number]] : []),
-    ...(can("manage") ? [["/reports", "chart", t("Reports", "Reportes")] as [string, IconName, string]] : []),
+    ["/payments", "receipt", t("Payments", "Pagos")],
+    ...(team && toConfirm > 0 ? [["/payments?tab=confirm", "check", t("To confirm", "Por confirmar"), toConfirm] as [string, IconName, string, number]] : []),
+    ...(can("manage") ? [["/reports", "chart", t("Portfolio", "Portafolio")] as [string, IconName, string]] : []),
+    ...(can("manage") ? [["/money", "wallet", t("Money", "Dinero")] as [string, IconName, string]] : []),
     ...(team ? [["/history", "history", t("History", "Historial")] as [string, IconName, string]] : []),
   ];
   return (

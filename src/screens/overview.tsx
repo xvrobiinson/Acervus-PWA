@@ -6,6 +6,8 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { addDays, addMonths, maxDay, monthStart } from "../../shared/domain/dates";
 import { firstActivity, history, netInvested, realizedIncome } from "../../shared/domain/portfolio";
@@ -190,6 +192,7 @@ export function OverviewScreen() {
   const [period, setPeriod] = useAccountPref<Period>("interestPeriod", `acervus.interestPeriod.${user?.id ?? "anon"}`, (v) => (v && PERIODS.includes(v as Period) ? (v as Period) : "month"), (p) => p);
   const [hero, saveHero] = useAccountPref<HeroLayout>("hero", `acervus.hero.${user?.id ?? "anon"}`, (v) => parseHero(v, heroRole), (l) => JSON.stringify(l));
   const layoutHero = useMemo(() => parseHero(hero, heroRole), [hero, heroRole]);
+  const [figAt, setFigAt] = useState(0);
 
   // ----- the figures -----
   const values = useMemo(() => {
@@ -234,9 +237,18 @@ export function OverviewScreen() {
     return v;
   }, [t, period, today, books, s, fmt, snapshot.payments, waitingSum, setPeriod]);
 
+  // Phones swipe through the figures one at a time; the dots follow.
+  const shownFigs = shownSlots(layoutHero).length;
   const heroFigures = (
     <InHero slot="figures">
-      <div className="hero-figures">
+      <div
+        className="hero-figures"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const card = el.firstElementChild as HTMLElement | null;
+          if (card) setFigAt(Math.round(el.scrollLeft / (card.offsetWidth + 10)));
+        }}
+      >
         {shownSlots(layoutHero).map(({ slot, rows }, i) => {
           const big = slot.big === "none" ? null : values[slot.big];
           return (
@@ -266,6 +278,13 @@ export function OverviewScreen() {
           );
         })}
       </div>
+      {shownFigs > 1 && (
+        <div className="fig-dots" aria-hidden="true">
+          {Array.from({ length: shownFigs }, (_, i) => (
+            <i key={i} className={i === figAt ? "on" : ""} />
+          ))}
+        </div>
+      )}
     </InHero>
   );
 
@@ -628,7 +647,35 @@ const fmtMoney = (fmt: Fmt, v: number) => fmt.money(v);
  *  empty; a place with nothing in it disappears. */
 function CustomizeFigures({ layout, role, labels, onChange }: { layout: HeroLayout; role: HeroRole; labels: Record<HeroFigure, FigureValue>; onChange: (l: HeroLayout) => void }) {
   const t = useT();
-  const { open, setOpen, box } = usePopover();
+  // On the page itself (above the figures and the floating bar): under its
+  // button on wide screens, a sheet from the bottom on phones.
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const r = box.current?.getBoundingClientRect();
+    setAt(r && r.width > 0 ? { top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) } : null);
+    const away = (e: PointerEvent) => {
+      const n = e.target as Node;
+      if (!box.current?.contains(n) && !pop.current?.contains(n)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+  // From the account menu on phones: /?customize=1 opens it once.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("customize") !== "1") return;
+    setOpen(true);
+    setParams({}, { replace: true });
+  }, [params, setParams, setOpen]);
   const allowed = allowedFigures(role);
   const label = t("Customize figures", "Personalizar cifras");
   const select = (i: number, spot: "big" | 0 | 1, value: Pick) => (
@@ -652,8 +699,9 @@ function CustomizeFigures({ layout, role, labels, onChange }: { layout: HeroLayo
       <button type="button" className={`glass-pill icon ${open ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}>
         <Icon name="sliders" />
       </button>
-      {open && (
-        <div className="hero-pop custom-pop" role="dialog" aria-label={label}>
+      {open &&
+        createPortal(
+        <div ref={pop} className="hero-pop custom-pop" role="dialog" aria-label={label} style={at ? { top: at.top, right: at.right } : undefined}>
           <h4>{t("Your figures", "Tus cifras")}</h4>
           <div className="custom-grid">
             {layout.map((slot, i) => (
@@ -677,8 +725,9 @@ function CustomizeFigures({ layout, role, labels, onChange }: { layout: HeroLayo
               {t("Done", "Listo")}
             </Button>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </span>
   );
 }

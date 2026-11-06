@@ -160,7 +160,7 @@
 
 /* customize figures */
 .hero-custom { position: relative; }
-.custom-pop { right: 0; top: calc(100% + 8px); width: min(760px, calc(100vw - 32px)); padding: 16px; }
+.custom-pop { position: fixed; z-index: 95; right: 16px; top: 120px; width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 140px); overflow-y: auto; padding: 16px; }
 .custom-pop h4 { margin: 0 0 8px; }
 .custom-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .custom-slot { display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--raised); }
@@ -341,17 +341,79 @@
 .sheet-panel .list.boxed .list-row { border-radius: 14px; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .paid-back .bar i { animation: none; } }
 
-/* Phones until the phone pass: figures one per row so money is never cut,
-   and the business's buttons wrap under its name. */
-@media (max-width: 699px) {
-  .hero-figures { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .hero-fig { padding: 13px 15px 12px; }
-  .fig-big { font-size: 30px; }
-  .fig-rows { margin-top: 8px; gap: 5px; }
-  .hero-id { flex-wrap: wrap; align-items: center; }
-  .hero-id .who { flex: 1 1 100%; }
-  .hero-acts { margin-left: 0; }
-  .biz-title { white-space: normal; }
-  /* The tab bar does the moving around; the header scrolls away. */
-  .hero-top { position: relative; }
+/* ----- phones (picked 2026-11-06: swipe figures, floating pill bar) ----- */
+.bar-biz, .hero-search .search-open, .fig-dots, .hero-id .greet .sep { display: none; }
+@media (max-width: 899px) {
+  /* Only the slim bar stays on top; the date and greeting scroll away. */
+  .hero-top { display: contents; }
+  /* Above the floating bar, so the account and business sheets open over it. */
+  .hero-bar { position: sticky; top: 0; z-index: 45; isolation: isolate; gap: 8px; min-height: 0; height: calc(60px + var(--safe-top)); padding: var(--safe-top) var(--hpad) 0; border-bottom: 0; color: var(--hero-ink); }
+  .hero-bar::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--hero-img) center top / 100% auto no-repeat, var(--hero-base); opacity: var(--fold, 0); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, calc(var(--fold, 0) * 0.55)); }
+  .bar-biz { display: flex; flex: 1 1 auto; min-width: 0; }
+  .bar-biz .biz-switch { min-width: 0; flex: 0 1 auto; }
+  .bar-biz .biz-hit { width: auto; margin: 0 -6px; padding: 4px 8px 4px 6px; gap: 10px; color: var(--hero-ink); font-weight: 500; border-radius: 12px; }
+  .bar-biz .biz-hit:hover, .bar-biz .biz-hit.on { background: rgba(255, 255, 255, 0.14); }
+  .bar-biz .biz-hit .caret { display: none; }
+  .bar-biz .biz-mark.small { width: 34px; height: 34px; border-radius: 10px; font-size: 12px; }
+  .bar-biz .biz-panel { color: var(--ink); }
+  .bar-biz-name { font-size: 17px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .hero-right { gap: 8px; }
+  .hero-id { position: relative; z-index: 20; padding: 2px var(--hpad) 14px; opacity: calc(1 - var(--fold, 0) * 1.15); }
+  .hero-id .who { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0; }
+  .hero-id .date { font-size: 13px; }
+  .hero-id .greet { font-size: 13px; color: var(--hero-ink); font-weight: 500; }
+  .hero-id .greet .sep { display: inline; color: var(--hero-mute); font-weight: 400; white-space: pre; }
+  .hero-id .who .biz-switch { display: none; }
+  /* Reports and Customize live in the account menu here. */
+  .hero-acts .hero-dark-btn, .hero-custom > .glass-pill { display: none; }
+  .hero-acts { margin: 0; }
+  .custom-pop { left: 8px; right: 8px !important; top: auto !important; bottom: calc(8px + var(--safe-bottom)); width: auto; max-height: 84dvh; border-radius: 20px; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3), var(--shadow-floating); }
+  .custom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .custom-foot { flex-wrap: wrap; }
+  .custom-foot span { flex: 1 1 100%; }
+
+  /* Search: an icon that opens it full screen. */
+  .hero-search { display: block; }
+  .hero-search .search-open { display: grid; }
+  .hero-search .search-pill { display: none; }
+  .hero-search.full { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; background: var(--surface); color: var(--ink); padding: calc(var(--safe-top) + 12px) 16px 0; }
+  .hero-search.full .search-open { display: none; }
+  .hero-search.full .search-pill { display: flex; width: 100%; height: 44px; background: var(--raised); border-color: var(--border); color: var(--ink); backdrop-filter: none; -webkit-backdrop-filter: none; padding: 0 6px 0 16px; }
+  .hero-search.full .search-pill input { color: var(--ink); font-size: 16px; }
+  .hero-search.full .search-pill input::placeholder { color: var(--faint); }
+  .hero-search.full .search-ic { display: none; }
+  .search-cancel { border: 0; background: none; color: var(--muted); font: inherit; font-size: 14px; padding: 0 8px; cursor: pointer; }
+  .hero-search.full .search-results { position: static; flex: 1; width: auto; max-height: none; overflow-y: auto; border: 0; box-shadow: none; padding: 8px 0 24px; animation: none; background: none; }
+
+  /* The panel runs edge to edge with rounded top corners. */
+  .sheet-panel { margin: -40px 0 0; border-radius: 24px 24px 0 0; padding: 16px 14px; min-height: 60vh; }
+  .hero-shell .main { padding-bottom: 0; }
+  .sheet-panel { padding-bottom: calc(112px + var(--safe-bottom)); }
+
+  /* The floating pill bar, with the + in its middle. */
+  .tabbar.pill-bar { left: 14px; right: 14px; bottom: calc(14px + var(--safe-bottom)); height: 64px; padding: 0 6px; border: 1px solid var(--border); border-radius: 32px; background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: saturate(1.4) blur(20px); -webkit-backdrop-filter: saturate(1.4) blur(20px); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.45); grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; }
+  .tabbar.pill-bar.with-add { grid-template-columns: 1fr 1fr 64px 1fr 1fr; }
+  .tabbar.pill-bar .tab { min-height: 52px; font-size: 10px; gap: 2px; position: relative; }
+  .tabbar.pill-bar .tab svg { width: 21px; height: 21px; }
+  .tabbar.pill-bar .tab.active { color: var(--ink); }
+  .tabbar.pill-bar .tab.active::after { content: ""; width: 4px; height: 4px; border-radius: 2px; background: currentColor; margin-top: 1px; }
+  .tabbar.pill-bar .tab .dot { transform: translate(10px, -16px); }
+  .hero-shell .add { left: 50%; right: auto; transform: translateX(-50%); bottom: calc(14px + var(--safe-bottom) + 7px); align-items: center; }
+  .hero-shell .add .fab { width: 50px; height: 50px; }
+  .hero-shell .add .fab svg { width: 24px; height: 24px; }
+  .hero-shell .add-stack { align-items: center; }
 }
+/* Narrow phones: tables drop the initials so the key columns fit. */
+@media (max-width: 479px) { .tbl .cell-who .avatar { display: none; } .tbl th, .tbl td { padding: 10px 10px; } }
+/* Phones: one figure at a time, swiped sideways, with dots. */
+@media (max-width: 699px) {
+  .hero-figures { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 calc(var(--hpad) * -1); padding: 0 var(--hpad) 4px; scrollbar-width: none; }
+  .hero-figures::-webkit-scrollbar { display: none; }
+  .hero-fig { flex: 0 0 84%; scroll-snap-align: start; scroll-margin-left: var(--hpad); padding: 14px 15px 13px; }
+  .fig-big { font-size: 32px; }
+  .fig-rows { margin-top: 8px; gap: 5px; }
+  .fig-dots { display: flex; gap: 5px; justify-content: center; margin-top: 10px; }
+  .fig-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.45); transition: width 250ms var(--spring), background 250ms ease; }
+  .fig-dots i.on { width: 16px; background: #fff; }
+}
+@media (prefers-reduced-motion: reduce) { .fig-dots i { transition: none; } .hero-figures { scroll-behavior: auto; } }

@@ -15,9 +15,17 @@ import { useBooks } from "../state/app";
 import { Icon, type IconName } from "../ui/icons";
 import { Button, Segmented, Sheet } from "../ui/kit";
 
+/** Opens the Reports panel from anywhere (the account menu on phones). */
+export const openReports = () => window.dispatchEvent(new Event("acervus:reports"));
+
 export function ReportsButton() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("acervus:reports", show);
+    return () => window.removeEventListener("acervus:reports", show);
+  }, []);
   return (
     <>
       <button type="button" className="hero-dark-btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
