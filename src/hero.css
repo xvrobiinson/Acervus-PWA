@@ -417,3 +417,64 @@
   .fig-dots i.on { width: 16px; background: #fff; }
 }
 @media (prefers-reduced-motion: reduce) { .fig-dots i { transition: none; } .hero-figures { scroll-behavior: auto; } }
+
+/* ----- statuses: colored words, no chips (owner, 2026-11-06) ----- */
+:root.hero-ui .pill { background: none; padding: 0; height: auto; border-radius: 0; font-weight: 500; }
+:root.hero-ui .pill:not(.pos):not(.warn):not(.neg):not(.accent) { color: var(--muted); }
+:root.hero-ui { --hero-bad: #8f1414; }
+:root.hero-ui[data-theme="dark"] { --hero-bad: #ff8a8a; }
+@media (prefers-color-scheme: dark) { :root.hero-ui:not([data-theme="light"]) { --hero-bad: #ff8a8a; } }
+.fig-row b.chip-bad { background: none; padding: 0; border-radius: 0; color: var(--hero-bad); font-weight: 600; }
+
+/* ----- the landing page in the same look (owner, 2026-11-06) ----- */
+.lp {
+  --ground: #e6e9eb; --surface: #ffffff; --surface-top: #ffffff; --raised: #f6f7f8; --hover: #f1f3f4; --active: #e8ebed;
+  --border: #e3e6e9; --rule: #eef0f2; --control: #d3d7da; --ink: #1a1d21; --lp-muted: #5f656b; --faint: #7d838a;
+  --accent: #3b3e41; --accent-deep: #25282b; --accent-tint: #eceef0; --accent-text: #25282b; --on-accent: #ffffff;
+  --positive: #17784e; --neutral-tint: #eef0f2;
+  --lp-img: url("/hero/fog.jpg"); --lp-base: #a4a8aa; --lp-cta: #3b3e41; --lp-cta-ink: #ffffff;
+  background: var(--ground);
+}
+:root[data-theme="dark"] .lp {
+  --ground: #0b0c0e; --surface: #15181c; --surface-top: #191c21; --raised: #1b1f24; --hover: #21252b; --active: #292e35;
+  --border: #262b32; --rule: #1f2329; --control: #363c44; --ink: #eceef0; --lp-muted: #9ba2a9; --faint: #858c93;
+  --accent: #eceef0; --accent-deep: #ffffff; --accent-tint: #262b31; --accent-text: #eceef0; --on-accent: #15181b;
+  --positive: #4fd19b; --neutral-tint: #22262c;
+  --lp-img: url("/hero/streaks.jpg"); --lp-base: #040405; --lp-cta: #f1f2f3; --lp-cta-ink: #111316;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lp {
+    --ground: #0b0c0e; --surface: #15181c; --surface-top: #191c21; --raised: #1b1f24; --hover: #21252b; --active: #292e35;
+    --border: #262b32; --rule: #1f2329; --control: #363c44; --ink: #eceef0; --lp-muted: #9ba2a9; --faint: #858c93;
+    --accent: #eceef0; --accent-deep: #ffffff; --accent-tint: #262b31; --accent-text: #eceef0; --on-accent: #15181b;
+    --positive: #4fd19b; --neutral-tint: #22262c;
+    --lp-img: url("/hero/streaks.jpg"); --lp-base: #040405; --lp-cta: #f1f2f3; --lp-cta-ink: #111316;
+  }
+}
+/* The fog (or the streaks) behind the top of the page, fading into the page. */
+.lp-sky { background: linear-gradient(180deg, transparent 0%, transparent 45%, var(--ground) 92%), var(--lp-img) center top / cover no-repeat, var(--lp-base); }
+.lp-sky::before, .lp-sky::after, .lp-stars, .lp-clouds { display: none; }
+/* The hero card: the same picture, a soft shade behind the words. */
+.lp-hero { background: linear-gradient(100deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.1) 45%, transparent 72%), var(--lp-img) center / cover no-repeat, var(--lp-base); border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: 0 30px 70px rgba(15, 18, 24, 0.25); }
+.lp-hero h1, .lp-hero p, .lp-eyebrow { text-shadow: 0 1px 14px rgba(0, 0, 0, 0.18); }
+.lp-rot > span { color: #ffffff; }
+/* The dark sections: black with the streaks. */
+.lp-way.dark, .lp-final { background: linear-gradient(180deg, rgba(4, 4, 5, 0.2), rgba(4, 4, 5, 0.55)), url("/hero/streaks.jpg") center / cover no-repeat, #040405; border-color: rgba(255, 255, 255, 0.1); }
+/* Get started: the dark slate button, its breathing a soft shadow. */
+.lp .lp-pill.lp-glow { background: var(--lp-cta); color: var(--lp-cta-ink); border-radius: 999px; letter-spacing: 0.01em; text-transform: none; font-weight: 600; font-size: 15px; padding: 10px 22px;
+  box-shadow: 0 12px 26px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.14); transition: box-shadow 300ms ease, transform 160ms ease; }
+.lp .lp-pill.lp-glow:hover { box-shadow: 0 18px 34px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.14); transform: translateY(-1px); }
+.lp .lp-nav .lp-pill.lp-glow { font-size: 14px; letter-spacing: 0.01em; }
+.lp .lp-hero .lp-pill.lp-glow { background: #ffffff; color: #111316; }
+.lp .lp-breathe { animation-name: lp-breathe-soft; }
+@keyframes lp-breathe-soft { 50% { box-shadow: 0 16px 34px -10px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(255, 255, 255, 0.14); } }
+.lp-progress { background: linear-gradient(90deg, var(--accent), var(--faint)); }
+.lp-demo-glow { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 24px 4px rgba(255, 255, 255, 0.35); }
+.lp-demo-glow.on { animation-name: lp-glow-soft; }
+@keyframes lp-glow-soft { 50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6), 0 0 34px 8px rgba(255, 255, 255, 0.22); } }
+.lp-demo-ripple { border-color: rgba(255, 255, 255, 0.9); }
+@media (prefers-reduced-motion: reduce) { .lp .lp-breathe { animation: none; } }
+.lp-steps .lp-card::before { background: linear-gradient(90deg, var(--accent), var(--faint)); }
+/* The landing demo's typed amount: right-aligned digits over the field. */
+.lp-demo-cover { display: flex; align-items: center; justify-content: flex-end; padding: 0; font-family: Inter, system-ui, sans-serif; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.lp-demo-cover[hidden] { display: none; }

@@ -1,6 +1,6 @@
 // The public landing page: what Acervus is, for visitors who are not signed
 // in. Signed-in people go straight to their app. Every feature named here is
-// one the app has; the screenshots are the desktop app on synthetic demo
+// one the app has; the screenshots are the web app on synthetic demo
 // data (public/landing; the hero's story is landing-hero.tsx). No prices,
 // testimonials or figures are claimed.
 
@@ -547,8 +547,8 @@ export function LandingScreen() {
             es={!!es}
             saved={t("Payment saved", "Pago guardado")}
             alt={t(
-              "The Acervus Windows app recording a US$3,000 payment: the Overview, the payment form with the split into interest and capital, then the updated figures and the new payment on the Payments list",
-              "La app de Windows de Acervus registrando un pago de US$3,000: el Resumen, el formulario con la división entre interés y capital, y luego las cifras al día y el pago nuevo en la lista de Pagos",
+              "The Acervus web app recording a US$3,000 payment: the Overview, the payment form with the split into interest and capital, then the updated figures and the new payment on the Payments list",
+              "La app web de Acervus registrando un pago de US$3,000: el Resumen, el formulario con la división entre interés y capital, y luego las cifras al día y el pago nuevo en la lista de Pagos",
             )}
           />
         </div>

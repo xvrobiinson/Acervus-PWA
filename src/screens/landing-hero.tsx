@@ -1,37 +1,39 @@
-// The landing hero's app window: the Windows app recording a payment, told
-// with real screenshots (public/landing/hero, demo data in US$) and a drawn
-// pointer. Overview → Record payment → pick the loan → type 3000 → save →
-// "Payment saved" → Payments, then again. It follows the page's language and
-// light or dark, waits until its pictures are in, pauses out of view or in a
-// hidden tab, and stays on the still Overview with reduced motion.
+// The landing hero's app window: the web app recording a payment, told with
+// real screenshots (public/landing/hero, demo data in US$) and a drawn
+// pointer. Overview → + → Record payment → pick the loan → type 3000 → save
+// → "Payment saved" → Payments, then again. It follows the page's language
+// and light or dark, waits until its pictures are in, pauses out of view or
+// in a hidden tab, and stays on the still Overview with reduced motion.
 //
 // The pictures are 1200 x 900; everything placed over them uses that space,
-// as percentages, so it scales with the window. They were taken from the
-// desktop app with debug start screens (`ACERVUS_START=switcher+pay-2-3000`
-// and friends) on `seed_demo -- <db> usd [es] [dark] [paid]` databases.
+// as percentages, so it scales with the window. They were taken from the web
+// app's demo (built with the demo books in US$, and a copy with the payment
+// recorded for the last two), with the spots below measured from the real
+// buttons in each language.
 
 import { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "../ui/motion";
 
 const W = 1200;
 const H = 900;
-const FRAMES = ["overview", "form", "loan", "filled", "after", "payments"] as const;
+const FRAMES = ["overview", "menu", "form", "loan", "filled", "after", "payments"] as const;
 type Frame = (typeof FRAMES)[number];
 type Box = [number, number, number, number];
 
-/** Where things are in the pictures. */
+/** Where things are in the pictures (measured; Spanish labels move two). */
 const AT = {
   rest: [690, 560] as [number, number],
-  record: [1101, 64] as [number, number], // the header's Record payment
-  loan: [600, 184] as [number, number], // the form's loan field
-  amount: [494, 272] as [number, number], // the amount field
-  typed: [356, 261, 402, 284] as Box, // where the digits go
-  textX: 358, // where the amount's text starts
-  digit: 7.6, // one digit's width
-  save: [818, 841] as [number, number], // the form's Record payment
-  payments: [77, 199] as [number, number], // the sidebar's Payments
-  overdue: [886, 265, 1175, 398] as Box, // the Overdue amount card
-  newRow: [257, 183, 1175, 235] as Box, // today's payment on Payments
+  add: [1148, 844] as [number, number], // the + button
+  record: { en: [1090, 783], es: [1096, 783] } as Record<"en" | "es", [number, number]>, // its Record payment
+  loan: [600, 328] as [number, number], // the form's loan field
+  amount: [465, 301] as [number, number], // the amount field
+  typed: [520, 283, 581, 319] as Box, // where the digits go (the field is right-aligned)
+  textRight: 580, // where the amount's text ends
+  sample: [470, 301] as [number, number], // a spot of the field's own color
+  save: [800, 842] as [number, number], // the form's Save payment
+  payments: { en: [370, 32], es: [395, 32] } as Record<"en" | "es", [number, number]>, // the nav's Payments
+  overdue: [905, 294, 1146, 328] as Box, // the Overdue amount figure
+  newRow: [64, 407, 1136, 460] as Box, // today's payment on Payments
 };
 
 const pc = (v: number, of: number) => `${(v / of) * 100}%`;
@@ -73,7 +75,6 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
     if (!root || !all || reducedMotion()) return;
     const q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
     const imgs = Object.fromEntries(FRAMES.map((f) => [f, q<HTMLImageElement>(`img[data-f="${f}"]`)])) as Record<Frame, HTMLImageElement>;
-    const typing = q<HTMLImageElement>("img.typing");
     const cover = q<HTMLDivElement>(".lp-demo-cover");
     const caret = q<HTMLDivElement>(".lp-demo-caret");
     const cursor = q<HTMLDivElement>(".lp-demo-cursor");
@@ -145,24 +146,25 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
       if (box) place(glow, box);
       glow.classList.toggle("on", !!box);
     };
-    // The first `n` digits of the amount, with the text cursor after them.
+    // The first `n` digits of the amount, written over the field (it is
+    // right-aligned, so they grow to the left), the text cursor after them.
     const typed = (n: number) => {
-      const [x0, y0, , y1] = AT.typed;
-      const right = AT.textX + n * AT.digit;
-      typing.hidden = cover.hidden = caret.hidden = n === 0;
-      typing.style.clipPath = `inset(${pc(y0, H)} ${pc(W - right, W)} ${pc(H - y1, H)} ${pc(x0, W)})`;
-      place(caret, [right + 0.5, y0 + 3, right + 1.9, y1 - 3]);
+      const [, y0, , y1] = AT.typed;
+      cover.hidden = caret.hidden = n === 0;
+      cover.textContent = "3000".slice(0, n);
+      cover.style.fontSize = `${(root.clientWidth * 16) / W}px`;
+      place(caret, [AT.textRight + 0.5, y0 + 6, AT.textRight + 1.9, y1 - 6]);
     };
-    // The field's own color, read just right of its text, hides its "0.00".
+    // The field's own color hides its "0.00"; the digits take the field's ink.
     const fieldColor = () => {
       try {
         const c = document.createElement("canvas");
         c.width = c.height = 1;
         const g = c.getContext("2d")!;
-        g.drawImage(imgs.loan, 440, 272, 1, 1, 0, 0, 1, 1);
+        g.drawImage(imgs.loan, AT.sample[0], AT.sample[1], 1, 1, 0, 0, 1, 1);
         const [r, gr, b] = g.getImageData(0, 0, 1, 1).data;
         cover.style.background = `rgb(${r}, ${gr}, ${b})`;
-        caret.style.color = r + gr + b > 384 ? "#1b1f2e" : "#eef0f8";
+        cover.style.color = caret.style.color = r + gr + b > 384 ? "#1a1d21" : "#eceef0";
       } catch {
         /* the picture keeps its "0.00" under the digits */
       }
@@ -170,7 +172,7 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
 
     const story = async () => {
       // Every picture in, and the window tilted in.
-      await Promise.all([...Object.values(imgs), typing].map((i) => i.decode().catch(() => {})));
+      await Promise.all(Object.values(imgs).map((i) => i.decode().catch(() => {})));
       fieldColor();
       await wait(1200);
       if (stopped) return;
@@ -181,7 +183,11 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
         point_at(null);
         typed(0);
         await wait(1200);
-        await move(AT.record, 1100);
+        await move(AT.add, 1100);
+        await click();
+        show("menu");
+        await wait(600);
+        await move(AT.record[lang], 600);
         await click();
         show("form");
         await wait(700);
@@ -210,7 +216,7 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
         await wait(1500);
         point_at(null);
         toast.classList.remove("on");
-        await move(AT.payments, 1000);
+        await move(AT.payments[lang], 1000);
         await click();
         show("payments");
         await wait(350);
@@ -254,7 +260,6 @@ export function HeroDemo({ es, alt, saved }: { es: boolean; alt: string; saved: 
         />
       ))}
       <div className="lp-demo-cover" hidden />
-      {all && <img className="typing" src={src("filled")} alt="" decoding="async" hidden />}
       <div className="lp-demo-caret" hidden />
       <div className="lp-demo-glow" />
       <div className="lp-demo-toast" aria-hidden="true">
