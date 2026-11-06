@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#F6F7FB" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#16171B" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#9EA3A6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#040405" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Acervus Finance, by VZ Labs: manage clients, loans, payments, late fees, expenses and income for your lending business, on your phone, in the browser and on Windows." />
     <meta property="og:title" content="Acervus Finance: take control of your lending business" />
     <meta property="og:description" content="Clients, loans, payments and records in one place. Works on phone, browser and Windows, in English and Spanish." />
@@ -16,69 +16,64 @@
     <link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="preload" href="/fonts/Inter-SemiBold.ttf" as="font" type="font/ttf" crossorigin />
-    <!-- The launch splash, "Rising Bars" (picked by the owner 2026-11-03).
+    <link rel="preload" href="/fonts/Inter-Light.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The launch splash, "Orbit" (picked by the owner 2026-11-05): the
+         logo's dot circles its faint ring and lands in the gap, the ring
+         lights up, the name rises; then the app opens through the ring.
          Styled here so it shows before the app's code has loaded; the app's
-         own loading screen (RisingBars in src/ui/kit.tsx) uses the same
+         own loading screen (LaunchScreen in src/ui/kit.tsx) uses the same
          classes. Light or dark like the app (public/splash.js sets the
-         saved theme first). public/splash.js opens it onto the app. -->
+         saved theme first, and runs the ending). -->
     <style>
-      @font-face { font-family: "Inter"; src: url("/fonts/Inter-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+      @font-face { font-family: "Inter"; src: url("/fonts/Inter-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+      @font-face { font-family: "Inter"; src: url("/fonts/Inter-Light.woff2") format("woff2"); font-weight: 300; font-display: swap; }
       :root {
-        --boot-sky: radial-gradient(70% 55% at 50% 42%, #ffffff 0%, #f0eefe 45%, #f6f7fb 80%); --boot-glow: rgba(91, 71, 232, 0.16);
-        --boot-ink: #17181c; --boot-sub: #5e6270; --boot-track: rgba(23, 24, 28, 0.08); --boot-shadow: rgba(54, 92, 245, 0.32);
-        --boot-line: linear-gradient(90deg, #5b47e8, #7b8cff);
+        --boot-bg: url("/hero/fog.jpg") center / cover no-repeat, #a4a8aa; --boot-ink: #1d2024; --boot-sub: rgba(29, 32, 36, 0.72);
+        --boot-track: rgba(29, 32, 36, 0.16); --boot-tile-line: rgba(255, 255, 255, 0);
       }
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme="light"]) {
-          --boot-sky: radial-gradient(70% 55% at 50% 42%, #1f1a47 0%, #121226 45%, #0d0e13 80%); --boot-glow: rgba(110, 91, 246, 0.32);
-          --boot-ink: #f1f2f5; --boot-sub: #a3a7b4; --boot-track: rgba(255, 255, 255, 0.1); --boot-shadow: rgba(54, 92, 245, 0.45);
-          --boot-line: linear-gradient(90deg, #6e5bf6, #8fa4ff);
+          --boot-bg: url("/hero/streaks.jpg") center / cover no-repeat, #040405; --boot-ink: #f1f2f3; --boot-sub: rgba(241, 242, 243, 0.7);
+          --boot-track: rgba(255, 255, 255, 0.14); --boot-tile-line: rgba(255, 255, 255, 0.16);
         }
       }
       :root[data-theme="dark"] {
-        --boot-sky: radial-gradient(70% 55% at 50% 42%, #1f1a47 0%, #121226 45%, #0d0e13 80%); --boot-glow: rgba(110, 91, 246, 0.32);
-        --boot-ink: #f1f2f5; --boot-sub: #a3a7b4; --boot-track: rgba(255, 255, 255, 0.1); --boot-shadow: rgba(54, 92, 245, 0.45);
-        --boot-line: linear-gradient(90deg, #6e5bf6, #8fa4ff);
+        --boot-bg: url("/hero/streaks.jpg") center / cover no-repeat, #040405; --boot-ink: #f1f2f3; --boot-sub: rgba(241, 242, 243, 0.7);
+        --boot-track: rgba(255, 255, 255, 0.14); --boot-tile-line: rgba(255, 255, 255, 0.16);
       }
-      .boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      .boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
         padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); overflow: hidden; color: var(--boot-ink); -webkit-user-select: none; user-select: none;
-        background: var(--boot-sky); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-      .boot.gone { opacity: 0; pointer-events: none; transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
-      .boot-glow { position: absolute; left: 50%; top: 46%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); pointer-events: none;
-        background: radial-gradient(circle, var(--boot-glow), transparent 62%); animation: boot-breath 3.8s ease-in-out infinite; }
-      .boot-tile { position: relative; width: clamp(78px, 18vmin, 124px); aspect-ratio: 1; animation: boot-pop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-      .boot-tile svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 18px 40px var(--boot-shadow)); }
-      /* The three bars grow in turn, then breathe while the app gets ready. */
-      .boot-tile rect + rect { fill: #fff; transform-box: fill-box; transform-origin: 50% 100%;
-        animation: boot-grow 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) 0.32s both, boot-pulse 2.1s cubic-bezier(0.45, 0, 0.55, 1) 1.8s infinite; }
-      .boot-tile rect:nth-child(3) { animation-delay: 0.47s, 1.98s; }
-      .boot-tile rect:nth-child(4) { animation-delay: 0.62s, 2.16s; }
-      .boot-word { position: relative; display: flex; overflow: hidden; padding: 0 0.04em 0.12em; font-size: clamp(32px, 7.4vmin, 52px); font-weight: 600; letter-spacing: -0.025em; line-height: 1; }
-      .boot-word span { display: inline-block; animation: boot-rise 0.95s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(0.76s + var(--i) * 56ms); }
-      .boot-sub { position: relative; margin-top: -8px; padding-left: 0.46em; font-size: 11px; font-weight: 600; letter-spacing: 0.46em; text-transform: uppercase; color: var(--boot-sub); animation: boot-fade 0.9s 1.2s both; }
-      .boot-line { position: relative; width: 148px; height: 2px; margin-top: 10px; border-radius: 2px; overflow: hidden; background: var(--boot-track); animation: boot-fade 0.65s 1.32s both; }
-      .boot-line i { display: block; height: 100%; background: var(--boot-line); transform-origin: left; transform: scaleX(0.08); transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        background: var(--boot-bg); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      .boot.gone { opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+      .boot-tile { position: relative; width: clamp(84px, 16vmin, 120px); aspect-ratio: 1; transform-origin: 49.8% 52.7%; will-change: transform; }
+      .boot-tile svg { display: block; width: 100%; height: 100%; overflow: visible; animation: boot-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      .boot-tile .tile { fill: #000; stroke: var(--boot-tile-line); stroke-width: 5; }
+      .boot-tile .ring { fill: none; stroke: #fff; stroke-width: 54; stroke-linecap: round; animation: boot-ringup 0.45s 1.5s ease both; }
+      .boot-tile .dot { fill: #fff; transform-box: view-box; transform-origin: 255px 270px; animation: boot-orbit 1.5s 0.25s cubic-bezier(0.35, 0.05, 0.2, 1) both; }
+      /* Waiting past the intro: a soft pulse from the dot. */
+      .boot-tile .pulse { fill: #fff; opacity: 0; transform-box: fill-box; transform-origin: center; animation: boot-pulse 2.2s 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+      .boot-word { position: relative; display: flex; overflow: hidden; padding: 0 0.04em 0.12em; margin-top: 10px; font-size: clamp(30px, 6.4vmin, 44px); font-weight: 300; letter-spacing: 0.01em; line-height: 1; }
+      .boot-word span { display: inline-block; animation: boot-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(1.6s + var(--i) * 45ms); }
+      .boot-sub { position: relative; margin-top: -4px; padding-left: 0.42em; font-size: 10.5px; font-weight: 400; letter-spacing: 0.42em; text-transform: uppercase; color: var(--boot-sub); animation: boot-fade 0.6s 2s both; }
+      .boot-line { position: relative; width: 110px; height: 2px; margin-top: 12px; border-radius: 2px; overflow: hidden; background: var(--boot-track); animation: boot-fade 0.5s 0.2s both; }
+      .boot-line i { display: block; height: 100%; background: var(--boot-ink); transform-origin: left; transform: scaleX(0.08); transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1); }
       /* The app's own loading screen has no progress to show: its line sweeps. */
       .boot.waiting .boot-line i { width: 40%; transform: none; animation: boot-sweep 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
       /* After signing out the page reloads mid-splash: it picks up where the
          last page left off instead of playing the intro again. */
-      .boot.cont .boot-glow, .boot.cont:not(.out) .boot-tile, .boot.cont .boot-tile rect, .boot.cont .boot-word span, .boot.cont .boot-sub, .boot.cont .boot-line { animation: none; }
-      .boot.out .boot-tile { animation: boot-zoom 1s cubic-bezier(0.7, 0, 0.2, 1) forwards; }
-      .boot.out .boot-tile svg { filter: none; }
-      .boot.out .boot-word, .boot.out .boot-sub, .boot.out .boot-line { opacity: 0; transform: translateY(10px); transition: opacity 0.35s, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
-      @keyframes boot-breath { 50% { opacity: 0.55; transform: translate(-50%, -50%) scale(1.08); } }
-      @keyframes boot-pop { from { transform: scale(0.45); opacity: 0; } }
-      @keyframes boot-grow { from { transform: scaleY(0); } }
-      @keyframes boot-pulse { 50% { transform: scaleY(0.84); } }
-      @keyframes boot-rise { from { transform: translateY(110%); } }
+      .boot.cont svg, .boot.cont .ring, .boot.cont .dot, .boot.cont .boot-word span, .boot.cont .boot-sub, .boot.cont .boot-line { animation: none; }
+      .boot.out .boot-word, .boot.out .boot-sub, .boot.out .boot-line { opacity: 0; transition: opacity 0.25s; }
+      .boot.out .boot-tile .tile { fill-opacity: 0; stroke-opacity: 0; transition: fill-opacity 0.35s, stroke-opacity 0.35s; }
+      .boot.out .pulse { display: none; }
+      @keyframes boot-pop { from { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.05); opacity: 1; } }
+      @keyframes boot-ringup { from { opacity: 0.22; } }
+      @keyframes boot-orbit { from { transform: rotate(-430deg); } }
+      @keyframes boot-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(4.2); opacity: 0; } }
+      @keyframes boot-rise { from { transform: translateY(110%); opacity: 0; } }
       @keyframes boot-fade { from { opacity: 0; transform: translateY(6px); } }
       @keyframes boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-      @keyframes boot-zoom { 0% { transform: scale(1); } 22% { transform: scale(0.9); } 70% { opacity: 1; } 100% { transform: scale(24); opacity: 0; } }
       @media (prefers-reduced-motion: reduce) {
-        .boot *, .boot.out .boot-tile { animation: none !important; }
-        .boot.out .boot-tile { opacity: 0; transition: opacity 0.25s; }
-        .boot.gone { transition-duration: 0.25s; }
+        .boot * { animation: none !important; }
       }
     </style>
     <title>Acervus Finance</title>
@@ -86,8 +81,7 @@
   <body>
     <div id="root"></div>
     <div id="boot" class="boot" role="status" aria-label="Acervus Finance">
-      <div class="boot-glow"></div>
-      <div class="boot-tile"><svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#365CF5" /><rect x="104" y="270" width="72" height="118" rx="16" fill-opacity=".55" /><rect x="220" y="204" width="72" height="184" rx="16" fill-opacity=".8" /><rect x="336" y="124" width="72" height="264" rx="16" /></svg></div>
+      <div class="boot-tile"><svg viewBox="0 0 512 512" aria-hidden="true"><rect class="tile" width="512" height="512" rx="112" /><path class="ring" d="M386.7 251.5 A133 133 0 1 1 300.5 145" /><circle class="pulse" cx="357" cy="184" r="27" /><circle class="dot" cx="357" cy="184" r="27" /></svg></div>
       <div class="boot-word" aria-hidden="true"><span style="--i: 0">A</span><span style="--i: 1">c</span><span style="--i: 2">e</span><span style="--i: 3">r</span><span style="--i: 4">v</span><span style="--i: 5">u</span><span style="--i: 6">s</span></div>
       <div class="boot-sub" aria-hidden="true">Finance</div>
       <div class="boot-line" aria-hidden="true"><i></i></div>

@@ -27,8 +27,8 @@ export default defineConfig({
         scope: "/",
         display: "standalone",
         orientation: "any",
-        background_color: "#0D0E13",
-        theme_color: "#5B47E8",
+        background_color: "#040405",
+        theme_color: "#3B3E41",
         categories: ["finance", "business", "productivity"],
         icons: [
           { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
@@ -38,7 +38,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ttf,webmanifest}"],
+        // The hero's backgrounds and the light font too, so the app looks the same offline.
+        globPatterns: ["**/*.{js,css,html,svg,png,ttf,woff2,webmanifest}", "hero/*.jpg"],
         navigateFallback: "/index.html",
         // The desktop's Google sign-in page must never become the app, or
         // the app would use the sign-in token meant for the desktop.

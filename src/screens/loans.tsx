@@ -27,9 +27,8 @@ import { ReceiptSheet } from "../receipts/view";
 import { PendingOnLoan } from "./collect";
 import { useBooks } from "../state/app";
 import type { LoanView } from "../state/books";
-import { Icon } from "../ui/icons";
 import { DateInput, MoneyInput, RateInput, useMoney, useParseError, useRate } from "../ui/inputs";
-import { Avatar, Banner, Button, Card, Confirm, Empty, Field, Pill, Row, Segmented, Sheet, useToast } from "../ui/kit";
+import { Avatar, Banner, Button, Card, Confirm, Empty, Field, FilterPill, PaidBack, Pill, Row, Segmented, Sheet, TabsPill, useToast } from "../ui/kit";
 
 export function statusTone(s: DisplayStatus): "pos" | "warn" | "neg" | undefined {
   return s === "overdue" || s === "defaulted" ? "neg" : s === "due_soon" ? "warn" : s === "paid_off" ? "pos" : undefined;
@@ -42,6 +41,8 @@ export function LoansScreen() {
   const { books, fmt, can, mode } = useBooks();
   const open = useForms();
   const [filter, setFilter] = useState<Filter>("open");
+  const { snapshot } = useBooks();
+  const lentShown = snapshot.me.view.amountLent;
   const [q, setQ] = useState("");
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -58,75 +59,96 @@ export function LoansScreen() {
       .filter((l) => !needle || (l.client?.fullName ?? "").toLowerCase().includes(needle) || String(l.loan.recordNo) === needle.replace("#", ""))
       .sort((a, b) => DISPLAY_ORDER.indexOf(a.display) - DISPLAY_ORDER.indexOf(b.display) || b.loan.recordNo - a.loan.recordNo);
   }, [books.loans, filter, q]);
+  const owed = list.reduce((x, l) => x + l.payoff, 0);
   return (
     <div>
-      <div className="topbar">
-        <h1>{t("Loans", "Préstamos")}</h1>
+      <div className="topbar page-head">
+        <div className="grow">
+          <h1>{t("Loans", "Préstamos")}</h1>
+          <div className="small muted">{t(`${list.length} loan(s) · ${fmt.money(owed)} to collect · figures as of ${fmt.day(books.today)}`, `${list.length} préstamo(s) · ${fmt.money(owed)} por cobrar · cifras al ${fmt.day(books.today)}`)}</div>
+        </div>
         {can("manage") && mode === "online" && (
           <Button variant="primary" size="small" icon="plus" onClick={() => open({ kind: "loan" })}>
-            {t("Loan", "Préstamo")}
+            {t("New loan", "Nuevo préstamo")}
           </Button>
         )}
       </div>
-      <div className="stack" style={{ marginBottom: 12 }}>
-        <div className="search">
-          <Icon name="search" />
-          <input className="input" type="search" placeholder={t("Client or loan number", "Cliente o número de préstamo")} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t("Search loans", "Buscar préstamos")} />
-        </div>
-        <Segmented
+      <div className="page-tools">
+        <FilterPill value={q} onChange={setQ} placeholder={t("Client or loan number", "Cliente o número de préstamo")} label={t("Search loans", "Buscar préstamos")} />
+        <TabsPill
           label={t("Show", "Mostrar")}
           value={filter}
           onChange={setFilter}
           options={[
             ["open", t("Open", "Abiertos")],
-            ["overdue", t("Overdue", "Atrasados")],
+            ["overdue", t("Overdue", "Atrasados"), books.loans.filter((l) => l.display === "overdue").length],
             ["closed", t("Closed", "Cerrados")],
             ["all", t("All", "Todos")],
           ]}
         />
       </div>
-      <Card>
-        <ul className="list">
-          {list.map((l) => (
-            <LoanRow key={l.loan._id} l={l} />
-          ))}
-        </ul>
-        {list.length === 0 && <Empty icon="loans">{t("No loans here.", "No hay préstamos aquí.")}</Empty>}
-      </Card>
-      <p className="micro muted" style={{ marginTop: 8 }}>
-        {t(`Figures as of ${fmt.day(books.today)}.`, `Cifras al ${fmt.day(books.today)}.`)}
-      </p>
+      <div className="tbl-wrap">
+        {list.length === 0 ? (
+          <Empty icon="loans">{t("No loans here.", "No hay préstamos aquí.")}</Empty>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>{t("Loan", "Préstamo")}</th>
+                <th>{t("Client", "Cliente")}</th>
+                <th className="wide-only">{t("Next", "Próximo")}</th>
+                {lentShown && <th className="wide-only num">{t("Lent", "Prestado")}</th>}
+                {lentShown && <th className="wide-only">{t("Paid back", "Devuelto")}</th>}
+                <th className="num">{t("To pay it off", "Para saldarlo")}</th>
+                <th>{t("Status", "Estado")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((l) => (
+                <LoanRow key={l.loan._id} l={l} lentShown={lentShown} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
 
-function LoanRow({ l }: { l: LoanView }) {
+function LoanRow({ l, lentShown }: { l: LoanView; lentShown: boolean }) {
   const t = useT();
-  const { fmt, snapshot } = useBooks();
-  // How much of the capital is back, for those who may see the amount lent.
-  const back = snapshot.me.view.amountLent && l.loan.principal > 0 ? l.position.principalPaid / l.loan.principal : null;
-  const pct = back === null ? 0 : Math.round(Math.min(1, back) * 100);
+  const { fmt } = useBooks();
+  const navigate = useNavigate();
+  const go = () => navigate(`/loans/${l.loan._id}`);
   const q = l.delinquency;
-  const sub =
+  const back = l.loan.principal > 0 ? l.position.principalPaid / l.loan.principal : 0;
+  const next =
     l.display === "overdue"
-      ? t(`${q.daysOverdue} days overdue · ${fmt.money(q.overdueAmount)}`, `${q.daysOverdue} días de atraso · ${fmt.money(q.overdueAmount)}`)
+      ? t(`${q.daysOverdue} days late · ${fmt.money(q.overdueAmount)}`, `${q.daysOverdue} días de atraso · ${fmt.money(q.overdueAmount)}`)
       : q.nextDue && l.loan.status === "active"
-        ? t(`Next ${fmt.dayShort(q.nextDue)} · ${fmt.money(q.nextDueAmount)}`, `Próximo ${fmt.dayShort(q.nextDue)} · ${fmt.money(q.nextDueAmount)}`)
+        ? `${fmt.dayShort(q.nextDue)} · ${fmt.money(q.nextDueAmount)}`
         : `${methodShort(t, l.loan.method)} · ${fmt.day(l.loan.startDate)}`;
   return (
-    <Row
-      to={`/loans/${l.loan._id}`}
-      lead={<Avatar name={l.client?.fullName ?? "?"} />}
-      title={`${l.client?.fullName ?? "—"} · #${l.loan.recordNo}`}
-      sub={sub}
-      meter={back === null ? undefined : { value: back, label: t(`${pct}% of the capital paid back`, `${pct}% del capital devuelto`) }}
-      trail={
-        <>
-          <span className="amount num">{fmt.money(l.payoff)}</span>
-          <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
-        </>
-      }
-    />
+    <tr className="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === "Enter" && go()}>
+      <td className="muted">#{l.loan.recordNo}</td>
+      <td>
+        <span className="cell-who">
+          <Avatar name={l.client?.fullName ?? "?"} />
+          <span className="ellipsis">{l.client?.fullName ?? "—"}</span>
+        </span>
+      </td>
+      <td className={`wide-only nowrap ${l.display === "overdue" ? "neg" : "muted"}`}>{next}</td>
+      {lentShown && <td className="wide-only num">{fmt.money(l.loan.principal)}</td>}
+      {lentShown && (
+        <td className="wide-only">
+          <PaidBack value={back} label={t(`${Math.round(Math.min(1, back) * 100)}% of the capital paid back`, `${Math.round(Math.min(1, back) * 100)}% del capital devuelto`)} />
+        </td>
+      )}
+      <td className="num strong">{fmt.money(l.payoff)}</td>
+      <td>
+        <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
+      </td>
+    </tr>
   );
 }
 

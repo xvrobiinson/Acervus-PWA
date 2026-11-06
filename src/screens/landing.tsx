@@ -277,9 +277,11 @@ function Rotator({ words }: { words: string[] }) {
 function Mark() {
   return (
     <span className="lp-mark" aria-hidden="true">
-      <i />
-      <i />
-      <i />
+      <svg viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="112" fill="#000" />
+        <path d="M386.7 251.5 A133 133 0 1 1 300.5 145" fill="none" stroke="#fff" strokeWidth="54" strokeLinecap="round" />
+        <circle cx="357" cy="184" r="27" fill="#fff" />
+      </svg>
     </span>
   );
 }

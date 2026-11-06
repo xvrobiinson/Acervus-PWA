@@ -15,7 +15,7 @@ import { useT } from "../lib/i18n";
 import { accountLabel, entryKindLabel } from "../lib/labels";
 import { useBooks } from "../state/app";
 import { DateInput, MoneyInput, useMoney, useParseError } from "../ui/inputs";
-import { Button, Card, Confirm, Empty, Field, Pill, Row, Segmented, Sheet, useToast } from "../ui/kit";
+import { Button, Card, Confirm, Empty, Field, Pill, Row, Segmented, Sheet, TabsPill, useToast } from "../ui/kit";
 
 export type EntryFormKind = "expense" | "income" | "transfer" | "contribution" | "withdrawal" | "adjust";
 
@@ -115,7 +115,7 @@ export function MoneyScreen() {
         </div>
       )}
       <div style={{ marginBottom: 12 }}>
-        <Segmented
+        <TabsPill
           label={t("Show", "Mostrar")}
           value={show}
           onChange={setShow}

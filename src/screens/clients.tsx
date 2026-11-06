@@ -15,7 +15,7 @@ import { describeError, describeErrorData } from "../lib/errors";
 import { useT } from "../lib/i18n";
 import { displayStatusLabel, methodShort } from "../lib/labels";
 import { useBooks } from "../state/app";
-import { Avatar, Banner, Button, Card, Confirm, Empty, Field, Pill, Row, Segmented, Sheet, useToast } from "../ui/kit";
+import { Avatar, Banner, Button, Card, Confirm, Empty, Field, FilterPill, Pill, Row, Sheet, TabsPill, useToast } from "../ui/kit";
 import { Icon } from "../ui/icons";
 import { AssignSheet, CollectorSelect, useTeam } from "./collect";
 import { statusTone } from "./loans";
@@ -28,6 +28,7 @@ export function ClientsScreen() {
   const [q, setQ] = useState("");
   const [show, setShow] = useState<"active" | "archived">("active");
   const [assigning, setAssigning] = useState(false);
+  const navigate = useNavigate();
   // ?collector=<userId> | none (from the "assign a collector" message).
   const [params, setParams] = useSearchParams();
   const byCollector = params.get("collector") ?? "";
@@ -48,10 +49,25 @@ export function ClientsScreen() {
       .sort((a, b) => a.client.fullName.localeCompare(b.client.fullName));
   }, [books.clients, q, show, manageTeam, byCollector]);
   const collectorLine = (collectorId: string | undefined) => (manageTeam ? team.nameOf(collectorId) : "");
+  // Per client: the next payment due on a running loan, and the last one paid.
+  const nextDue = (c: (typeof list)[number]) =>
+    c.loans
+      .filter((l) => l.loan.status === "active" && l.delinquency.nextDue)
+      .map((l) => l.delinquency.nextDue!)
+      .sort()[0] ?? null;
+  const lastPaid = (c: (typeof list)[number]) =>
+    c.loans
+      .flatMap((l) => l.payments.map((p) => p.paidOn))
+      .sort()
+      .pop() ?? null;
+  const running = list.filter((c) => c.loans.some((l) => l.loan.status === "active")).length;
   return (
     <div>
-      <div className="topbar">
-        <h1>{t("Clients", "Clientes")}</h1>
+      <div className="topbar page-head">
+        <div className="grow">
+          <h1>{t("Clients", "Clientes")}</h1>
+          <div className="small muted">{t(`${list.length} client(s) · ${running} with loans running`, `${list.length} cliente(s) · ${running} con préstamos activos`)}</div>
+        </div>
         {manageTeam && mode === "online" && (
           <Button size="small" icon="users" onClick={() => setAssigning(true)}>
             {t("Assign", "Asignar")}
@@ -59,16 +75,13 @@ export function ClientsScreen() {
         )}
         {can("record") && (
           <Button variant="primary" size="small" icon="plus" onClick={() => open({ kind: "client" })}>
-            {t("Client", "Cliente")}
+            {t("New client", "Nuevo cliente")}
           </Button>
         )}
       </div>
-      <div className="stack" style={{ marginBottom: 12 }}>
-        <div className="search">
-          <Icon name="search" />
-          <input className="input" type="search" placeholder={t("Name, phone or ID", "Nombre, teléfono o cédula")} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t("Search clients", "Buscar clientes")} />
-        </div>
-        <Segmented
+      <div className="page-tools">
+        <FilterPill value={q} onChange={setQ} placeholder={t("Name, phone or ID", "Nombre, teléfono o cédula")} label={t("Search clients", "Buscar clientes")} />
+        <TabsPill
           label={t("Show", "Mostrar")}
           value={show}
           onChange={setShow}
@@ -79,7 +92,7 @@ export function ClientsScreen() {
         />
         {manageTeam && (
           <select
-            className="input"
+            className="select-pill"
             aria-label={t("Collector", "Cobrador")}
             value={byCollector}
             onChange={(e) => setParams(e.target.value ? { collector: e.target.value } : {}, { replace: true })}
@@ -94,29 +107,72 @@ export function ClientsScreen() {
           </select>
         )}
       </div>
-      <Card>
-        <ul className="list">
-          {pending.map((o) => (
-            <Row key={o.opId} to="/sync" lead={<Avatar name={o.summary.title} />} title={o.summary.title} sub={t("Saved on this device · not synced yet", "Guardado en este dispositivo · sin sincronizar")} trail={<Pill tone="warn">{o.status === "needs_review" ? t("Review", "Revisar") : t("Pending", "Pendiente")}</Pill>} />
-          ))}
-          {list.map((c) => (
-            <Row
-              key={c.client._id}
-              to={`/clients/${c.client._id}`}
-              lead={<Avatar name={c.client.fullName} />}
-              title={c.client.fullName}
-              sub={[collectorLine(c.client.collectorId), c.client.phone, t(`${c.loans.length} loans`, `${c.loans.length} préstamos`)].filter(Boolean).join(" · ")}
-              trail={
-                <>
-                  <span className="amount num">{fmt.money(c.outstanding)}</span>
-                  {c.worst && c.worst !== "active" && <Pill tone={statusTone(c.worst)}>{displayStatusLabel(t, c.worst)}</Pill>}
-                </>
-              }
-            />
-          ))}
-        </ul>
-        {list.length === 0 && pending.length === 0 && <Empty icon="users">{q || byCollector ? t("No client matches.", "Ningún cliente coincide.") : t("No clients yet.", "Aún no hay clientes.")}</Empty>}
-      </Card>
+      <div className="tbl-wrap">
+        {list.length === 0 && pending.length === 0 ? (
+          <Empty icon="users">{q || byCollector ? t("No client matches.", "Ningún cliente coincide.") : t("No clients yet.", "Aún no hay clientes.")}</Empty>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>{t("Client", "Cliente")}</th>
+                {manageTeam && <th className="wide-only">{t("Collector", "Cobrador")}</th>}
+                <th className="wide-only num">{t("Loans", "Préstamos")}</th>
+                <th className="num">{t("Capital owed", "Capital adeudado")}</th>
+                <th className="wide-only">{t("Next payment", "Próximo pago")}</th>
+                <th>{t("Status", "Estado")}</th>
+                <th className="wide-only num">{t("Last paid", "Último pago")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((o) => (
+                <tr key={o.opId} className="link" tabIndex={0} onClick={() => navigate("/sync")} onKeyDown={(e) => e.key === "Enter" && navigate("/sync")}>
+                  <td>
+                    <span className="cell-who">
+                      <Avatar name={o.summary.title} />
+                      <span className="ellipsis">
+                        {o.summary.title}
+                        <small>{t("Saved on this device · not synced yet", "Guardado en este dispositivo · sin sincronizar")}</small>
+                      </span>
+                    </span>
+                  </td>
+                  {manageTeam && <td className="wide-only" />}
+                  <td className="wide-only" />
+                  <td />
+                  <td className="wide-only" />
+                  <td>
+                    <Pill tone="warn">{o.status === "needs_review" ? t("Review", "Revisar") : t("Pending", "Pendiente")}</Pill>
+                  </td>
+                  <td className="wide-only" />
+                </tr>
+              ))}
+              {list.map((c) => {
+                const go = () => navigate(`/clients/${c.client._id}`);
+                const next = nextDue(c);
+                const last = lastPaid(c);
+                return (
+                  <tr key={c.client._id} className="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === "Enter" && go()}>
+                    <td>
+                      <span className="cell-who">
+                        <Avatar name={c.client.fullName} />
+                        <span className="ellipsis">
+                          {c.client.fullName}
+                          {c.client.phone && <small>{c.client.phone}</small>}
+                        </span>
+                      </span>
+                    </td>
+                    {manageTeam && <td className="wide-only muted">{collectorLine(c.client.collectorId)}</td>}
+                    <td className="wide-only num">{c.loans.length}</td>
+                    <td className="num strong">{fmt.money(c.outstanding)}</td>
+                    <td className="wide-only muted nowrap">{next ? fmt.dayShort(next) : "—"}</td>
+                    <td>{c.worst ? <Pill tone={statusTone(c.worst)}>{displayStatusLabel(t, c.worst)}</Pill> : <span className="muted">—</span>}</td>
+                    <td className="wide-only num muted">{last ? fmt.dayShort(last) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
       {assigning && (
         <AssignSheet
           clients={list.map((c) => ({ _id: c.client._id, fullName: c.client.fullName, collectorId: c.client.collectorId }))}

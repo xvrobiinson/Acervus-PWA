@@ -1,6 +1,7 @@
-// The launch splash (#boot in index.html, "Rising Bars"). It stays up until
-// the app sends `acervus:ready` (src/lib/splash.ts), always plays its whole
-// intro first, then zooms open onto the app. A plain script, not inline,
+// The launch splash (#boot in index.html, "Orbit"). It stays up until the
+// app sends `acervus:ready` (src/lib/splash.ts), always plays its whole
+// intro first, then opens onto the app through the logo's ring: the logo
+// grows toward you while a hole at the ring's center widens to the edges. A plain script, not inline,
 // because the CSP allows scripts from this site only.
 (() => {
   const boot = document.getElementById("boot");
@@ -49,7 +50,7 @@
   // The phone's status bar matches the splash while it shows.
   const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
   const colors = metas.map((m) => m.content);
-  metas.forEach((m) => (m.content = dark ? "#0D0E13" : "#F6F7FB"));
+  metas.forEach((m) => (m.content = dark ? "#040405" : "#9EA3A6"));
 
   // The line under the name: the app's milestones, and a slow creep between
   // them so it never looks stuck.
@@ -72,15 +73,42 @@
     setTimeout(
       () => {
         boot.classList.add("out");
-        setTimeout(() => {
+        const finish = () => {
           boot.classList.add("gone");
           metas.forEach((m, i) => (m.content = colors[i]));
-        }, still ? 0 : 450);
-        setTimeout(() => boot.remove(), still ? 300 : 1250);
+          setTimeout(() => boot.remove(), 260);
+        };
+        if (still) return finish();
+        throughTheRing(finish);
       },
       Math.max(0, STAY_MS - (performance.now() - shownAt)),
     );
   };
+  // 1 s: the logo grows about its ring's center while the splash is cut
+  // away from that center outward, always inside the ring's hole, so the
+  // app shows through the ring until it fills the screen.
+  function throughTheRing(done) {
+    const tile = boot.querySelector(".boot-tile");
+    const box = tile.getBoundingClientRect();
+    const cx = box.left + box.width * (255 / 512);
+    const cy = box.top + box.height * (270 / 512);
+    const far = Math.max(Math.hypot(cx, cy), Math.hypot(innerWidth - cx, cy), Math.hypot(cx, innerHeight - cy), Math.hypot(innerWidth - cx, innerHeight - cy)) + 4;
+    const inner = box.width * ((133 - 27) / 512);
+    const grow = far / inner;
+    const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    const start = performance.now();
+    const frame = (now) => {
+      const e = ease(Math.min(1, (now - start) / 1000));
+      tile.style.transform = `scale(${1 + (grow - 1) * e})`;
+      const hole = far * e;
+      const mask = `radial-gradient(circle at ${cx}px ${cy}px, transparent ${hole}px, #000 ${hole + 1}px)`;
+      boot.style.webkitMaskImage = mask;
+      boot.style.maskImage = mask;
+      if (e < 1) requestAnimationFrame(frame);
+      else done();
+    };
+    requestAnimationFrame(frame);
+  }
   addEventListener("acervus:ready", open);
   // Never up for good: if the app can't start, its own screen says why.
   setTimeout(open, 20_000);

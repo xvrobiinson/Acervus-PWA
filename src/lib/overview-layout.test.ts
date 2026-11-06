@@ -1,40 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { defaultLayout, dropOnto, layoutRows, nudge, nudgeFigure, parseLayout, setFigureShown, setHalf, setShown, type Block } from "./overview-layout";
+import { defaultLayout, dropOnto, layoutRows, nudge, parseLayout, setHalf, setShown, type Block } from "./overview-layout";
 
-const ADMIN: Block[] = ["figures", "growth", "attention", "recent"];
-const COLLECTOR: Block[] = ["figures", "attention", "mine"];
+const ADMIN: Block[] = ["growth", "money", "attention", "recent"];
+const COLLECTOR: Block[] = ["attention", "mine"];
 
 describe("overview layout", () => {
-  it("ships as the Overview looked before", () => {
+  it("ships the chart beside the money, and the lists side by side", () => {
     const l = defaultLayout();
-    expect(layoutRows(l, ADMIN)).toEqual([["figures"], ["growth", "attention"], ["recent"]]);
-    // No chart for a collector: the list fills its row.
-    expect(layoutRows(l, COLLECTOR)).toEqual([["figures"], ["attention"], ["mine"]]);
+    expect(layoutRows(l, ADMIN)).toEqual([["growth", "money"], ["attention", "recent"]]);
+    expect(layoutRows(l, COLLECTOR)).toEqual([["attention", "mine"]]);
   });
 
   it("pairs half blocks next to each other and moves past hidden ones", () => {
-    let l = setHalf(defaultLayout(), "recent", true);
+    let l = setHalf(defaultLayout(), "money", false);
+    expect(layoutRows(l, ADMIN)).toEqual([["growth"], ["money"], ["attention", "recent"]]);
     l = setShown(l, "attention", false);
-    expect(layoutRows(l, ADMIN)).toEqual([["figures"], ["growth", "recent"]]);
     l = nudge(l, "recent", -1, ADMIN);
-    expect(l.blocks.filter((b) => ADMIN.includes(b))).toEqual(["figures", "recent", "attention", "growth"]);
+    expect(l.blocks.filter((b) => ADMIN.includes(b))).toEqual(["growth", "recent", "attention", "money"]);
   });
 
   it("lands a dropped block where it was dropped", () => {
-    let l = dropOnto(defaultLayout(), "figures", "attention");
-    expect(l.blocks).toEqual(["growth", "attention", "figures", "mine", "recent"]);
-    l = dropOnto(l, "recent", "growth");
-    expect(l.blocks).toEqual(["recent", "growth", "attention", "figures", "mine"]);
+    const l = dropOnto(defaultLayout(), "recent", "growth");
+    expect(l.blocks).toEqual(["recent", "growth", "money", "attention", "mine"]);
   });
 
   it("survives a round trip and odd saved text", () => {
-    let l = setFigureShown(defaultLayout(), "receivable", false);
-    l = nudgeFigure(l, "overdue", -1, ["portfolio", "overdue", "receivable"]);
+    const l = setShown(setHalf(defaultLayout(), "growth", false), "money", false);
     expect(parseLayout(JSON.stringify(l))).toEqual(l);
     expect(parseLayout(null)).toEqual(defaultLayout());
     expect(parseLayout("not json")).toEqual(defaultLayout());
-    const odd = parseLayout(JSON.stringify({ blocks: ["recent", "nope", "recent"], half: ["figures", "recent"] }));
-    expect(odd.blocks).toEqual(["recent", "figures", "growth", "attention", "mine"]);
+    // An older layout with the figures block: dropped, the rest kept.
+    const odd = parseLayout(JSON.stringify({ blocks: ["recent", "figures", "recent"], half: ["figures", "recent"] }));
+    expect(odd.blocks).toEqual(["recent", "growth", "money", "attention", "mine"]);
     expect(odd.half).toEqual(["recent"]);
   });
 });

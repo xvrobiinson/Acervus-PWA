@@ -211,7 +211,9 @@ export function pendingStatus(t: T, p: Pending): { tone: "warn" | "pos" | "neg";
   };
 }
 
-export function ConfirmScreen() {
+/** The payments collectors brought in, to confirm or reject. Inside the
+ *  Payments page (its To confirm tab), `embedded` leaves the title to it. */
+export function ConfirmScreen({ embedded }: { embedded?: boolean } = {}) {
   const t = useT();
   const { snapshot, books, fmt, businessId, can, mode } = useBooks();
   const team = useTeam();
@@ -302,9 +304,9 @@ export function ConfirmScreen() {
 
   return (
     <div>
-      <div className="topbar">
+      <div className={embedded ? "embedded-head" : "topbar"}>
         <div className="grow">
-          <h1>{t("Payments to confirm", "Pagos por confirmar")}</h1>
+          {!embedded && <h1>{t("Payments to confirm", "Pagos por confirmar")}</h1>}
           <div className="small muted">
             {waitingNow.length === 0
               ? t("Nothing waiting.", "Nada pendiente.")

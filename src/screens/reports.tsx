@@ -39,8 +39,11 @@ export function ReportsScreen() {
   ];
   return (
     <div>
-      <div className="topbar">
-        <h1>{t("Reports", "Reportes")}</h1>
+      <div className="topbar page-head">
+        <div className="grow">
+          <h1>{t("Portfolio", "Portafolio")}</h1>
+          <div className="small muted">{t("Returns, the capital ledger, loans by status and the monthly cash flow", "Rendimiento, el capital, los préstamos por estado y el flujo mensual")}</div>
+        </div>
       </div>
       <Card>
         <div className="stats">

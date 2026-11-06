@@ -29,6 +29,7 @@ import type * as loans from "../loans.js";
 import type * as messages from "../messages.js";
 import type * as money from "../money.js";
 import type * as payments from "../payments.js";
+import type * as prefs from "../prefs.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as settings from "../settings.js";
 
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   money: typeof money;
   payments: typeof payments;
+  prefs: typeof prefs;
   rateLimit: typeof rateLimit;
   settings: typeof settings;
 }>;

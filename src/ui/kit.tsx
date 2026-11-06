@@ -50,40 +50,37 @@ export function Button({
   );
 }
 
-/** The Acervus loader: six blue crystals that grow and fade in turn.
+/** The Acervus loader: the logo's ring turning, dot and all.
  *  `page` for a whole screen that is loading, `small` for a part of one;
- *  buttons keep their own small spinner. With reduced motion it stands
- *  still. */
+ *  buttons keep their own small spinner. With reduced motion it turns slowly. */
 export function AcervusLoader({ size = "page", label }: { size?: "page" | "small"; label?: string }) {
   const t = useT();
   return (
     <div className={`acervus-loader ${size}`} role="status" aria-live="polite">
-      <span className="crystals" aria-hidden="true">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <i key={i} className="crystal" />
-        ))}
-      </span>
+      <svg className="ring-mark" viewBox="0 0 512 512" aria-hidden="true">
+        <path d="M386.7 251.5 A133 133 0 1 1 300.5 145" />
+        <circle cx="357" cy="184" r="29" />
+      </svg>
       <span className="sr-only">{label ?? t("Loading Acervus Finance…", "Cargando Acervus Finance…")}</span>
     </div>
   );
 }
 
 /** The whole screen while the app starts or loads a business: the launch
- *  splash's Rising Bars (styled in index.html, where the first one shows
- *  before the app's code loads). While it is on screen it keeps the launch
- *  splash up, so that one opens straight onto the finished screen. */
-export function RisingBars() {
+ *  splash's Orbit (styled in index.html, where the first one shows before
+ *  the app's code loads). While it is on screen it keeps the launch splash
+ *  up, so that one opens straight onto the finished screen. */
+export function LaunchScreen() {
   const t = useT();
   useEffect(() => holdSplash(), []);
   return (
     <div className="boot waiting" role="status" aria-label={t("Loading Acervus Finance…", "Cargando Acervus Finance…")}>
-      <div className="boot-glow" />
       <div className="boot-tile">
         <svg viewBox="0 0 512 512" aria-hidden="true">
-          <rect width="512" height="512" rx="112" fill="#365CF5" />
-          <rect x="104" y="270" width="72" height="118" rx="16" fillOpacity=".55" />
-          <rect x="220" y="204" width="72" height="184" rx="16" fillOpacity=".8" />
-          <rect x="336" y="124" width="72" height="264" rx="16" />
+          <rect className="tile" width="512" height="512" rx="112" />
+          <path className="ring" d="M386.7 251.5 A133 133 0 1 1 300.5 145" />
+          <circle className="pulse" cx="357" cy="184" r="27" />
+          <circle className="dot" cx="357" cy="184" r="27" />
         </svg>
       </div>
       <div className="boot-word" aria-hidden="true">
@@ -303,6 +300,43 @@ export function Field({ label, hint, error, children, id }: { label: string; hin
         <div className="hint">{hint}</div>
       ) : null}
     </div>
+  );
+}
+
+/** A page's search box as a rounded pill (inner pages of the hero look). */
+export function FilterPill({ value, onChange, placeholder, label, id }: { value: string; onChange: (v: string) => void; placeholder: string; label: string; id?: string }) {
+  return (
+    <label className="filter-pill">
+      <Icon name="search" />
+      <input id={id} type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label} />
+    </label>
+  );
+}
+
+/** A page's views as pill tabs, each with an optional count. */
+export function TabsPill<T extends string>({ value, options, onChange, label }: { value: T; options: [T, string, number?][]; onChange: (v: T) => void; label: string }) {
+  return (
+    <div className="tabs-pill" role="tablist" aria-label={label}>
+      {options.map(([v, text, count]) => (
+        <button key={v} type="button" role="tab" aria-selected={v === value} className={v === value ? "on" : ""} onClick={() => onChange(v)}>
+          {text}
+          {count ? <span className="tab-count">{count}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** How much of a loan's capital is back: a thin bar and the percent. */
+export function PaidBack({ value, label }: { value: number; label: string }) {
+  const pct = Math.round(Math.min(1, Math.max(0, value)) * 100);
+  return (
+    <span className="paid-back" title={label} aria-label={label}>
+      <span className="bar" aria-hidden="true">
+        <i style={{ width: `${pct}%` }} />
+      </span>
+      <span className="num">{pct}%</span>
+    </span>
   );
 }
 

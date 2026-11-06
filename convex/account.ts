@@ -102,6 +102,7 @@ export const erase = internalMutation({
       await ctx.db.patch(m._id, { active: false, removedAt: m.removedAt ?? now, name: await formerLabel(ctx, m.businessId), email: "", collectorView: undefined });
     }
     for await (const i of ctx.db.query("invites").withIndex("by_email", (q) => q.eq("email", a.email))) await ctx.db.delete(i._id);
+    for await (const p of ctx.db.query("userPrefs").withIndex("by_user", (q) => q.eq("userId", a.userId))) await ctx.db.delete(p._id);
     await ctx.db.delete(a.deletionId);
     await ctx.scheduler.runAfter(0, internal.account.removeSignIn, { userId: a.userId });
   },

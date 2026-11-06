@@ -11,7 +11,7 @@ import { releaseSplash, splashProgress } from "./lib/splash";
 import { leaveDemo } from "./demo/demo";
 import { InviteScreen, SignIn, SignUp, Welcome } from "./screens/auth";
 import { ClientDetail, ClientForm, ClientsScreen } from "./screens/clients";
-import { ConfirmScreen, MessagesButton } from "./screens/collect";
+import { MessagesButton } from "./screens/collect";
 import { HistoryScreen } from "./screens/history";
 import { LandingScreen } from "./screens/landing";
 import { LegalScreen } from "./screens/legal";
@@ -20,13 +20,15 @@ import { EntryForm, MoneyScreen, type EntryFormKind } from "./screens/money";
 import { MoreScreen } from "./screens/more";
 import { OverviewScreen } from "./screens/overview";
 import { PaymentForm } from "./screens/payment";
+import { PaymentsScreen } from "./screens/payments";
 import { ReportsScreen } from "./screens/reports";
 import { SettingsScreen } from "./screens/settings";
 import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
-import { AccountButton, BusinessSwitch, ThemePill } from "./ui/account";
-import { Banner, Button, RisingBars } from "./ui/kit";
+import { AccountButton } from "./ui/account";
+import { HeroFiguresSlot, HeroHeader, HeroSlots, SearchBox, type NavItem } from "./ui/hero";
+import { Banner, Button, LaunchScreen } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
 /** Running as the installed app (home screen or desktop window), where the
@@ -48,7 +50,7 @@ export function App() {
   useEffect(() => releaseSplash());
 
   // Signing out: the splash until the sign-in page takes over.
-  if (app.leaving) return <RisingBars />;
+  if (app.leaving) return <LaunchScreen />;
   // The Terms and the Privacy Policy are public: readable signed in or out.
   if (location.pathname === "/terms") return <LegalScreen page="terms" />;
   if (location.pathname === "/privacy") return <LegalScreen page="privacy" />;
@@ -108,7 +110,9 @@ export function App() {
           <Route path="/reports" element={app.can("manage") ? <ReportsScreen /> : <Navigate to="/" replace />} />
           {/* A collector sees the history of their own loans only (on each loan). */}
           <Route path="/history" element={app.role !== "collector" ? <HistoryScreen /> : <Navigate to="/" replace />} />
-          <Route path="/confirm" element={app.role !== "collector" ? <ConfirmScreen /> : <Navigate to="/" replace />} />
+          <Route path="/payments" element={<PaymentsScreen />} />
+          {/* To confirm is a tab of Payments now; old links still land there. */}
+          <Route path="/confirm" element={<Navigate to={app.role !== "collector" ? "/payments?tab=confirm" : "/"} replace />} />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/sync" element={<SyncScreen />} />
           <Route path="/more" element={<MoreScreen />} />
@@ -157,7 +161,7 @@ function AccountDeleting({ deletesAt }: { deletesAt: number }) {
 /** How long the start screen waits before saying it is slow. */
 const SLOW_MS = 15_000;
 
-/** The start screen: Rising Bars while signing in and loading the business,
+/** The start screen: the Orbit launch screen while signing in and loading the business,
  *  or a message. Never a splash forever: when the server takes too long it
  *  says so and offers to try again (or to go on offline when this device
  *  has a copy). */
@@ -170,7 +174,7 @@ function Splash({ message }: { message?: string }) {
     const timer = setTimeout(() => setSlow(true), SLOW_MS);
     return () => clearTimeout(timer);
   }, [message]);
-  if (!message && !slow) return <RisingBars />;
+  if (!message && !slow) return <LaunchScreen />;
   return (
     <div className="auth splash">
       <div className="panel stack" style={{ alignItems: "center", textAlign: "center" }}>
@@ -231,11 +235,20 @@ function Shell({ children }: { children: ReactNode }) {
   const review = app.ops.filter((o) => o.status === "needs_review").length;
   const toConfirm = app.snapshot?.pending.filter((p) => p.status === "waiting").length ?? 0;
   const team = app.role !== "collector";
+  // The phone's tab bar.
   const nav: [string, IconName, string][] = [
     ["/", "home", t("Overview", "Resumen")],
     ["/clients", "users", t("Clients", "Clientes")],
     ["/loans", "loans", t("Loans", "Préstamos")],
     ...(app.can("manage") ? [["/money", "wallet", t("Money", "Dinero")] as [string, IconName, string]] : []),
+  ];
+  // The hero's section nav (wide screens).
+  const heroNav: NavItem[] = [
+    { to: "/", icon: "home", label: t("Overview", "Resumen") },
+    { to: "/clients", icon: "users", label: t("Clients", "Clientes") },
+    { to: "/loans", icon: "loans", label: t("Loans", "Préstamos") },
+    { to: "/payments", icon: "receipt", label: t("Payments", "Pagos") },
+    ...(app.can("manage") ? [{ to: "/reports", icon: "chart" as IconName, label: t("Portfolio", "Portafolio") }] : []),
   ];
   const quickItems: [string, IconName, () => void, boolean][] = [
     [t("Record payment", "Registrar pago"), "receipt", () => open({ kind: "payment" }), app.can("record")],
@@ -244,85 +257,49 @@ function Shell({ children }: { children: ReactNode }) {
     [t("Expense", "Gasto"), "wallet", () => open({ kind: "entry", entry: "expense" }), app.can("record")],
     [t("Income", "Ingreso"), "wallet", () => open({ kind: "entry", entry: "income" }), app.can("record")],
   ];
-  // The sidebar folded to icons, remembered on this device.
-  const [railed, setRailed] = useState(() => {
-    try {
-      return localStorage.getItem("acervus.rail") === "1";
-    } catch {
-      return false;
-    }
-  });
-  const fold = () => {
-    const next = !railed;
-    setRailed(next);
-    try {
-      localStorage.setItem("acervus.rail", next ? "1" : "0");
-    } catch {
-      /* still folded for this visit */
-    }
-  };
-  const mark = <img src="/pwa-64x64.png" alt="" />;
+  // The hero look applies while this shell is up (src/hero.css).
+  useEffect(() => {
+    document.documentElement.classList.add("hero-ui");
+    return () => document.documentElement.classList.remove("hero-ui");
+  }, []);
+  // The hero's background reaches 40px under the panel's top edge, wherever
+  // that is (with or without the Overview's figures).
+  const mainRef = useRef<HTMLElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const main = mainRef.current;
+    const sheet = sheetRef.current;
+    if (!main || !sheet) return;
+    const size = () => main.style.setProperty("--hero-h", `${sheet.offsetTop + 40}px`);
+    size();
+    const watch = new ResizeObserver(size);
+    watch.observe(main);
+    for (const el of main.querySelectorAll(".hero-top, .hero-figs")) watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
   return (
-    <div className={`shell ${railed ? "railed" : ""}`}>
-      <nav className="nav-rail" aria-label={t("Sections", "Secciones")}>
-        <div className="brand">
-          <BusinessSwitch>
-            {mark}
-            <span className="grow rail-label biz-name">{app.business?.name}</span>
-          </BusinessSwitch>
-          <button
-            type="button"
-            className="btn icon small ghost rail-fold"
-            aria-label={railed ? t("Show the sidebar", "Mostrar el menú") : t("Hide the sidebar", "Ocultar el menú")}
-            title={railed ? t("Show the sidebar", "Mostrar el menú") : t("Hide the sidebar", "Ocultar el menú")}
-            onClick={fold}
-          >
-            <Icon name={railed ? "panelOpen" : "panelClose"} />
-          </button>
-        </div>
-        {nav.map(([to, icon, label]) => (
-          <NavLink key={to} to={to} end={to === "/"} title={label}>
-            <Icon name={icon} />
-            <span className="rail-label">{label}</span>
-          </NavLink>
-        ))}
-        {app.can("manage") && (
-          <NavLink to="/reports" title={t("Reports", "Reportes")}>
-            <Icon name="chart" />
-            <span className="rail-label">{t("Reports", "Reportes")}</span>
-          </NavLink>
-        )}
-        {team && toConfirm > 0 && (
-          <NavLink to="/confirm" title={t("To confirm", "Por confirmar")}>
-            <Icon name="check" />
-            <span className="rail-label">{t("To confirm", "Por confirmar")}</span>
-            <span className="pill warn rail-label" style={{ marginLeft: "auto" }}>{toConfirm}</span>
-          </NavLink>
-        )}
-        {team && (
-          <NavLink to="/history" title={t("History", "Historial")}>
-            <Icon name="history" />
-            <span className="rail-label">{t("History", "Historial")}</span>
-          </NavLink>
-        )}
-      </nav>
-      <main className="main">
-        <header className="apphead">
-          <div className="apphead-biz">
-            <BusinessSwitch>
-              {mark}
-              <span className="ellipsis">{app.business?.name}</span>
-            </BusinessSwitch>
+    <HeroSlots>
+      <div className="shell hero-shell">
+        <main className="main" ref={mainRef}>
+          <div className="hero-bg" aria-hidden="true" />
+          <HeroHeader
+            nav={heroNav}
+            right={
+              <>
+                <SearchBox />
+                {app.mode === "online" && <MessagesButton />}
+                <AccountButton />
+              </>
+            }
+          />
+          <HeroFiguresSlot />
+          <div className="hero-tail" />
+          <div className="sheet-panel" ref={sheetRef}>
+            <StatusBanner waiting={waiting} review={review} />
+            <UpdatePrompt />
+            {children}
           </div>
-          <div className="grow" />
-          <ThemePill />
-          {app.mode === "online" && <MessagesButton />}
-          <AccountButton />
-        </header>
-        <StatusBanner waiting={waiting} review={review} />
-        <UpdatePrompt />
-        {children}
-      </main>
+        </main>
       <nav className="tabbar" aria-label={t("Sections", "Secciones")}>
         {[...nav, ...(team ? [["/more", "more", t("More", "Más")] as [string, IconName, string]] : [])].map(([to, icon, label]) => (
           <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => `tab ${isActive ? "active" : ""}`}>
@@ -332,8 +309,9 @@ function Shell({ children }: { children: ReactNode }) {
           </NavLink>
         ))}
       </nav>
-      {app.can("record") && <AddButton items={quickItems.filter(([, , , ok]) => ok)} note={app.mode !== "online" && app.can("manage")} />}
-    </div>
+        {app.can("record") && <AddButton items={quickItems.filter(([, , , ok]) => ok)} note={app.mode !== "online" && app.can("manage")} />}
+      </div>
+    </HeroSlots>
   );
 }
 

@@ -1,95 +1,91 @@
-// Overview: where the money is and who owes it, before anything to do.
-// Each person can arrange it (Customize): blocks and figures shown or
-// hidden, in their order, half or full width. Kept on this device.
+// Overview: the hero's four figures (each person chooses them), then on the
+// panel the growth chart beside where the money is, and the loans that need
+// attention beside the latest payments. Each person can arrange the blocks
+// (shown or hidden, in their order, half or full width), kept on this device;
+// the figures and Interest earned's period follow the person to every device.
 
+import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
-import { addMonths, maxDay } from "../../shared/domain/dates";
-import { firstActivity, gain, history, netInvested, realizedIncome } from "../../shared/domain/portfolio";
+import { api } from "../../convex/_generated/api";
+import { addDays, addMonths, maxDay, monthStart } from "../../shared/domain/dates";
+import { firstActivity, history, netInvested, realizedIncome } from "../../shared/domain/portfolio";
 import { ratioLabel } from "../../shared/domain/money";
+import { useForms } from "../App";
 import { useT } from "../lib/i18n";
 import { displayStatusLabel } from "../lib/labels";
-import {
-  defaultLayout,
-  dropFigureOnto,
-  dropOnto,
-  layoutRows,
-  nudge,
-  nudgeFigure,
-  parseLayout,
-  setFigureShown,
-  setHalf,
-  setShown,
-  sizable,
-  type Block,
-  type Figure,
-  type OverviewLayout,
-} from "../lib/overview-layout";
+import { allowedFigures, defaultHero, parseHero, ROW_ONLY, setPick, shownSlots, type HeroFigure, type HeroLayout, type HeroRole, type Pick } from "../lib/hero-layout";
+import { defaultLayout, dropOnto, layoutRows, nudge, parseLayout, setHalf, setShown, type Block, type OverviewLayout } from "../lib/overview-layout";
 import { needsAttention } from "../state/books";
 import { PERIODS, interestIn, spans, type Period } from "../lib/periods";
 import { useApp, useBooks } from "../state/app";
 import { GrowthChart } from "../ui/chart";
-import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented, Stat } from "../ui/kit";
+import { InHero } from "../ui/hero";
+import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented } from "../ui/kit";
 import { Icon } from "../ui/icons";
 import { useFlip } from "../ui/motion";
 import type { Fmt } from "../lib/format";
-
-const fmtMoney = (fmt: Fmt, v: number) => fmt.money(v);
 import { pendingStatus } from "./collect";
 import { statusTone } from "./loans";
 
-/** The person's arrangement on this device, and a way to change it. */
-function useOverviewLayout(userId: string | undefined) {
-  const key = `acervus.overview.${userId ?? "anon"}`;
+/** A value kept on this device per person (JSON), with a way to change it. */
+function useStored<T>(key: string, parse: (text: string | null) => T) {
   const read = () => {
     try {
-      return parseLayout(localStorage.getItem(key));
+      return parse(localStorage.getItem(key));
     } catch {
-      return defaultLayout();
+      return parse(null);
     }
   };
-  const [layout, setLayout] = useState(read);
-  // Another person signed in on this device: their own arrangement.
+  const [value, setValue] = useState(read);
+  // Another person signed in on this device: their own.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => setLayout(read()), [key]);
-  const save = (l: OverviewLayout) => {
-    setLayout(l);
+  useEffect(() => setValue(read()), [key]);
+  const save = (v: T) => {
+    setValue(v);
     try {
-      localStorage.setItem(key, JSON.stringify(l));
+      localStorage.setItem(key, typeof v === "string" ? v : JSON.stringify(v));
     } catch {
       // Storage full or blocked: it still applies until the app closes.
     }
   };
-  return [layout, save] as const;
+  return [value, save] as const;
 }
 
-/** The period Interest earned shows, kept on this device per person. */
-function useStoredPeriod(userId: string | undefined) {
-  const key = `acervus.interestPeriod.${userId ?? "anon"}`;
-  const read = (): Period => {
-    try {
-      const v = localStorage.getItem(key) as Period | null;
-      return v && PERIODS.includes(v) ? v : "month";
-    } catch {
-      return "month";
+/** A choice that follows the person to every device (convex/prefs.ts),
+ *  with this device's copy for offline and the demo. A copy made before
+ *  the account kept it goes up the first time. */
+function useAccountPref<T>(field: "hero" | "interestPeriod", localKey: string, parse: (text: string | null) => T, text: (v: T) => string) {
+  const { mode } = useApp();
+  const online = mode === "online";
+  const remote = useQuery(api.prefs.mine, online ? {} : "skip");
+  const send = useMutation(api.prefs.save);
+  const [value, saveLocal] = useStored<T>(localKey, parse);
+  const saved = remote?.[field];
+  const hadLocal = useRef(true);
+  useEffect(() => {
+    if (remote === undefined) return;
+    if (saved != null) {
+      if (saved !== text(value)) saveLocal(parse(saved));
+    } else if (hadLocal.current) {
+      try {
+        if (localStorage.getItem(localKey) !== null) void send({ [field]: text(value) }).catch(() => {});
+      } catch {
+        /* nothing to carry up */
+      }
     }
+    hadLocal.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved, remote === undefined]);
+  const save = (v: T) => {
+    saveLocal(v);
+    // Offline the device keeps it; the next change online carries it up.
+    if (online) void send({ [field]: text(v) }).catch(() => {});
   };
-  const [period, set] = useState(read);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => set(read()), [key]);
-  const save = (p: Period) => {
-    set(p);
-    try {
-      localStorage.setItem(key, p);
-    } catch {
-      // Still applies until the app closes.
-    }
-  };
-  return [period, save] as const;
+  return [value, save] as const;
 }
 
-/** The small calendar button by Interest earned's title: a menu of periods. */
-function PeriodPicker({ value, names, onChange }: { value: Period; names: Record<Period, string>; onChange: (p: Period) => void }) {
-  const t = useT();
+/** Closes on Escape or a click elsewhere. */
+function usePopover() {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -105,10 +101,17 @@ function PeriodPicker({ value, names, onChange }: { value: Period; names: Record
       document.removeEventListener("keydown", key);
     };
   }, [open]);
-  const label = t("Choose the period", "Elegir el período");
+  return { open, setOpen, box };
+}
+
+/** The small faint calendar by Interest earned's title: a menu of periods. */
+function PeriodPicker({ value, names, onChange }: { value: Period; names: Record<Period, string>; onChange: (p: Period) => void }) {
+  const t = useT();
+  const { open, setOpen, box } = usePopover();
+  const label = `${t("Choose the period", "Elegir el período")} (${names[value]})`;
   return (
     <span className="period-pick" ref={box}>
-      <button type="button" className={`period-btn ${open ? "on" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}>
+      <button type="button" className={`period-btn ${open ? "on" : ""}`} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={names[value]} onClick={() => setOpen(!open)}>
         <Icon name="calendar" />
       </button>
       {open && (
@@ -135,37 +138,141 @@ function PeriodPicker({ value, names, onChange }: { value: Period; names: Record
   );
 }
 
+/** An amount as the hero shows it: the decimals faded. */
+function Amount({ text }: { text: string }) {
+  const m = /^(.*?)([.,]\d{2})(\D*)$/.exec(text);
+  if (!m) return <>{text}</>;
+  return (
+    <>
+      {m[1]}
+      <span className="dec">{m[2]}</span>
+      {m[3]}
+    </>
+  );
+}
+
+interface FigureValue {
+  label: string;
+  /** What the figure shows. */
+  text: string;
+  /** Shown in red (overdue). */
+  bad?: boolean;
+  good?: boolean;
+  /** Beside the label (Interest earned's period). */
+  action?: ReactNode;
+}
+
 /** What is being dragged while arranging. */
-type Dragged = { kind: "block"; id: Block } | { kind: "figure"; id: Figure };
+type Dragged = Block;
 
 export function OverviewScreen() {
   const t = useT();
   const { books, fmt, snapshot, today, can, role } = useBooks();
-  const { user } = useApp();
+  const { user, mode } = useApp();
+  const open = useForms();
   const admin = can("manage");
   const s = books.summary;
-  const [range, setRange] = useState<"3" | "6" | "12" | "all">("6");
+  const heroRole: HeroRole = role ?? "viewer";
+  const [range, setRange] = useState<"1" | "3" | "6" | "12" | "all">("6");
   const points = useMemo(() => {
     const first = firstActivity(books.book);
     if (!first) return [];
     const from = range === "all" ? first : maxDay(first, addMonths(today, -Number(range)));
     return history(books.book, from, today);
   }, [books.book, today, range]);
-  const attention = needsAttention(books).slice(0, 8);
+  const attention = needsAttention(books).slice(0, 6);
   const recent = [...snapshot.payments].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   const collector = role === "collector";
   const waiting = snapshot.pending.filter((p) => p.status === "waiting");
   const waitingSum = waiting.reduce((a, p) => a + p.amount, 0);
   // A collector's own payments, waiting or decided, newest first.
-  const mine = [...snapshot.pending].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
-  const ret = ratioLabel(gain(s), netInvested(s));
-  const [period, setPeriod] = useStoredPeriod(user?.id);
-  const span = spans(period, today);
+  const mine = [...snapshot.pending].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  const [period, setPeriod] = useAccountPref<Period>("interestPeriod", `acervus.interestPeriod.${user?.id ?? "anon"}`, (v) => (v && PERIODS.includes(v as Period) ? (v as Period) : "month"), (p) => p);
+  const [hero, saveHero] = useAccountPref<HeroLayout>("hero", `acervus.hero.${user?.id ?? "anon"}`, (v) => parseHero(v, heroRole), (l) => JSON.stringify(l));
+  const layoutHero = useMemo(() => parseHero(hero, heroRole), [hero, heroRole]);
 
-  // Arranging: what this person may see, in their order.
-  const [layout, saveLayout] = useOverviewLayout(user?.id);
+  // ----- the figures -----
+  const values = useMemo(() => {
+    const named: Record<Period, string> = {
+      day: t("Today", "Hoy"),
+      week: t("This week", "Esta semana"),
+      month: t("This month", "Este mes"),
+      year: t("This year", "Este año"),
+      all: t("All time", "Todo el tiempo"),
+    };
+    const span = spans(period, today);
+    const earned = span ? interestIn(books.book, span.now) : realizedIncome(s);
+    const soon = addDays(today, 7);
+    const due7 = books.loans.filter((l) => l.delinquency.nextDue && l.delinquency.nextDue >= today && l.delinquency.nextDue <= soon).reduce((a, l) => a + l.delinquency.nextDueAmount, 0);
+    const month = monthStart(today);
+    const collected = snapshot.payments.filter((p) => p.paidOn >= month && p.paidOn <= today).reduce((a, p) => a + p.amount, 0);
+    const then = history(books.book, addMonths(today, -6), addMonths(today, -6))[0];
+    const gainNow = s.portfolioValue - netInvested(s);
+    const gainThen = then ? then.portfolioValue - then.netInvested : 0;
+    const gain6 = gainNow - gainThen;
+    const pct = then && then.netInvested > 0 ? ratioLabel(gain6, then.netInvested) : null;
+    const v: Record<HeroFigure, FigureValue> = {
+      portfolio: { label: t("Total portfolio value", "Valor total del portafolio"), text: fmt.money(s.portfolioValue) },
+      lentOut: { label: t("Capital lent out", "Capital prestado"), text: fmt.money(s.outstandingPrincipal) },
+      interestEarned: {
+        label: t("Interest earned", "Interés cobrado"),
+        text: fmt.money(earned),
+        action: <PeriodPicker value={period} names={named} onChange={setPeriod} />,
+      },
+      availableCapital: { label: t("Available capital", "Capital disponible"), text: fmt.money(s.availableCapital) },
+      availableInterest: { label: t("Available interest", "Interés disponible"), text: fmt.money(s.availableInterest) },
+      receivable: { label: t("Receivable", "Por cobrar"), text: fmt.money(s.interestReceivable + s.feesReceivable) },
+      overdue: { label: t("Overdue amount", "Monto atrasado"), text: fmt.money(s.overdueAmount), bad: s.overdueAmount > 0 },
+      collectedMonth: { label: t("Collected this month", "Cobrado este mes"), text: fmt.money(collected) },
+      expectedInterest: { label: t("Expected interest / month", "Interés esperado / mes"), text: fmt.money(s.expectedMonthlyInterest) },
+      dueNext7: { label: t("Due in next 7 days", "Vence en 7 días"), text: fmt.money(due7) },
+      gain6m: { label: t("Gain (6M)", "Ganancia (6M)"), text: `${fmt.signed(gain6)}${pct ? ` · ${pct}` : ""}`, good: gain6 > 0, bad: gain6 < 0 },
+      activeLoans: { label: t("Active loans", "Préstamos activos"), text: String(s.activeLoans) },
+      overdueLoans: { label: t("Loans overdue", "Préstamos atrasados"), text: String(s.overdueLoans), bad: s.overdueLoans > 0 },
+      toConfirm: { label: t("To confirm", "Por confirmar"), text: fmt.money(waitingSum) },
+    };
+    return v;
+  }, [t, period, today, books, s, fmt, snapshot.payments, waitingSum, setPeriod]);
+
+  const heroFigures = (
+    <InHero slot="figures">
+      <div className="hero-figures">
+        {shownSlots(layoutHero).map(({ slot, rows }, i) => {
+          const big = slot.big === "none" ? null : values[slot.big];
+          return (
+            <div key={i} className="hero-fig">
+              {big && (
+                <>
+                  <div className="fig-label">
+                    {big.label}
+                    {big.action}
+                  </div>
+                  <div className={`fig-big num ${big.bad ? "bad" : ""}`}>
+                    <Amount text={big.text} />
+                  </div>
+                </>
+              )}
+              {rows.length > 0 && (
+                <div className={`fig-rows ${rows.length === 1 ? "one" : ""}`}>
+                  {rows.map((r) => (
+                    <div key={r} className="fig-row">
+                      <span>{values[r].label}</span>
+                      <b className={`num ${values[r].bad ? "chip-bad" : values[r].good ? "good" : ""}`}>{values[r].text}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </InHero>
+  );
+
+  // ----- arranging the blocks -----
+  const [layout, saveLayout] = useStored<OverviewLayout>(`acervus.overview2.${user?.id ?? "anon"}`, parseLayout);
   const [editing, setEditing] = useState(false);
-  const [over, setOver] = useState<string | null>(null);
+  const [over, setOver] = useState<Block | null>(null);
   const dragged = useRef<Dragged | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const flip = useFlip(box, `${JSON.stringify(layout)}|${editing}`);
@@ -177,194 +284,24 @@ export function OverviewScreen() {
     flip.capture();
     setEditing(on);
   };
-  const allowedBlocks: Block[] = ["figures", ...(admin ? (["growth"] as Block[]) : []), "attention", collector ? "mine" : "recent"];
-  const allowedFigures: Figure[] = admin
-    ? ["portfolio", "availableCapital", "availableInterest", "lentOut", "interestEarned", "overdue", "receivable"]
-    : ["active", "overdue", "receivable", ...(collector ? (["toConfirm"] as Figure[]) : [])];
+  const allowedBlocks: Block[] = [...(admin ? (["growth", "money"] as Block[]) : []), "attention", collector ? "mine" : "recent"];
   const blockLabel: Record<Block, string> = {
-    figures: t("Key figures", "Cifras clave"),
-    growth: t("Growth", "Crecimiento"),
+    growth: t("Portfolio growth", "Crecimiento del portafolio"),
+    money: t("Where your money is", "Dónde está tu dinero"),
     attention: t("Needs attention", "Requiere atención"),
     mine: t("My recent payments", "Mis cobros recientes"),
     recent: t("Recent payments", "Pagos recientes"),
   };
 
-  const overdue = (caption: string, lead: boolean) => (
-    <Stat
-      lead={lead}
-      icon="alert"
-      hue={s.overdueAmount > 0 ? "neg" : "neutral"}
-      label={t("Overdue", "Atrasado")}
-      value={fmt.money(s.overdueAmount)}
-      count={{ value: s.overdueAmount, format: fmt.money }}
-      tone={s.overdueAmount > 0 ? "neg" : undefined}
-      caption={caption}
-    />
-  );
-  // Each figure; the first one shown is the lead (bigger, full width).
-  const figure = (f: Figure, lead: boolean): { label: string; el: ReactNode } => {
-    switch (f) {
-      case "portfolio":
-        return {
-          label: t("Portfolio value", "Valor del portafolio"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="wallet"
-              label={t("Portfolio value", "Valor del portafolio")}
-              value={fmt.money(s.portfolioValue)}
-              count={{ value: s.portfolioValue, format: fmt.money }}
-              caption={
-                <span className={gain(s) >= 0 ? "pos" : "neg"}>
-                  {fmt.signed(gain(s))} {ret ? `(${ret})` : ""} · {t("on capital invested", "sobre capital invertido")}
-                </span>
-              }
-            />
-          ),
-        };
-      case "availableCapital":
-        return {
-          label: t("Available capital", "Capital disponible"),
-          el: <Stat lead={lead} icon="briefcase" label={t("Available capital", "Capital disponible")} value={fmt.money(s.availableCapital)} count={{ value: s.availableCapital, format: fmt.money }} />,
-        };
-      case "availableInterest":
-        return {
-          label: t("Available interest", "Interés disponible"),
-          el: <Stat lead={lead} icon="receipt" hue="pos" label={t("Available interest", "Interés disponible")} value={fmt.money(s.availableInterest)} count={{ value: s.availableInterest, format: fmt.money }} />,
-        };
-      case "lentOut":
-        return {
-          label: t("Capital lent out", "Capital prestado"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="loans"
-              hue="info"
-              label={t("Capital lent out", "Capital prestado")}
-              value={fmt.money(s.outstandingPrincipal)}
-              count={{ value: s.outstandingPrincipal, format: fmt.money }}
-              caption={t(`${s.activeLoans} active loans`, `${s.activeLoans} préstamos activos`)}
-            />
-          ),
-        };
-      case "interestEarned": {
-        const now = span ? interestIn(books.book, span.now) : realizedIncome(s);
-        const before = span ? interestIn(books.book, span.before) : 0;
-        const diff = now - before;
-        const pct = before > 0 ? ` (${diff >= 0 ? "+" : ""}${((diff / before) * 100).toFixed(1)}%)` : "";
-        const versus: Record<Period, string> = {
-          day: t("vs yesterday", "vs ayer"),
-          week: t("vs last week", "vs la semana pasada"),
-          month: t("vs last month", "vs el mes pasado"),
-          year: t("vs last year", "vs el año pasado"),
-          all: "",
-        };
-        const named: Record<Period, string> = {
-          day: t("Today", "Hoy"),
-          week: t("This week", "Esta semana"),
-          month: t("This month", "Este mes"),
-          year: t("This year", "Este año"),
-          all: t("All time", "Todo el tiempo"),
-        };
-        return {
-          label: t("Interest earned", "Interés cobrado"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="chart"
-              hue="pos"
-              label={t("Interest earned", "Interés cobrado")}
-              value={fmt.money(now)}
-              count={{ value: now, format: fmt.money }}
-              action={
-                editing ? undefined : (
-                  <PeriodPicker value={period} names={named} onChange={setPeriod} />
-                )
-              }
-              above={named[period]}
-              caption={
-                span ? (
-                  <>
-                    <span className={diff > 0 ? "pos" : diff < 0 ? "neg" : ""}>
-                      {fmt.signed(diff)}
-                      {pct}
-                    </span>{" "}
-                    {versus[period]}
-                  </>
-                ) : (
-                  t(`${fmt.money(s.expectedMonthlyInterest)} expected a month`, `${fmt.money(s.expectedMonthlyInterest)} esperados al mes`)
-                )
-              }
-            />
-          ),
-        };
-      }
-      case "active":
-        return {
-          label: t("Active loans", "Préstamos activos"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="loans"
-              label={t("Active loans", "Préstamos activos")}
-              value={String(s.activeLoans)}
-              count={{ value: s.activeLoans, format: String }}
-              caption={t(`${s.dueSoonLoans} due soon`, `${s.dueSoonLoans} vencen pronto`)}
-            />
-          ),
-        };
-      case "overdue":
-        return {
-          label: t("Overdue", "Atrasado"),
-          el: overdue(
-            admin
-              ? t(`${s.overdueLoans} loans · ${s.dueSoonLoans} due soon`, `${s.overdueLoans} préstamos · ${s.dueSoonLoans} vencen pronto`)
-              : t(`${s.overdueLoans} loans`, `${s.overdueLoans} préstamos`),
-            lead,
-          ),
-        };
-      case "receivable":
-        return {
-          label: t("Receivable", "Por cobrar"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="clock"
-              hue="info"
-              label={t("Receivable", "Por cobrar")}
-              value={fmt.money(s.interestReceivable + s.feesReceivable)}
-              count={{ value: s.interestReceivable + s.feesReceivable, format: fmt.money }}
-              caption={t("Interest and late fees due, unpaid", "Interés y mora vencidos sin pagar")}
-            />
-          ),
-        };
-      case "toConfirm":
-        return {
-          label: t("To confirm", "Por confirmar"),
-          el: (
-            <Stat
-              lead={lead}
-              icon="wallet"
-              hue={waiting.length > 0 ? "warn" : "neutral"}
-              label={t("To confirm", "Por confirmar")}
-              value={fmt.money(waitingSum)}
-              count={{ value: waitingSum, format: fmt.money }}
-              caption={t(`${waiting.length} payment(s) waiting for the office`, `${waiting.length} pago(s) esperando a la oficina`)}
-            />
-          ),
-        };
-    }
-  };
-
   // Dragging with a mouse; on touch screens the arrows do the moving.
-  const dragProps = (d: Dragged) =>
+  const dragProps = (b: Block) =>
     editing
       ? {
           draggable: true,
           onDragStart: (e: DragEvent) => {
-            dragged.current = d;
+            dragged.current = b;
             e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", d.id);
+            e.dataTransfer.setData("text/plain", b);
           },
           onDragEnd: () => {
             dragged.current = null;
@@ -372,107 +309,58 @@ export function OverviewScreen() {
           },
         }
       : {};
-  const dropProps = (d: Dragged) =>
+  const dropProps = (b: Block) =>
     editing
       ? {
           onDragOver: (e: DragEvent) => {
             const g = dragged.current;
-            if (!g || g.kind !== d.kind || g.id === d.id) return;
+            if (!g || g === b) return;
             e.preventDefault();
-            e.stopPropagation();
-            setOver(`${d.kind}-${d.id}`);
+            setOver(b);
           },
-          onDragLeave: () => setOver((o) => (o === `${d.kind}-${d.id}` ? null : o)),
+          onDragLeave: () => setOver((o) => (o === b ? null : o)),
           onDrop: (e: DragEvent) => {
             const g = dragged.current;
-            if (!g || g.kind !== d.kind || g.id === d.id) return;
+            if (!g || g === b) return;
             e.preventDefault();
-            e.stopPropagation();
             setOver(null);
-            edit(g.kind === "block" ? dropOnto(layout, g.id, d.id as Block) : dropFigureOnto(layout, g.id, d.id as Figure));
+            edit(dropOnto(layout, g, b));
           },
         }
       : {};
 
-  const figures = () => {
-    const order = layout.figures.filter((f) => allowedFigures.includes(f) && (editing || !layout.hiddenFigures.includes(f)));
-    const shownOrder = order.filter((f) => !layout.hiddenFigures.includes(f));
-    if (order.length === 0) return null;
-    return (
-      <Card>
-        <div className={`stats ${editing ? "arranging" : ""}`}>
-          {order.map((f, i) => {
-            const hidden = layout.hiddenFigures.includes(f);
-            const lead = f === shownOrder[0];
-            const { label, el } = figure(f, lead);
-            return (
-              <div
-                key={f}
-                data-flip={`f-${f}`}
-                className={`stat-cell ${lead ? "lead" : ""} ${hidden ? "off" : ""} ${over === `figure-${f}` ? "drop" : ""}`}
-                {...dragProps({ kind: "figure", id: f })}
-                {...dropProps({ kind: "figure", id: f })}
-              >
-                {el}
-                {editing && (
-                  <div className="stat-tools">
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon="left"
-                      aria-label={t(`Move ${label} earlier`, `Mover ${label} antes`)}
-                      disabled={i === 0}
-                      onClick={() => edit(nudgeFigure(layout, f, -1, allowedFigures))}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon="right"
-                      aria-label={t(`Move ${label} later`, `Mover ${label} después`)}
-                      disabled={i === order.length - 1}
-                      onClick={() => edit(nudgeFigure(layout, f, 1, allowedFigures))}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon={hidden ? "eye" : "eyeOff"}
-                      aria-label={hidden ? t(`Show ${label}`, `Mostrar ${label}`) : t(`Hide ${label}`, `Ocultar ${label}`)}
-                      onClick={() => edit(setFigureShown(layout, f, hidden))}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-    );
-  };
-
   const growth = () => (
     <Card
-      title={t("Growth", "Crecimiento")}
+      title={blockLabel.growth}
       action={
-        <div style={{ width: 200 }}>
-          <Segmented
-            label={t("Range", "Rango")}
-            value={range}
-            onChange={setRange}
-            options={[
-              ["3", "3M"],
-              ["6", "6M"],
-              ["12", t("1Y", "1A")],
-              ["all", t("All", "Todo")],
-            ]}
-          />
-        </div>
+        <Segmented
+          label={t("Range", "Rango")}
+          value={range}
+          onChange={setRange}
+          options={[
+            ["1", t("1M", "1M")],
+            ["3", "3M"],
+            ["6", "6M"],
+            ["12", t("1Y", "1A")],
+            ["all", t("All", "Todo")],
+          ]}
+        />
       }
     >
       <div className="card-body">
         {points.length > 1 ? (
           <>
-            <GrowthChart points={points} fmt={fmt} label={t("Portfolio value over time", "Valor del portafolio en el tiempo")} />
-            <p className="micro muted">{t("Solid: portfolio value. Dashed: capital invested.", "Línea continua: valor del portafolio. Discontinua: capital invertido.")}</p>
+            <div className="legend" aria-hidden="true">
+              <span>
+                <i />
+                {t("Portfolio value", "Valor del portafolio")}
+              </span>
+              <span>
+                <i className="dash" />
+                {t("Capital invested", "Capital invertido")}
+              </span>
+            </div>
+            <GrowthChart points={points} fmt={fmt} label={t("Portfolio value and capital invested over time", "Valor del portafolio y capital invertido en el tiempo")} />
           </>
         ) : (
           <Empty icon="chart">{t("The chart appears once there is activity on more than one day.", "El gráfico aparece cuando hay actividad en más de un día.")}</Empty>
@@ -481,18 +369,64 @@ export function OverviewScreen() {
     </Card>
   );
 
+  const money = () => {
+    const parts: [string, number][] = [
+      [t("Lent out", "Prestado"), s.outstandingPrincipal],
+      [t("Available capital", "Capital disponible"), s.availableCapital],
+      [t("Available interest", "Interés disponible"), s.availableInterest],
+      [t("Receivable", "Por cobrar"), s.interestReceivable + s.feesReceivable],
+    ];
+    const total = parts.reduce((a, p) => a + Math.max(0, p[1]), 0);
+    return (
+      <Card title={blockLabel.money} action={<LinkButton to="/money" size="small" variant="ghost">{t("Movements", "Movimientos")}</LinkButton>}>
+        <div className="card-body money-where">
+          <div className="money-total num">
+            <Amount text={fmt.money(s.portfolioValue)} />
+          </div>
+          {total > 0 && (
+            <div className="money-bar" aria-hidden="true">
+              {parts.map(([label, v], i) => (v > 0 ? <span key={label} className={`m${i}`} style={{ flexGrow: v }} /> : null))}
+            </div>
+          )}
+          <ul className="money-list">
+            {parts.map(([label, v], i) => (
+              <li key={label}>
+                <span className={`sw m${i}`} aria-hidden="true" />
+                {label}
+                {total > 0 && <span className="pct num">{((Math.max(0, v) / total) * 100).toFixed(1)}%</span>}
+                <span className="amt num">{fmt.money(v)}</span>
+              </li>
+            ))}
+          </ul>
+          {mode === "online" && (
+            <div className="money-acts">
+              <Button size="small" variant="primary" icon="arrows" onClick={() => open({ kind: "entry", entry: "transfer" })}>
+                {t("Move money", "Mover dinero")}
+              </Button>
+              <Button size="small" icon="edit" onClick={() => open({ kind: "entry", entry: "adjust" })}>
+                {t("Adjust balances", "Ajustar saldos")}
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
   const attentionList = () => (
-    <Section
-      title={t("Needs attention", "Requiere atención")}
-      count={attention.length > 0 ? t(`${attention.length} loans`, `${attention.length} préstamos`) : undefined}
+    <Card
+      title={
+        <>
+          {blockLabel.attention}
+          {attention.length > 0 && <span className="count-pill">{t(`${attention.length} loans`, `${attention.length} préstamos`)}</span>}
+        </>
+      }
       action={<LinkButton to="/loans" size="small" variant="ghost">{t("All loans", "Préstamos")}</LinkButton>}
     >
       {attention.length === 0 ? (
-        <Card>
-          <Empty icon="check">{t("Nothing overdue or due in the next 5 days.", "Nada atrasado ni por vencer en los próximos 5 días.")}</Empty>
-        </Card>
+        <Empty icon="check">{t("Nothing overdue or due in the next 5 days.", "Nada atrasado ni por vencer en los próximos 5 días.")}</Empty>
       ) : (
-        <ul className="list boxed">
+        <ul className="list ruled">
           {attention.map((l) => (
             <Row
               key={l.loan._id}
@@ -516,17 +450,15 @@ export function OverviewScreen() {
           ))}
         </ul>
       )}
-    </Section>
+    </Card>
   );
 
   const mineList = () => (
-    <Section title={t("My recent payments", "Mis cobros recientes")}>
+    <Card title={blockLabel.mine}>
       {mine.length === 0 ? (
-        <Card>
-          <Empty icon="receipt">{t("Payments you collect show here until the office confirms them.", "Los cobros que hagas aparecen aquí hasta que la oficina los confirme.")}</Empty>
-        </Card>
+        <Empty icon="receipt">{t("Payments you collect show here until the office confirms them.", "Los cobros que hagas aparecen aquí hasta que la oficina los confirme.")}</Empty>
       ) : (
-        <ul className="list boxed">
+        <ul className="list ruled">
           {mine.map((p) => {
             const st = pendingStatus(t, p);
             const l = books.loanById.get(p.loanId);
@@ -548,17 +480,15 @@ export function OverviewScreen() {
           })}
         </ul>
       )}
-    </Section>
+    </Card>
   );
 
   const recentList = () => (
-    <Section title={t("Recent payments", "Pagos recientes")} action={admin && <LinkButton to="/money" size="small" variant="ghost">{t("Money", "Dinero")}</LinkButton>}>
+    <Card title={blockLabel.recent} action={<LinkButton to="/payments" size="small" variant="ghost">{t("All payments", "Todos los pagos")}</LinkButton>}>
       {recent.length === 0 ? (
-        <Card>
-          <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>
-        </Card>
+        <Empty icon="receipt">{t("No payments yet.", "Aún no hay pagos.")}</Empty>
       ) : (
-        <ul className="list boxed">
+        <ul className="list ruled">
           {recent.map((p) => {
             const l = books.loanById.get(p.loanId);
             return (
@@ -568,16 +498,16 @@ export function OverviewScreen() {
                 lead={<Avatar name={l?.client?.fullName ?? "?"} />}
                 title={l?.client?.fullName ?? "—"}
                 sub={`${fmt.dayShort(p.paidOn)} · ${t("interest", "interés")} ${fmt.money(p.interest)} · ${t("capital", "capital")} ${fmt.money(p.principal)}`}
-                trail={<span className="amount num pos">{fmt.money(p.amount)}</span>}
+                trail={<span className="amount num pos">+{fmt.money(p.amount)}</span>}
               />
             );
           })}
         </ul>
       )}
-    </Section>
+    </Card>
   );
 
-  const content: Record<Block, () => ReactNode> = { figures, growth, attention: attentionList, mine: mineList, recent: recentList };
+  const content: Record<Block, () => ReactNode> = { growth, money, attention: attentionList, mine: mineList, recent: recentList };
   const shownBlocks = layout.blocks.filter((b) => allowedBlocks.includes(b) && !layout.hidden.includes(b));
 
   // A block; while arranging, framed with a bar to drag it by, arrows,
@@ -586,15 +516,10 @@ export function OverviewScreen() {
     const at = shownBlocks.indexOf(b);
     const label = blockLabel[b];
     return (
-      <div
-        key={b}
-        data-flip={`b-${b}`}
-        className={`ov-block ${editing ? "framed" : ""} ${over === `block-${b}` ? "drop" : ""}`}
-        {...dropProps({ kind: "block", id: b })}
-      >
+      <div key={b} data-flip={`b-${b}`} className={`ov-block ${editing ? "framed" : ""} ${over === b ? "drop" : ""}`} {...dropProps(b)}>
         {editing && (
           <div className="ov-bar">
-            <span className="ov-grip" {...dragProps({ kind: "block", id: b })}>
+            <span className="ov-grip" {...dragProps(b)}>
               <Icon name="grip" />
               <span className="ellipsis">{label}</span>
             </span>
@@ -607,19 +532,17 @@ export function OverviewScreen() {
               disabled={at === shownBlocks.length - 1}
               onClick={() => edit(nudge(layout, b, 1, allowedBlocks))}
             />
-            {sizable(b) && (
-              <span className="ov-size">
-                <Segmented
-                  label={t(`Width of ${label}`, `Ancho de ${label}`)}
-                  value={layout.half.includes(b) ? "half" : "full"}
-                  onChange={(v) => edit(setHalf(layout, b, v === "half"))}
-                  options={[
-                    ["half", t("Half", "Mitad")],
-                    ["full", t("Full", "Completo")],
-                  ]}
-                />
-              </span>
-            )}
+            <span className="ov-size">
+              <Segmented
+                label={t(`Width of ${label}`, `Ancho de ${label}`)}
+                value={layout.half.includes(b) ? "half" : "full"}
+                onChange={(v) => edit(setHalf(layout, b, v === "half"))}
+                options={[
+                  ["half", t("Half", "Mitad")],
+                  ["full", t("Full", "Completo")],
+                ]}
+              />
+            </span>
             <Button variant="ghost" size="small" icon="eyeOff" aria-label={t(`Hide ${label}`, `Ocultar ${label}`)} onClick={() => edit(setShown(layout, b, false))} />
           </div>
         )}
@@ -633,20 +556,19 @@ export function OverviewScreen() {
   const touch = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   const hiddenBlocks = allowedBlocks.filter((b) => layout.hidden.includes(b));
   return (
-    <div>
-      <div className="topbar">
-        <div className="grow">
-          <h1>{greeting(t)}</h1>
-          <div className="small muted ellipsis">{snapshot.business.name}</div>
-        </div>
-      </div>
+    <div className="overview">
+      {heroFigures}
+      <InHero slot="actions">
+        <CustomizeFigures layout={layoutHero} role={heroRole} labels={values} onChange={saveHero} />
+      </InHero>
+      <h1 className="sr-only">{t("Overview", "Resumen")}</h1>
       {editing && (
         <div className="ov-editbar">
           <Icon name="sliders" />
           <span className="grow">
             <b>{t("Arranging your Overview.", "Organizando tu Resumen.")}</b>{" "}
             {touch
-              ? t("Use the buttons on each block and figure to move or hide it.", "Usa los botones de cada bloque y cifra para moverlo u ocultarlo.")
+              ? t("Use the buttons on each block to move or hide it.", "Usa los botones de cada bloque para moverlo u ocultarlo.")
               : t("Drag a block by its bar, or use the buttons on each one.", "Arrastra un bloque por su barra o usa los botones de cada uno.")}
           </span>
           <Button size="small" onClick={() => edit(defaultLayout())}>
@@ -668,7 +590,7 @@ export function OverviewScreen() {
       <div ref={box} className="ov-blocks">
         {rows.map((row) =>
           row.length === 2 ? (
-            <div key={row.join("+")} className="ov-pair" style={{ "--cols": row.map((b) => (b === "growth" ? "2fr" : "1fr")).join(" ") } as CSSProperties}>
+            <div key={row.join("+")} className="ov-pair" style={{ "--cols": row.map((b) => (b === "growth" ? "1.6fr" : "1fr")).join(" ") } as CSSProperties}>
               {row.map(block)}
             </div>
           ) : (
@@ -699,26 +621,64 @@ export function OverviewScreen() {
   );
 }
 
-/** A list that stands on the page: a heading, an optional count pill and
- *  one action, over rows that are each their own small card. */
-function Section({ title, count, action, children }: { title: string; count?: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="section-list">
-      <div className="section-head">
-        <h2>{title}</h2>
-        {count && <Pill tone="accent">{count}</Pill>}
-        <span className="spacer" />
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
+const fmtMoney = (fmt: Fmt, v: number) => fmt.money(v);
 
-/** The Overview title: a greeting for the time of day. */
-function greeting(t: (en: string, es: string) => string): string {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return t("Good morning", "Buenos días");
-  if (h >= 12 && h < 18) return t("Good afternoon", "Buenas tardes");
-  return t("Good evening", "Buenas noches");
+/** The sliders button beside the business: which figure goes in each of the
+ *  hero's four places, and the two rows under it. "Nothing" leaves a spot
+ *  empty; a place with nothing in it disappears. */
+function CustomizeFigures({ layout, role, labels, onChange }: { layout: HeroLayout; role: HeroRole; labels: Record<HeroFigure, FigureValue>; onChange: (l: HeroLayout) => void }) {
+  const t = useT();
+  const { open, setOpen, box } = usePopover();
+  const allowed = allowedFigures(role);
+  const label = t("Customize figures", "Personalizar cifras");
+  const select = (i: number, spot: "big" | 0 | 1, value: Pick) => (
+    <select
+      id={`hero-${i}-${spot}`}
+      value={value}
+      onChange={(e) => onChange(setPick(layout, i, spot, e.target.value as Pick))}
+    >
+      <option value="none">{t("Nothing", "Nada")}</option>
+      {allowed
+        .filter((f) => spot !== "big" || !ROW_ONLY.includes(f))
+        .map((f) => (
+          <option key={f} value={f}>
+            {labels[f].label}
+          </option>
+        ))}
+    </select>
+  );
+  return (
+    <span className="hero-custom" ref={box}>
+      <button type="button" className={`glass-pill icon ${open ? "on" : ""}`} aria-haspopup="dialog" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}>
+        <Icon name="sliders" />
+      </button>
+      {open && (
+        <div className="hero-pop custom-pop" role="dialog" aria-label={label}>
+          <h4>{t("Your figures", "Tus cifras")}</h4>
+          <div className="custom-grid">
+            {layout.map((slot, i) => (
+              <div key={i} className="custom-slot">
+                <span className="micro-cap">{t(`Place ${i + 1}`, `Lugar ${i + 1}`)}</span>
+                <label htmlFor={`hero-${i}-big`}>{t("Big figure", "Cifra grande")}</label>
+                {select(i, "big", slot.big)}
+                <label htmlFor={`hero-${i}-0`}>{t("Row 1", "Fila 1")}</label>
+                {select(i, 0, slot.rows[0])}
+                <label htmlFor={`hero-${i}-1`}>{t("Row 2", "Fila 2")}</label>
+                {select(i, 1, slot.rows[1])}
+              </div>
+            ))}
+          </div>
+          <div className="custom-foot">
+            <span>{t("Choose Nothing to leave a spot empty. A single row shows larger.", "Elige Nada para dejar un espacio vacío. Una sola fila se ve más grande.")}</span>
+            <Button size="small" variant="ghost" onClick={() => onChange(defaultHero(role))}>
+              {t("Reset", "Restablecer")}
+            </Button>
+            <Button size="small" variant="primary" onClick={() => setOpen(false)}>
+              {t("Done", "Listo")}
+            </Button>
+          </div>
+        </div>
+      )}
+    </span>
+  );
 }

@@ -1,8 +1,8 @@
 // Settings: the businesses list stays on the page; every group opens from
 // its row in a sheet, and some have pages inside (receipt customization,
 // payment receipt settings, a team member), each with a back button.
-
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useSearchParams } from "react-router";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -117,7 +117,9 @@ export function SettingsScreen() {
   const { can, mode, businessId } = app;
   const admin = can("manage");
   const online = mode === "online";
-  const [open, setOpen] = useState<Panel | null>(null);
+  // ?open=business (from the business menu) opens that group at once.
+  const [params] = useSearchParams();
+  const [open, setOpen] = useState<Panel | null>(() => (params.get("open") === "business" ? "business" : null));
   const [page, setPage] = useState<Page | null>(null);
   const business = admin && online;
   const members = useQuery(api.businesses.members, business && open === "team" ? { businessId } : "skip");

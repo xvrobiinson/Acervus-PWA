@@ -253,6 +253,16 @@ export default defineSchema({
     .index("by_business", ["businessId", "status"])
     .index("by_loan", ["loanId"]),
 
+  /** Each person's own choices that follow them to every device (convex/prefs.ts):
+   *  the Overview hero's figures and Interest earned's period. Not business data. */
+  userPrefs: defineTable({
+    userId: v.string(),
+    /** The hero's four places as JSON (src/lib/hero-layout.ts), checked on save. */
+    hero: v.optional(v.string()),
+    interestPeriod: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   /** Accounts waiting to be deleted (convex/account.ts). */
   accountDeletions: defineTable({
     userId: v.string(),

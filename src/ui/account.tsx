@@ -256,11 +256,14 @@ export function AccountButton() {
             <span className="who">
               <b className="ellipsis">{app.user?.name || app.user?.email}</b>
               {app.user?.name && <small className="ellipsis">{app.user.email}</small>}
+              <span className="pill accent">
+                <Icon name={ROLE_ICON[role]} />
+                {roleLabel(t, role)}
+              </span>
             </span>
-            <span className="pill accent">
-              <Icon name={ROLE_ICON[role]} />
-              {roleLabel(t, role)}
-            </span>
+            <button type="button" className="acct-x" aria-label={t("Close", "Cerrar")} onClick={() => setOpen(false)}>
+              <Icon name="close" />
+            </button>
           </div>
           <div className={`acct-status s${sev}`}>
             <div className="st-title">
@@ -305,12 +308,22 @@ export function AccountButton() {
             />
           </div>
           <div className="acct-sec">
+            <div className="menu-item static">
+              <span className="ic">
+                <Icon name="sun" />
+              </span>
+              <span className="tx">
+                <b>{t("Appearance", "Apariencia")}</b>
+              </span>
+              <ThemePill />
+            </div>
             <MenuItem
               icon={<Icon name="sync" />}
               title={t("Sync", "Sincronización")}
               sub={app.mode === "offline" || !app.online ? t("Offline", "Sin conexión") : t("Changes on this device and the server", "Cambios de este dispositivo y el servidor")}
               onClick={() => go("/sync")}
             />
+            {role !== "collector" && <MenuItem icon={<Icon name="history" />} title={t("Change history", "Historial de cambios")} sub={t("Who changed what, and when", "Quién cambió qué y cuándo")} onClick={() => go("/history")} />}
             <MenuItem icon={<Icon name="settings" />} title={t("Settings", "Ajustes")} sub={t("Business, team, receipts, formats", "Negocio, equipo, recibos, formatos")} onClick={() => go("/settings")} />
           </div>
           <button
@@ -336,6 +349,8 @@ export function AccountButton() {
 /** The business name (and logo): opens the list of businesses to switch. */
 export function BusinessSwitch({ children }: { children: ReactNode }) {
   const t = useT();
+  const app = useApp();
+  const navigate = useNavigate();
   const { open, setOpen, box } = usePopover();
   const [creating, setCreating] = useState(false);
   return (
@@ -354,6 +369,16 @@ export function BusinessSwitch({ children }: { children: ReactNode }) {
               setCreating(true);
             }}
           />
+          {app.can("manage") && app.mode === "online" && (
+            <MenuItem
+              icon={<Icon name="settings" />}
+              title={t("Business settings", "Ajustes del negocio")}
+              onClick={() => {
+                setOpen(false);
+                navigate("/settings?open=business");
+              }}
+            />
+          )}
         </div>
       )}
       {creating && <NewBusinessSheet onClose={() => setCreating(false)} />}
