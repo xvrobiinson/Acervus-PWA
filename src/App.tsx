@@ -27,7 +27,7 @@ import { SyncScreen } from "./screens/sync";
 import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
 import { AccountButton } from "./ui/account";
-import { HeroFiguresSlot, HeroHeader, HeroSlots, SearchBox, type NavItem } from "./ui/hero";
+import { HeroFiguresSlot, HeroHeader, HeroSlots, NavBadge, SearchBox, type NavItem } from "./ui/hero";
 import { Banner, Button, LaunchScreen } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
@@ -235,6 +235,10 @@ function Shell({ children }: { children: ReactNode }) {
   const review = app.ops.filter((o) => o.status === "needs_review").length;
   const toConfirm = app.snapshot?.pending.filter((p) => p.status === "waiting").length ?? 0;
   const team = app.role !== "collector";
+  // Loans: the loans overdue (red). Payments: collector payments to confirm
+  // (amber, for whoever confirms them).
+  const overdueLoans = app.books?.summary.overdueLoans ?? 0;
+  const confirmable = app.can("manage") ? toConfirm : 0;
   // The phone's floating bar: Overview, Clients, the + (when the person may
   // add), Loans, More (Payments, Portfolio, Money and History are there).
   const canAdd = app.can("record");
@@ -249,8 +253,8 @@ function Shell({ children }: { children: ReactNode }) {
   const heroNav: NavItem[] = [
     { to: "/", icon: "home", label: t("Overview", "Resumen") },
     { to: "/clients", icon: "users", label: t("Clients", "Clientes") },
-    { to: "/loans", icon: "loans", label: t("Loans", "Préstamos") },
-    { to: "/payments", icon: "receipt", label: t("Payments", "Pagos") },
+    { to: "/loans", icon: "loans", label: t("Loans", "Préstamos"), badge: { n: overdueLoans, tone: "alert" } },
+    { to: "/payments", icon: "receipt", label: t("Payments", "Pagos"), badge: { n: confirmable, tone: "waiting" } },
     ...(app.can("manage") ? [{ to: "/reports", icon: "chart" as IconName, label: t("Portfolio", "Portafolio") }] : []),
   ];
   const quickItems: [string, IconName, () => void, boolean][] = [
@@ -310,7 +314,10 @@ function Shell({ children }: { children: ReactNode }) {
             <span key="add" className="tab-gap" aria-hidden="true" />
           ) : (
             <NavLink key={item[0]} to={item[0]} end={item[0] === "/"} className={({ isActive }) => `tab ${isActive ? "active" : ""}`}>
-              <Icon name={item[1]} />
+              <span className="nav-ico">
+                <Icon name={item[1]} />
+                {item[0] === "/loans" && <NavBadge n={overdueLoans} tone="alert" />}
+              </span>
               {item[2]}
               {item[0] === "/more" && team && toConfirm > 0 && <span className="dot" />}
             </NavLink>

@@ -75,6 +75,18 @@ export interface NavItem {
   to: string;
   icon: IconName;
   label: string;
+  /** A count on the icon's corner, colored by what it is about. */
+  badge?: { n: number; tone: BadgeTone };
+}
+
+/** Red: something is late. Amber: someone is waiting on you. Blue: news. */
+export type BadgeTone = "alert" | "waiting" | "info";
+
+/** A small count on an icon's top right corner (the same as the Windows
+ *  app's, picked 2026-11-07). Nothing when the count is zero. */
+export function NavBadge({ n, tone }: { n: number; tone: BadgeTone }) {
+  if (n <= 0) return null;
+  return <span className={`nbadge ${tone}`}>{n > 99 ? "99+" : n}</span>;
 }
 
 export function HeroHeader({ nav, right }: { nav: NavItem[]; right: ReactNode }) {
@@ -96,7 +108,10 @@ export function HeroHeader({ nav, right }: { nav: NavItem[]; right: ReactNode })
         <nav className="hero-nav" aria-label={t("Sections", "Secciones")}>
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === "/"}>
-              <Icon name={n.icon} />
+              <span className="nav-ico">
+                <Icon name={n.icon} />
+                {n.badge && <NavBadge n={n.badge.n} tone={n.badge.tone} />}
+              </span>
               {n.label}
             </NavLink>
           ))}

@@ -15,6 +15,7 @@ import { ratioLabel } from "../../shared/domain/money";
 import { useForms } from "../App";
 import { useT } from "../lib/i18n";
 import { displayStatusLabel } from "../lib/labels";
+import { SixFigures } from "./six-figures";
 import { allowedFigures, defaultHero, parseHero, ROW_ONLY, setPick, shownSlots, type HeroFigure, type HeroLayout, type HeroRole, type Pick } from "../lib/hero-layout";
 import { defaultLayout, dropOnto, layoutRows, nudge, parseLayout, setHalf, setShown, type Block, type OverviewLayout } from "../lib/overview-layout";
 import { needsAttention } from "../state/books";
@@ -195,6 +196,7 @@ export function OverviewScreen() {
   const [figAt, setFigAt] = useState(0);
 
   // ----- the figures -----
+  const periodPicker = (named: Record<Period, string>) => <PeriodPicker value={period} names={named} onChange={setPeriod} />;
   const values = useMemo(() => {
     const named: Record<Period, string> = {
       day: t("Today", "Hoy"),
@@ -239,7 +241,18 @@ export function OverviewScreen() {
 
   // Phones swipe through the figures one at a time; the dots follow.
   const shownFigs = shownSlots(layoutHero).length;
-  const heroFigures = (
+  const periodNames: Record<Period, string> = {
+    day: t("Today", "Hoy"),
+    week: t("This week", "Esta semana"),
+    month: t("This month", "Este mes"),
+    year: t("This year", "Este año"),
+    all: t("All time", "Todo el tiempo"),
+  };
+  const heroFigures = admin ? (
+    <InHero slot="figures">
+      <SixFigures s={s} book={books.book} fmt={fmt} today={today} period={period} periodAction={periodPicker(periodNames)} />
+    </InHero>
+  ) : (
     <InHero slot="figures">
       <div
         className="hero-figures"
@@ -577,9 +590,12 @@ export function OverviewScreen() {
   return (
     <div className="overview">
       {heroFigures}
-      <InHero slot="actions">
-        <CustomizeFigures layout={layoutHero} role={heroRole} labels={values} onChange={saveHero} />
-      </InHero>
+      {/* Admins' six figures are fixed; the others pick their four. */}
+      {!admin && (
+        <InHero slot="actions">
+          <CustomizeFigures layout={layoutHero} role={heroRole} labels={values} onChange={saveHero} />
+        </InHero>
+      )}
       <h1 className="sr-only">{t("Overview", "Resumen")}</h1>
       {editing && (
         <div className="ov-editbar">

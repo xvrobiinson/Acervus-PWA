@@ -320,15 +320,18 @@ export function AccountButton() {
                 }}
               />
             )}
-            <MenuItem
-              icon={<Icon name="sliders" />}
-              title={t("Customize figures", "Personalizar cifras")}
-              sub={t("Which figures the Overview shows", "Qué cifras muestra el Resumen")}
-              onClick={() => {
-                setOpen(false);
-                navigate("/?customize=1");
-              }}
-            />
+            {/* Admins see six fixed figures; the others pick theirs. */}
+            {!app.can("manage") && (
+              <MenuItem
+                icon={<Icon name="sliders" />}
+                title={t("Customize figures", "Personalizar cifras")}
+                sub={t("Which figures the Overview shows", "Qué cifras muestra el Resumen")}
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/?customize=1");
+                }}
+              />
+            )}
           </div>
           <div className="acct-sec">
             <div className="menu-item static">
