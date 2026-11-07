@@ -7,7 +7,7 @@ import { Link } from "react-router";
 import { useLang, useT } from "../lib/i18n";
 import { Button } from "../ui/kit";
 
-const UPDATED: [string, string] = ["October 30, 2026", "30 de octubre de 2026"];
+const UPDATED: [string, string] = ["November 7, 2026", "7 de noviembre de 2026"];
 export const SUPPORT_EMAIL = "officialvzlabs@gmail.com";
 
 type Section = { h: [string, string]; p: [string, string][] };
@@ -143,8 +143,8 @@ const PRIVACY: Section[] = [
     h: ["The desktop app", "La app de escritorio"],
     p: [
       [
-        "Without signing in, the Windows app keeps everything on your PC and makes no network requests. Signed in, it keeps the business you choose in step with the cloud. Google Drive backups happen only if you turn them on, and are saved in your own Drive.",
-        "Sin iniciar sesión, la app de Windows guarda todo en tu PC y no usa internet. Con sesión iniciada, mantiene al día con la nube el negocio que elijas. Las copias en Google Drive solo se hacen si las activas y se guardan en tu propio Drive.",
+        "The Windows app needs you to sign in before it opens a business. It keeps a copy of the business you open on your PC, so it can keep working offline, and keeps that copy in step with the cloud. While it is open, it also saves a backup of that copy in a backups folder on your PC once a day, keeping the newest seven. Books kept only on your PC by earlier versions stay there: the app offers to move them into a cloud business and doesn't change that file. Google Drive backups are made while the app is open, right away and then once a day, and are saved in your own Drive, when your Google account has given Acervus access to Drive. Signing in to the Windows app with Google asks for that permission; accounts that sign in with an emailed code can add it with Connect Google Drive. You can turn Drive backups off for a business in the app's Settings; backups already in your Drive stay there.",
+        "La app de Windows necesita que inicies sesión antes de abrir un negocio. Guarda en tu PC una copia del negocio que abres, para poder seguir funcionando sin conexión, y mantiene esa copia al día con la nube. Mientras está abierta, también guarda una vez al día una copia de seguridad de esa copia en una carpeta de copias en tu PC, y conserva las siete más recientes. Los libros que versiones anteriores guardaron solo en tu PC se quedan ahí: la app ofrece pasarlos a un negocio en la nube y no cambia ese archivo. Las copias en Google Drive se hacen mientras la app está abierta, al momento y luego una vez al día, y se guardan en tu propio Drive, cuando tu cuenta de Google le ha dado a Acervus acceso a Drive. Al iniciar sesión en la app de Windows con Google se pide ese permiso; las cuentas que inician sesión con un código por correo pueden agregarlo con Conectar Google Drive. Puedes desactivar las copias en Drive de un negocio en los Ajustes de la app; las copias que ya están en tu Drive se quedan ahí.",
       ],
     ],
   },
@@ -152,8 +152,8 @@ const PRIVACY: Section[] = [
     h: ["Where it is stored", "Dónde se guarda"],
     p: [
       [
-        "We use these providers to run Acervus: Convex (database and files), Cloudflare (hosting the web app), Brevo (sending sign-in codes by email) and Google (sign-in with Google, and Drive backups if you choose them). They may process data in other countries, including the United States, and only on our behalf.",
-        "Usamos estos proveedores para hacer funcionar Acervus: Convex (base de datos y archivos), Cloudflare (alojamiento de la app web), Brevo (envío de códigos por correo) y Google (inicio de sesión con Google y copias en Drive si las eliges). Pueden procesar datos en otros países, incluido Estados Unidos, y solo en nuestro nombre.",
+        "We use these providers to run Acervus: Convex (database and files), Cloudflare (hosting the web app), Brevo (sending sign-in codes by email) and Google (sign-in with Google, and backups to your own Google Drive when your Google account allows it). They may process data in other countries, including the United States, and only on our behalf.",
+        "Usamos estos proveedores para hacer funcionar Acervus: Convex (base de datos y archivos), Cloudflare (alojamiento de la app web), Brevo (envío de códigos por correo) y Google (inicio de sesión con Google y copias en tu propio Google Drive cuando tu cuenta de Google lo permite). Pueden procesar datos en otros países, incluido Estados Unidos, y solo en nuestro nombre.",
       ],
     ],
   },

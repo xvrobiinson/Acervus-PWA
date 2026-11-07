@@ -1,0 +1,147 @@
+/* The public SEO landing pages (public/<page>/index.html): plain HTML, no
+   JavaScript, in the landing page's look (src/hero.css, "the landing page
+   and the sign-in pages in the same look"): the fog in light, the streaks in
+   dark, greys and a dark slate button. Light or dark follows the device. */
+
+@font-face { font-family: "Inter"; src: url("/fonts/Inter-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("/fonts/Inter-Medium.ttf") format("truetype"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("/fonts/Inter-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+
+:root {
+  color-scheme: light dark;
+  --ground: #e6e9eb; --surface: #ffffff; --raised: #f6f7f8; --hover: #f1f3f4;
+  --border: #e3e6e9; --control: #d3d7da; --ink: #1a1d21; --muted: #5f656b; --faint: #7d838a;
+  --cta: #3b3e41; --cta-ink: #ffffff;
+  --img: url("/hero/fog.jpg"); --img-base: #a4a8aa;
+  --shadow: 0 1px 2px rgba(15, 26, 46, 0.05), 0 2px 6px -1px rgba(15, 26, 46, 0.04), 0 8px 24px -6px rgba(15, 26, 46, 0.07);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #0b0c0e; --surface: #15181c; --raised: #1b1f24; --hover: #21252b;
+    --border: #262b32; --control: #363c44; --ink: #eceef0; --muted: #9ba2a9; --faint: #858c93;
+    --cta: #f1f2f3; --cta-ink: #111316;
+    --img: url("/hero/streaks.jpg"); --img-base: #040405;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font: 400 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: clip;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px); }
+.skip { position: absolute; left: -9999px; top: 8px; padding: 8px 14px; border-radius: 8px; background: var(--surface); color: var(--ink); z-index: 50; }
+.skip:focus { left: 16px; }
+
+/* The top of the page: the fog (or the streaks), fading into the page. */
+.sky { background: linear-gradient(180deg, transparent 0%, transparent 40%, var(--ground) 96%), var(--img) center top / cover no-repeat, var(--img-base); }
+
+/* Header */
+.nav { display: flex; align-items: center; gap: 16px; height: 68px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; text-decoration: none; color: var(--ink); }
+.brand img { width: 32px; height: 32px; border-radius: 8px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* Buttons */
+.pill { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 9px 20px; border-radius: 999px; border: 1px solid transparent;
+  font-weight: 600; font-size: 15px; line-height: 1.2; text-decoration: none; white-space: nowrap; transition: box-shadow 300ms ease, transform 160ms ease, background 160ms ease; }
+.pill:hover { transform: translateY(-1px); }
+.pill:active { transform: translateY(1px); }
+.pill.solid { background: var(--cta); color: var(--cta-ink); box-shadow: 0 12px 26px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.pill.ghost { color: var(--ink); border-color: var(--control); background: color-mix(in srgb, var(--surface) 55%, transparent); font-weight: 500; }
+.pill.ghost:hover { background: var(--surface); }
+.pill.white { background: #ffffff; color: #111316; box-shadow: 0 12px 26px -12px rgba(0, 0, 0, 0.6); }
+.pill.glass { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.35); font-weight: 500; }
+.pill.glass:hover { background: rgba(255, 255, 255, 0.18); }
+.pill.big { min-height: 50px; padding: 12px 26px; }
+@media (prefers-reduced-motion: reduce) { .pill, .pill:hover, .pill:active { transition: none; transform: none; } }
+
+/* Hero */
+.hero { position: relative; margin-top: 12px; padding: clamp(40px, 7vw, 88px) clamp(22px, 5vw, 64px) clamp(36px, 5vw, 56px); border-radius: 30px; color: #fff; overflow: hidden;
+  background: linear-gradient(100deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.14) 55%, rgba(0, 0, 0, 0.06) 100%), var(--img) center / cover no-repeat, var(--img-base);
+  border: 1px solid rgba(255, 255, 255, 0.22); box-shadow: 0 30px 70px rgba(15, 18, 24, 0.25); }
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); }
+.eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.hero h1 { margin-top: 18px; max-width: 780px; font-size: clamp(36px, 5.2vw, 64px); line-height: 1.04; letter-spacing: -0.035em; }
+.hero p { margin-top: 20px; max-width: 640px; font-size: clamp(16px, 1.6vw, 18px); line-height: 1.6; color: rgba(255, 255, 255, 0.86); }
+.hero h1, .hero p, .eyebrow { text-shadow: 0 1px 14px rgba(0, 0, 0, 0.18); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 26px 0 0; padding: 0; list-style: none; font-size: 14px; color: rgba(255, 255, 255, 0.85); }
+.facts li::before { content: "✓"; margin-right: 8px; font-weight: 600; }
+
+/* Screenshots: both themes are in the page as one <picture>; only one loads. */
+.shot { margin: 0; }
+.shot img { width: 100%; border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 30px 70px -20px rgba(10, 12, 16, 0.4); background: var(--surface); }
+.shot figcaption { margin-top: 12px; font-size: 14px; color: var(--muted); text-align: center; }
+.hero-shot { margin-top: clamp(28px, 4vw, 44px); }
+
+/* Sections */
+main section { padding: clamp(56px, 8vw, 104px) 0 0; }
+.kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+h2 { margin-top: 10px; max-width: 760px; font-size: clamp(28px, 3.6vw, 42px); letter-spacing: -0.03em; }
+.lead { margin-top: 16px; max-width: 720px; font-size: 17px; color: var(--muted); }
+
+.cards { display: grid; gap: 16px; margin-top: 36px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.card { padding: 24px; border-radius: 22px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.card h3 { font-size: 17px; letter-spacing: -0.01em; }
+.card p { margin-top: 8px; font-size: 15px; line-height: 1.6; color: var(--muted); }
+
+/* The life of a loan: numbered stages beside a screenshot. */
+.split { display: grid; gap: clamp(28px, 4vw, 56px); align-items: center; margin-top: 36px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+@media (max-width: 880px) { .split { grid-template-columns: 1fr; } }
+.stages { margin: 0; padding: 0; list-style: none; counter-reset: stage; display: grid; gap: 22px; }
+.stages li { counter-increment: stage; position: relative; padding-left: 52px; }
+.stages li::before { content: counter(stage); position: absolute; left: 0; top: -2px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 14px; font-weight: 600; background: var(--surface); border: 1px solid var(--control); }
+.stages h3 { font-size: 17px; letter-spacing: -0.01em; }
+.stages p { margin-top: 6px; font-size: 15px; color: var(--muted); }
+
+.steps { display: grid; gap: 16px; margin-top: 36px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); counter-reset: step; }
+.steps .card { counter-increment: step; }
+.steps .card::before { content: "Step " counter(step); display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--faint); }
+
+/* FAQ */
+.faq { margin-top: 32px; max-width: 820px; display: grid; gap: 10px; }
+.faq details { border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.faq summary { cursor: pointer; list-style: none; padding: 18px 52px 18px 22px; position: relative; font-weight: 600; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 22px; top: 50%; transform: translateY(-50%); font-size: 22px; font-weight: 400; color: var(--faint); }
+.faq details[open] summary::after { content: "−"; }
+.faq details p { padding: 0 22px 20px; color: var(--muted); font-size: 15px; }
+.faq a { text-underline-offset: 2px; }
+
+/* The closing call to action: black with the streaks, in both themes. */
+.final { margin-top: clamp(56px, 8vw, 104px); padding: clamp(40px, 6vw, 72px) clamp(22px, 5vw, 64px); border-radius: 30px; text-align: center; color: #fff;
+  background: linear-gradient(180deg, rgba(4, 4, 5, 0.2), rgba(4, 4, 5, 0.55)), url("/hero/streaks.jpg") center / cover no-repeat, #040405; border: 1px solid rgba(255, 255, 255, 0.1); }
+.final h2 { margin: 0 auto; }
+.final p { margin: 14px auto 0; max-width: 560px; color: rgba(255, 255, 255, 0.78); }
+.final .actions { justify-content: center; }
+
+/* Footer */
+.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px 32px; margin-top: 48px; padding: 28px 0 40px; border-top: 1px solid var(--border); font-size: 14px; color: var(--muted); }
+.foot strong { color: var(--ink); font-weight: 600; }
+.foot nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.foot a { text-decoration: none; }
+.foot a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+
+@media (max-width: 520px) {
+  .nav { height: 60px; }
+  .nav .pill { min-height: 38px; padding: 7px 14px; font-size: 14px; }
+  .brand { font-size: 16px; white-space: nowrap; }
+}
+@media (max-width: 420px) {
+  .brand-tail { display: none; }
+  .actions .pill { flex: 1 1 100%; }
+  .hero { border-radius: 22px; }
+  .final { border-radius: 22px; }
+}
