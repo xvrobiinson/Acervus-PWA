@@ -22,7 +22,21 @@ import {
 } from "./lib/books";
 import { fail } from "./lib/errors";
 import { day, notFuture, text } from "./lib/validate";
-import { frequency, installment, method } from "./schema";
+import { frequency, installment, lateFeeMode, method } from "./schema";
+
+/** A whole percent from 0 to 100. */
+function percent(field: string, v: number): number {
+  if (!Number.isInteger(v) || v < 0 || v > 100) fail("invalid", { field });
+  return v;
+}
+
+/** The reinvest choices with `p` from `on` (a change made the same day
+ *  replaces that day's); unchanged when `p` is already in force. */
+function withReinvest(choices: { from: string; percent: number }[], on: string, p: number) {
+  const now = choices.filter((c) => c.from <= on).at(-1)?.percent ?? 0;
+  if (now === p && choices.every((c) => c.from <= on)) return choices;
+  return [...choices.filter((c) => c.from < on), { from: on, percent: p }];
+}
 
 const terms = v.object({
   principal: v.number(),
@@ -54,6 +68,28 @@ function scheduleSummary(s: Doc<"loans">["schedule"]): string {
   return `${s.length}|${s.reduce((t, x) => t + x.principal + x.interest, 0)}`;
 }
 
+/** "Lend and add capital" (0.15): capital added on the loan's date, never
+ *  more than the loan, saved with it. */
+async function addCapitalFor(ctx: MutationCtx, access: Access, amount: number, t: LoanTerms, clientId: Id<"clients">) {
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > t.principal) fail("invalid", { field: "addCapital" });
+  const client = await ctx.db.get(clientId);
+  const notes = `Added to lend to ${client?.fullName ?? ""}`.trim();
+  const now = Date.now();
+  const id = await ctx.db.insert("capitalTxs", {
+    businessId: access.business._id,
+    recordNo: await nextRecordNo(ctx, access.business),
+    kind: "contribution",
+    amount,
+    occurredOn: t.startDate,
+    notes,
+    createdAt: now,
+    createdBy: access.userId,
+    updatedAt: now,
+    version: 1,
+  });
+  await logChange(ctx, access, "capital", id, "create", new Diff().added("kind", "contribution").added("amount", amount).added("occurred_on", t.startDate).added("notes", notes), "");
+}
+
 async function activeClient(ctx: MutationCtx, access: Access, clientId: Id<"clients">, allowArchived: boolean) {
   const client = await ownRecord(ctx, access, "clients", clientId);
   if (client.archivedAt && !allowArchived) fail("archived_client");
@@ -67,20 +103,35 @@ export const create = mutation({
     terms,
     schedule: v.union(v.array(installment), v.null()),
     notes: v.string(),
+    /** 0.15. Left out by older apps: the business's defaults. */
+    lateFeeMode: v.optional(lateFeeMode),
+    reinvest: v.optional(v.number()),
+    /** Capital added on the loan's date in the same save, to cover what the
+     *  business is short of ("Lend and add capital", 0.15). */
+    addCapital: v.optional(v.number()),
   },
   handler: async (ctx, a): Promise<Id<"loans">> => {
     const access = await requireMember(ctx, a.businessId, "manage");
     checkTerms(a.terms, access.today);
     const notes = text("notes", a.notes, 10_000);
     const s = schedule(a.terms, a.schedule);
-    await activeClient(ctx, access, a.clientId, false);
-    ensureAvailable(await loadRecords(ctx, a.businessId), a.terms.startDate, null, a.terms.principal);
+    const client = await activeClient(ctx, access, a.clientId, false);
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_business", (q) => q.eq("businessId", a.businessId))
+      .unique();
+    const mode = a.lateFeeMode ?? settings?.lateFeeMode ?? "installment";
+    const reinvested = percent("reinvest", a.reinvest ?? settings?.defaultReinvest ?? 0);
     const now = Date.now();
+    if (a.addCapital !== undefined) await addCapitalFor(ctx, access, a.addCapital, a.terms, client._id);
+    ensureAvailable(await loadRecords(ctx, a.businessId), a.terms.startDate, null, a.terms.principal);
     const loanId = await ctx.db.insert("loans", {
       businessId: a.businessId,
       recordNo: await nextRecordNo(ctx, access.business),
       clientId: a.clientId,
       ...a.terms,
+      lateFeeMode: mode,
+      reinvest: reinvested > 0 ? [{ from: a.terms.startDate, percent: reinvested }] : [],
       scheduleEdited: s.edited,
       schedule: s.schedule,
       status: "active",
@@ -110,6 +161,8 @@ export const create = mutation({
       .added("method", a.terms.method)
       .added("installments", a.terms.installments)
       .added("late_fee_rate", a.terms.lateFeeRate)
+      .added("late_fee_mode", mode)
+      .added("reinvest", reinvested)
       .added("start_date", a.terms.startDate)
       .added("schedule", scheduleSummary(s.schedule))
       .added("schedule_edited", s.edited ? "true" : "")
@@ -131,10 +184,18 @@ export const update = mutation({
     schedule: v.union(v.array(installment), v.null()),
     notes: v.string(),
     reason: v.string(),
+    /** 0.15: the part of its interest reinvested from today on. Left out
+     *  by older apps: kept as it is. */
+    reinvest: v.optional(v.number()),
+    /** Capital added on the loan's date to cover a larger amount (0.15). */
+    addCapital: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
     const access = await requireMember(ctx, a.businessId, "manage");
     const old = await ownRecord(ctx, access, "loans", a.loanId);
+    const oldReinvest = old.reinvest ?? [];
+    const reinvest = a.reinvest === undefined ? oldReinvest : withReinvest(oldReinvest, access.today, percent("reinvest", a.reinvest));
+    const percentOn = (c: typeof oldReinvest) => c.filter((x) => x.from <= access.today).at(-1)?.percent ?? 0;
     checkVersion(old, a.expectedVersion);
     checkTerms(a.terms, access.today);
     const notes = text("notes", a.notes, 10_000);
@@ -158,14 +219,17 @@ export const update = mutation({
       .field("start_date", old.startDate, a.terms.startDate)
       .field("schedule", scheduleSummary(old.schedule), scheduleSummary(s.schedule))
       .field("schedule_edited", old.scheduleEdited, s.edited)
-      .field("notes", old.notes, notes);
+      .field("notes", old.notes, notes)
+      .field("reinvest", percentOn(oldReinvest), percentOn(reinvest));
     if (d.empty && JSON.stringify(s.schedule) === JSON.stringify(old.schedule)) return;
+    if (a.addCapital !== undefined) await addCapitalFor(ctx, access, a.addCapital, a.terms, a.clientId);
     await ctx.db.patch(old._id, {
       clientId: a.clientId,
       ...a.terms,
       schedule: s.schedule,
       scheduleEdited: s.edited,
       notes,
+      reinvest,
     });
     await reallocate(ctx, access, old._id);
     await checkCash(ctx, a.businessId);

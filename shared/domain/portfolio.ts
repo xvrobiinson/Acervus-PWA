@@ -26,7 +26,7 @@ import {
 } from "./ledger";
 import { planDelinquency, planPosition, run, type Plan, type PlanPayment, type PlanState } from "./installments";
 import { convertPerPeriod, periodInterest } from "./loans";
-import type { Cents } from "./money";
+import { mulDiv, type Cents } from "./money";
 
 export type CapitalKind = "contribution" | "withdrawal";
 /** The two places cash is kept. */
@@ -53,6 +53,30 @@ export interface EntryFact {
   occurredOn: Day;
 }
 
+/** From `from` on, `percent` of each payment's interest is reinvested: it
+ *  goes to available capital instead of available interest (2026-11-10, the
+ *  owner's choice per loan). Late fees always stay in available interest. */
+export interface Reinvest {
+  from: Day;
+  percent: number;
+}
+
+/** The part of `interest` reinvested on `on`, by the loan's choices. */
+export function reinvested(choices: Reinvest[] | undefined, on: Day, interest: Cents): Cents {
+  let percent = 0;
+  for (const c of choices ?? []) if (c.from <= on) percent = c.percent;
+  return percent > 0 ? mulDiv(interest, percent, 100) : 0;
+}
+
+/** Interest reinvested by payments dated `from` to `to` (inclusive). */
+export function reinvestedBetween(book: Book, from: Day, to: Day): Cents {
+  let total = 0;
+  for (const l of book.loans) {
+    for (const p of l.payments) if (p.paidOn >= from && p.paidOn <= to) total += reinvested(l.reinvest, p.paidOn, p.interest);
+  }
+  return total;
+}
+
 /** One loan with everything needed to evaluate it. */
 export interface LoanBook {
   id: string;
@@ -62,6 +86,8 @@ export interface LoanBook {
   payments: PaymentFact[];
   /** Installment schedule and stored splits; `null` for interest-only loans. */
   plan: (Plan & { payments: PlanPayment[] }) | null;
+  /** Interest reinvested, from each date (none: all kept as profit). */
+  reinvest?: Reinvest[];
 }
 
 /** The installment loan replayed to the end of `asOf`. */
@@ -169,8 +195,9 @@ function moves(book: Book): [Day, number, Move][] {
   for (const l of book.loans) {
     out.push([l.facts.startDate, 3, { kind: "lend", amount: l.facts.principal }]);
     for (const p of l.payments) {
-      out.push([p.paidOn, 1, { kind: "add", account: "capital", amount: p.principal }]);
-      out.push([p.paidOn, 1, { kind: "add", account: "interest", amount: p.interest + p.fee }]);
+      const back = reinvested(l.reinvest, p.paidOn, p.interest);
+      out.push([p.paidOn, 1, { kind: "add", account: "capital", amount: p.principal + back }]);
+      out.push([p.paidOn, 1, { kind: "add", account: "interest", amount: p.interest - back + p.fee }]);
     }
   }
   // Array.prototype.sort is stable, like Rust's sort_by_key.

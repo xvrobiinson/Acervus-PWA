@@ -1,7 +1,7 @@
 // Words for the engine's keys, in both languages (from the desktop app).
 
 import type { ContractStatus, DisplayStatus } from "../../shared/domain/ledger";
-import type { InstallmentStatus } from "../../shared/domain/installments";
+import type { FeeMode, InstallmentStatus } from "../../shared/domain/installments";
 import type { Frequency, Method } from "../../shared/domain/loans";
 import type { Account, CapitalKind, EntryKind } from "../../shared/domain/portfolio";
 import type { ReceiptShow } from "../receipts/receipt";
@@ -184,3 +184,40 @@ export const COLLECTOR_VIEW_PARTS: [CollectorViewPart, string, string][] = [
   ["lateFees", "Late fees", "Mora"],
   ["notes", "Client notes", "Notas del cliente"],
 ];
+
+/** The ways of charging late fees (0.15), in plain words. */
+export function feeModeLabel(t: T, m: FeeMode | undefined): string {
+  switch (m ?? "installment") {
+    case "monthly":
+      return t("Each month it stays late", "Cada mes que siga atrasada");
+    case "overdue":
+      return t("On everything overdue", "Sobre todo lo atrasado");
+    case "balance":
+      return t("On what is left of the loan", "Sobre lo que queda del préstamo");
+    default:
+      return t("Once on the late installment", "Una vez sobre la cuota atrasada");
+  }
+}
+
+export function feeModeHint(t: T, m: FeeMode | undefined): string {
+  switch (m ?? "installment") {
+    case "monthly":
+      return t(
+        "The day after a due date, on what is unpaid of that installment, then again every 30 days while it stays unpaid.",
+        "El día después del vencimiento, sobre lo que falte de esa cuota, y otra vez cada 30 días mientras siga sin pagar.",
+      );
+    case "overdue":
+      return t("The day after each due date, on everything overdue on the loan that day.", "El día después de cada vencimiento, sobre todo lo atrasado del préstamo ese día.");
+    case "balance":
+      return t("The day after each missed due date, on all the capital still owed.", "El día después de cada vencimiento sin pagar, sobre todo el capital que se debe.");
+    default:
+      return t("Charged once on what is unpaid, the day after a due date.", "Se cobra una vez sobre lo que falte, el día después del vencimiento.");
+  }
+}
+
+/** Where a loan's collected interest goes (0.15). */
+export function reinvestLabel(t: T, percent: number): string {
+  if (percent <= 0) return t("Kept as profit", "Se queda como ganancia");
+  if (percent >= 100) return t("Reinvested into capital", "Se reinvierte en capital");
+  return t(`${percent}% reinvested, the rest kept as profit`, `${percent}% se reinvierte, el resto queda como ganancia`);
+}

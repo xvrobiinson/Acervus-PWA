@@ -352,3 +352,8 @@
 /* The ⇄ under the business name on the Overview (admins, 2026-11-10). */
 .biz-title-wrap { position: relative; display: inline-flex; min-width: 0; }
 .biz-arrows { position: absolute; top: calc(100% + 1px); left: 50%; width: 13px; height: 13px; margin-left: -6.5px; color: var(--faint); pointer-events: none; }
+
+/* Keep / Reinvest / Split (0.15). */
+.reinvest-pick { gap: 10px; flex-wrap: wrap; align-items: center; }
+.reinvest-pct { gap: 6px; align-items: center; }
+.reinvest-pct .input { width: 64px; }

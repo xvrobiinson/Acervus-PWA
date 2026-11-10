@@ -10,7 +10,12 @@
 //   charged once the capital is repaid.
 // - A payment dated on a due date belongs to the period ending that day.
 // - The day after its due date, an installment with capital or interest still
-//   unpaid is charged a late fee of feeRate × that unpaid amount, once.
+//   unpaid is charged a late fee of feeRate × a base, by the loan's way
+//   (`FeeMode`, 2026-11-10; the owner chose ways B, C and D next to A):
+//     A "installment": what is unpaid of that installment, once (as before);
+//     B "monthly": the same, then again every 30 days while it stays unpaid;
+//     C "overdue": everything overdue on the loan that day, once;
+//     D "balance": all the capital still owed on the loan, once.
 // - Payments are applied by one of four instructions: oldest first, to one
 //   installment, spread with chosen amounts, or a custom split between
 //   capital, interest and late fees (each oldest first).
@@ -123,12 +128,20 @@ export interface PlanPayment {
 }
 
 /** An installment loan's schedule and recorded payments. */
+/** How a late fee is worked out (see the top of this file). */
+export type FeeMode = "installment" | "monthly" | "overdue" | "balance";
+export const FEE_MODES: FeeMode[] = ["installment", "monthly", "overdue", "balance"];
+/** Way B charges again this many days after the last charge. */
+export const FEE_REPEAT_DAYS = 30;
+
 export interface Plan {
   method: Method;
   schedule: Installment[];
   /** Edited by hand: the scheduled interest is used as written. */
   edited: boolean;
   feeRate: Rate;
+  /** The loan's way of charging late fees; none is "installment". */
+  feeMode?: FeeMode;
   /** Installments whose late fee was waived. */
   waived: number[];
 }
@@ -144,8 +157,13 @@ export interface InstallmentState {
   charged: boolean;
   /** Capital owed when its period began (once charged). */
   balanceAtStart: Cents;
+  /** Late fees owed on it (none when waived). */
   fee: Cents;
-  /** What was unpaid when the late fee was assessed. */
+  /** Every late fee charged on it, before any waiver. */
+  feeAssessed: Cents;
+  /** How many times a late fee was charged (more than once only with way B). */
+  feeCharges: number;
+  /** What the first late fee was charged on. */
   feeBase: Cents;
   feeAssessedOn: Day | null;
   feeWaived: boolean;
@@ -303,14 +321,44 @@ class Engine {
       }
       const s = this.st[k];
       if (s.feeAssessedOn === null && s.charged && s.due < at && (this.limit === null || s.due < this.limit)) {
-        const base = unpaidPrincipal(s) + unpaidInterest(s);
-        if (base > 0 && this.plan.feeRate > 0) {
-          const fee = mulDiv(base, this.plan.feeRate, RATE_SCALE);
+        const own = unpaidPrincipal(s) + unpaidInterest(s);
+        if (own > 0 && this.plan.feeRate > 0) {
+          const base = this.feeBase(k, own);
           s.feeBase = base;
-          s.fee = s.feeWaived ? 0 : fee;
+          s.feeAssessed = mulDiv(base, this.plan.feeRate, RATE_SCALE);
+          s.feeCharges = 1;
+          s.fee = s.feeWaived ? 0 : s.feeAssessed;
           s.feeAssessedOn = addDays(s.due, 1);
         }
       }
+      // Way B: again every 30 days while the installment stays unpaid.
+      if (this.plan.feeMode === "monthly" && s.feeAssessedOn !== null) {
+        for (;;) {
+          const on = addDays(s.feeAssessedOn, FEE_REPEAT_DAYS * s.feeCharges);
+          if (on > at || (this.limit !== null && on > this.limit)) break;
+          const own = unpaidPrincipal(s) + unpaidInterest(s);
+          if (own <= 0) break;
+          s.feeAssessed += mulDiv(own, this.plan.feeRate, RATE_SCALE);
+          s.feeCharges += 1;
+          s.fee = s.feeWaived ? 0 : s.feeAssessed;
+        }
+      }
+    }
+  }
+
+  /** What installment `k`'s first late fee is charged on, by the loan's way;
+   *  `own` is what is unpaid of the installment itself. */
+  feeBase(k: number, own: Cents): Cents {
+    switch (this.plan.feeMode ?? "installment") {
+      case "overdue": {
+        // Everything overdue that day: installments due on or before this one.
+        const due = this.st[k].due;
+        return sum(this.st.filter((x) => x.charged && x.due <= due).map((x) => unpaidPrincipal(x) + unpaidInterest(x)));
+      }
+      case "balance":
+        return this.outstanding();
+      default:
+        return own;
     }
   }
 
@@ -440,6 +488,8 @@ export function run(
     charged: false,
     balanceAtStart: 0,
     fee: 0,
+    feeAssessed: 0,
+    feeCharges: 0,
     feeBase: 0,
     feeAssessedOn: null,
     feeWaived: plan.waived.includes(x.seq),

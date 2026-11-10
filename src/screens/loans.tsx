@@ -16,14 +16,14 @@ import {
 } from "../../shared/domain/installments";
 import { DISPLAY_ORDER, periodStates, type DisplayStatus } from "../../shared/domain/ledger";
 import { dueDate, effectiveRate, FREQUENCIES, periodInterest, hasInstallments, rateConverts, RATE_PRESETS, validateTerms, type Frequency, type LoanTerms, type Method } from "../../shared/domain/loans";
-import { mulDiv, parseMoney, ratePercentLabel } from "../../shared/domain/money";
+import { parseMoney, ratePercentLabel } from "../../shared/domain/money";
 import { availableFrom } from "../../shared/domain/portfolio";
 import { buildBook, termsFacts, type LoanRecord, type PaymentRecord } from "../../shared/domain/records";
 import { useForms } from "../App";
 import { describeError, errorData, scheduleErrorText } from "../lib/errors";
-import { EntryForm } from "./money";
+import { ReinvestPicker } from "../ui/reinvest";
 import { useT } from "../lib/i18n";
-import { contractStatusLabel, displayStatusHint, displayStatusLabel, frequencyLabel, frequencyPer, installmentStatusLabel, methodExplanation, methodLabel, methodShort, methodSuits } from "../lib/labels";
+import { contractStatusLabel, displayStatusHint, feeModeHint, feeModeLabel, reinvestLabel, displayStatusLabel, frequencyLabel, frequencyPer, installmentStatusLabel, methodExplanation, methodLabel, methodShort, methodSuits } from "../lib/labels";
 import { loanSentence } from "../lib/loan-sentence";
 import { ReceiptSheet } from "../receipts/view";
 import { PendingOnLoan } from "./collect";
@@ -176,7 +176,7 @@ export function LoanDetail() {
   const t = useT();
   const { id } = useParams();
   const app = useBooks();
-  const { books, fmt, can, mode, businessId, ops, snapshot } = app;
+  const { books, fmt, can, mode, businessId, ops, snapshot, today } = app;
   // A collector's switches (convex/lib/team.ts); everything for anyone else.
   const view = snapshot.me.view;
   const navigate = useNavigate();
@@ -309,7 +309,7 @@ export function LoanDetail() {
                             {x.feeAssessedOn ? (
                               <span className="row" style={{ justifyContent: "flex-end", gap: 4 }}>
                                 <span className={x.feeWaived ? "faint" : ""} style={x.feeWaived ? { textDecoration: "line-through" } : undefined}>
-                                  {fmt.money(x.feeWaived ? mulDiv(x.feeBase, loan.lateFeeRate, 1_000_000) : x.fee)}
+                                  {fmt.money(x.feeWaived ? x.feeAssessed : x.fee)}
                                 </span>
                                 {admin && fee && (
                                   <Button size="small" variant="ghost" onClick={() => setAsk({ waive: x.seq, waived: !x.feeWaived })}>
@@ -421,9 +421,17 @@ export function LoanDetail() {
                   {view.lateFees && (
                     <>
                       <dt>{t("Late fee", "Mora")}</dt>
-                      <dd>{fmt.rate(loan.lateFeeRate)}</dd>
+                      <dd title={feeModeHint(t, loan.lateFeeMode)}>
+                        {fmt.rate(loan.lateFeeRate)} · {feeModeLabel(t, loan.lateFeeMode).toLowerCase()}
+                      </dd>
                     </>
                   )}
+                </>
+              )}
+              {app.can("manage") && (
+                <>
+                  <dt>{t("Interest", "Interés")}</dt>
+                  <dd>{reinvestLabel(t, (loan.reinvest ?? []).filter((c) => c.from <= today).at(-1)?.percent ?? 0)}</dd>
                 </>
               )}
               <dt>{t("Loan date", "Fecha")}</dt>
@@ -557,8 +565,12 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [addingCapital, setAddingCapital] = useState(false);
   const showErr = useParseError();
+  // 0.15: the loan's late-fee way (new loans take the business's) and where
+  // its interest goes (a change applies from today on).
+  const feeMode = existing ? (existing.lateFeeMode ?? "installment") : (s.lateFeeMode ?? "installment");
+  const reinvestNow = existing ? ((existing.reinvest ?? []).filter((c) => c.from <= today).at(-1)?.percent ?? 0) : (s.defaultReinvest ?? 0);
+  const [reinvest, setReinvest] = useState(reinvestNow);
 
   const n = Number(count);
   const terms: LoanTerms | null =
@@ -598,7 +610,7 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
   }, [snapshot, loanId, start]);
   const activeClients = books.clients.filter((c) => !c.client.archivedAt || c.client._id === existing?.clientId).sort((a, b) => a.client.fullName.localeCompare(b.client.fullName));
 
-  const save = async () => {
+  const save = async (addCapital?: number) => {
     setTried(true);
     setError(null);
     if (!client) return setError(t("Choose a client", "Elige un cliente"));
@@ -616,18 +628,29 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
           schedule: edited,
           notes,
           reason,
+          ...(reinvest !== reinvestNow ? { reinvest } : {}),
+          ...(addCapital ? { addCapital } : {}),
         });
         toast(t("Loan saved; every payment was worked out again.", "Préstamo guardado; todos los pagos se recalcularon."));
         onClose();
       } else {
-        const id = await create({ businessId, clientId: client as Id<"clients">, terms, schedule: edited, notes });
+        const id = await create({
+          businessId,
+          clientId: client as Id<"clients">,
+          terms,
+          schedule: edited,
+          notes,
+          lateFeeMode: feeMode,
+          reinvest,
+          ...(addCapital ? { addCapital } : {}),
+        });
         toast(t("Loan created.", "Préstamo creado."));
         onClose();
         navigate(`/loans/${id}`);
       }
     } catch (e) {
       const d = errorData(e);
-      setError(describeError(t, fmt, e) + (d?.code === "insufficient_cash" && !d.account && admin ? " " + t("Add the capital first, then create the loan.", "Agrega el capital primero y luego crea el préstamo.") : ""));
+      setError(describeError(t, fmt, e) + (d?.code === "insufficient_cash" && !d.account && admin ? " " + t("Use \"Lend and add capital\" above.", "Usa \"Prestar y agregar capital\" arriba.") : ""));
     } finally {
       setBusy(false);
     }
@@ -695,9 +718,9 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
               {short > 0 && admin && app.mode === "online" && (
                 <p className="short-cash">
                   {t(`${fmt.money(short)} more capital is needed on that date.`, `Faltan ${fmt.money(short)} de capital en esa fecha.`)}{" "}
-                  <button type="button" className="link-add" onClick={() => setAddingCapital(true)}>
-                    {t("Add capital", "Agregar capital")}
-                  </button>
+                  <Button size="small" variant="primary" loading={busy} onClick={() => void save(short)}>
+                    {existing ? t(`Save and add ${fmt.money(short)} of capital`, `Guardar y agregar ${fmt.money(short)} de capital`) : t(`Lend and add ${fmt.money(short)} of capital`, `Prestar y agregar ${fmt.money(short)} de capital`)}
+                  </Button>
                 </p>
               )}
             </div>
@@ -763,11 +786,23 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
             <Field label={t("Installments", "Cuotas")} error={tried && termsProblem === "installments" ? t("Enter between 1 and 1,000 installments", "Escribe entre 1 y 1,000 cuotas") : null}>
               {(id) => <input id={id} className="input money" inputMode="numeric" value={count} onChange={(e) => { setCount(e.target.value.replace(/\D/g, "")); setRows(null); }} />}
             </Field>
-            <Field label={t("Late fee", "Cargo por mora")} hint={t("Charged once on what is unpaid, the day after a due date.", "Se cobra una vez sobre lo que falte, el día después del vencimiento.")} error={showErr(lateFee, tried)}>
+            <Field label={t("Late fee", "Cargo por mora")} hint={`${feeModeLabel(t, feeMode)}. ${feeModeHint(t, feeMode)}`} error={showErr(lateFee, tried)}>
               {(id) => <RateInput id={id} value={lateFee.text} onChange={setLateFee} />}
             </Field>
           </>
         )}
+        <div className="span2">
+          <Field
+            label={t("Interest collected", "Interés cobrado")}
+            hint={
+              existing
+                ? t("Which account each payment's interest goes to. A change applies to payments from today on. Late fees stay profit.", "A qué cuenta va el interés de cada pago. Un cambio aplica a los pagos de hoy en adelante. Las moras quedan como ganancia.")
+                : t("Which account each payment's interest goes to. Late fees stay profit.", "A qué cuenta va el interés de cada pago. Las moras quedan como ganancia.")
+            }
+          >
+            {() => <ReinvestPicker value={reinvest} onChange={setReinvest} label={t("Interest collected", "Interés cobrado")} />}
+          </Field>
+        </div>
         <div className="span2">
           <Field label={t("Notes", "Notas")}>{(id) => <textarea id={id} className="input" maxLength={10000} value={notes} onChange={(e) => setNotes(e.target.value)} />}</Field>
         </div>
@@ -778,17 +813,6 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
         )}
       </div>
 
-      {addingCapital && (
-        <EntryForm
-          kind="contribution"
-          amount={short > 0 ? short : undefined}
-          date={start}
-          onClose={() => {
-            setAddingCapital(false);
-            setError(null);
-          }}
-        />
-      )}
       {terms && !termsProblem && (
         <div className="preview" style={{ marginTop: 16 }}>
           {sentence && <p className="loan-sentence">{sentence}</p>}

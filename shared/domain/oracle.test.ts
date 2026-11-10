@@ -120,7 +120,7 @@ function replayScenario(s: Json): Built {
   const b: Built = {
     facts: facts(l),
     plan: l.schedule
-      ? { method: l.method as Method, schedule: l.schedule, edited: l.edited, feeRate: l.lateFeeRate, waived: l.waived }
+      ? { method: l.method as Method, schedule: l.schedule, edited: l.edited, feeRate: l.lateFeeRate, feeMode: l.lateFeeMode, waived: l.waived }
       : null,
     accepted: [],
     splits: [],
@@ -221,6 +221,7 @@ describe(`Rust engine oracle (seed ${vectors.seed}, ${vectors.scenarios.length} 
             facts: b.facts,
             payments: b.paymentFacts,
             plan: b.plan ? { ...b.plan, payments: fixedPayments(b) } : null,
+            reinvest: bk.reinvest?.[i] ?? [],
           };
         }),
         capital: bk.moves.filter((m: Json) => m.type === "capital").map((m: Json) => ({
@@ -250,6 +251,10 @@ describe(`Rust engine oracle (seed ${vectors.seed}, ${vectors.scenarios.length} 
     const errors = new Set(attempts.filter((a: Json) => !a.outcome.ok).map((a: Json) => a.outcome.error.error.code));
     const kinds = new Set(attempts.filter((a: Json) => a.outcome.ok).map((a: Json) => a.instruction.kind));
     expect([...kinds].sort()).toEqual(["auto", "custom", "installment", "spread"]);
+    // Every way of charging late fees, and reinvested interest (0.15).
+    const modes = new Set(vectors.scenarios.filter((s: Json) => s.loan.schedule).map((s: Json) => s.loan.lateFeeMode));
+    expect([...modes].sort()).toEqual(["balance", "installment", "monthly", "overdue"]);
+    expect(vectors.books.some((b: Json) => b.reinvest.some((r: Json[]) => r.some((c) => c.percent > 0)))).toBe(true);
     for (const code of ["overpayment", "in_future", "exceeds_installment", "split_mismatch", "exceeds_part"]) {
       expect(errors.has(code), code).toBe(true);
     }

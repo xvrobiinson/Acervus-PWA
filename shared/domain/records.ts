@@ -11,6 +11,7 @@ import {
   type Applied,
   type Installment,
   type Instruction,
+  type FeeMode,
   type Plan,
   type PlanError,
   type PlanPayment,
@@ -32,8 +33,8 @@ import {
   type Result,
 } from "./ledger";
 import { hasInstallments, type Frequency, type LoanTerms, type Method } from "./loans";
-import { mulDiv, RATE_SCALE, sum, type Cents, type Rate } from "./money";
-import type { Account, Book, CapitalKind, EntryKind, LoanBook } from "./portfolio";
+import { sum, type Cents, type Rate } from "./money";
+import type { Account, Book, CapitalKind, EntryKind, LoanBook, Reinvest } from "./portfolio";
 
 export interface LoanRecord {
   _id: string;
@@ -48,6 +49,11 @@ export interface LoanRecord {
   scheduleEdited: boolean;
   schedule: Installment[];
   lateFeeRate: Rate;
+  /** How its late fees are worked out; none is today's way, "installment". */
+  lateFeeMode?: FeeMode;
+  /** What part of each payment's interest goes to available capital, from
+   *  each date (oldest first; none is 0%, all kept as profit). */
+  reinvest?: Reinvest[];
   startDate: Day;
   status: ContractStatus;
   statusDate: Day | null;
@@ -143,6 +149,7 @@ export function planFor(l: LoanRecord, fees: LateFeeRecord[]): Plan | null {
     schedule: l.schedule,
     edited: l.scheduleEdited,
     feeRate: l.lateFeeRate,
+    feeMode: l.lateFeeMode ?? "installment",
     waived: fees.filter((f) => f.loanId === l._id && f.waivedAt !== undefined).map((f) => f.seq),
   };
 }
@@ -205,6 +212,7 @@ export function loanBook(l: LoanRecord, payments: PaymentRecord[], fees: LateFee
     facts: loanFacts(l),
     payments: own.map(paymentFact),
     plan: plan ? { ...plan, payments: storedPlanPayments(own) } : null,
+    reinvest: l.reinvest ?? [],
   };
 }
 
@@ -253,8 +261,8 @@ export function feeChangesFor(stored: LateFeeRecord[], loan: LoanRecord, state: 
   for (const x of state.installments) {
     const on = x.feeAssessedOn;
     if (on === null) continue;
-    // The fee as assessed, before any waiver.
-    const amount = mulDiv(x.feeBase, rate, RATE_SCALE);
+    // The fees as assessed, before any waiver (more than one with way B).
+    const amount = x.feeAssessed;
     const f = mine.find((f) => f.seq === x.seq);
     if (!f) out.push({ kind: "add", seq: x.seq, on, base: x.feeBase, amount });
     else if (f.assessedOn !== on || f.baseAmount !== x.feeBase || f.rate !== rate || f.amount !== amount) {

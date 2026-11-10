@@ -8,9 +8,15 @@ import { checkVersion, requireMember } from "./lib/access";
 import { Diff, logChange } from "./lib/books";
 import { fail } from "./lib/errors";
 import { rate, text } from "./lib/validate";
-import { frequency, receiptFormat, receiptShow } from "./schema";
+import { frequency, lateFeeMode, receiptFormat, receiptShow } from "./schema";
 
 const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD", "XCG"];
+
+/** A whole percent from 0 to 100 (part of interest reinvested). */
+function checkPercent(v: number): number {
+  if (!Number.isInteger(v) || v < 0 || v > 100) fail("invalid", { field: "defaultReinvest" });
+  return v;
+}
 
 export const update = mutation({
   args: {
@@ -24,6 +30,9 @@ export const update = mutation({
     /** Older apps don't send it; their saves then keep what is stored. */
     receiptShow: v.optional(receiptShow),
     receiptFormat: v.optional(receiptFormat),
+    /** 0.15; older apps leave them out and their saves keep what is stored. */
+    lateFeeMode: v.optional(lateFeeMode),
+    defaultReinvest: v.optional(v.number()),
     receiptText: v.record(v.string(), v.string()),
     currencyCode: v.string(),
     numberStyle: v.union(v.literal("comma_dot"), v.literal("dot_comma"), v.literal("space_comma")),
@@ -56,6 +65,8 @@ export const update = mutation({
       receiptClient: a.receiptClient,
       ...(a.receiptShow ? { receiptShow: a.receiptShow } : {}),
       ...(a.receiptFormat ? { receiptFormat: a.receiptFormat } : {}),
+      ...(a.lateFeeMode ? { lateFeeMode: a.lateFeeMode } : {}),
+      ...(a.defaultReinvest !== undefined ? { defaultReinvest: checkPercent(a.defaultReinvest) } : {}),
       receiptText,
       currencyCode: a.currencyCode,
       numberStyle: a.numberStyle,

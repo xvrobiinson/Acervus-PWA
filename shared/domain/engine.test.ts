@@ -364,6 +364,37 @@ describe("installments", () => {
   const AUTO: Instruction = { kind: "auto" };
   const FAR = MAX_DAY;
 
+  // The 0.15 proposal's example: 10,000 at 10% a month in 5; installment 1
+  // paid on time, installment 2 (2,800) not paid at all. Late fee 5%.
+  it("charges late fees the four ways", () => {
+    const f = facts(1_000_000, 10);
+    const at = (feeMode: Plan["feeMode"], asOf: string) => {
+      const p = { ...plan(f, "declining", 5), feeMode };
+      return ok(run(f, p, [pay(d(2026, 2, 1), 300_000, AUTO)], asOf, asOf)).installments;
+    };
+    const tenLate = d(2026, 3, 11);
+    expect(at("installment", tenLate)[1].fee).toBe(14_000);
+    expect(at("monthly", tenLate)[1].fee).toBe(14_000);
+    expect(at("overdue", tenLate)[1].fee).toBe(14_000);
+    expect(at("balance", tenLate)[1].fee).toBe(40_000);
+    // 31 days after it was due: way B charges again; the others don't.
+    const later = d(2026, 4, 1);
+    expect(at("installment", later)[1].fee).toBe(14_000);
+    const b = at("monthly", later)[1];
+    expect([b.fee, b.feeAssessed, b.feeCharges]).toEqual([28_000, 28_000, 2]);
+    // April 1 is installment 3's due day; the next day C charges it on
+    // everything overdue (2,800 + 2,800: unpaid capital keeps installment 3's
+    // interest at 800) and D on all the capital (8,000).
+    const next = d(2026, 4, 2);
+    expect(at("overdue", next)[2].fee).toBe(28_000);
+    expect(at("balance", next)[2].fee).toBe(40_000);
+    // Paid off, way B stops charging.
+    const paid = ok(
+      run(f, { ...plan(f, "declining", 5), feeMode: "monthly" }, [pay(d(2026, 2, 1), 300_000, AUTO), pay(d(2026, 3, 20), 294_000, { kind: "installment", seq: 2 })], d(2026, 6, 1), d(2026, 6, 1)),
+    ).installments[1];
+    expect([paid.fee, paid.feeCharges]).toEqual([14_000, 1]);
+  });
+
   it("the declining example", () => {
     const f = facts(1_000_000, 10);
     const s = proposedSchedule(f, "declining", 5);
@@ -523,6 +554,21 @@ describe("portfolio", () => {
     l.payments.push({ paidOn: on, principal: a.value.principal, interest: a.value.interest, fee: 0 });
     if (paysOff(a.value)) l.facts.status = "paid_off";
   };
+  it("reinvests part of each payment's interest from the date chosen", () => {
+    const book = fixture();
+    // 60% of the interest from Feb 1 (so Feb's 1,000 and Mar's 800).
+    book.loans[0].reinvest = [{ from: d(2026, 2, 1), percent: 60 }];
+    const plain = balancesOn(fixture(), d(2026, 3, 31));
+    const b = balancesOn(book, d(2026, 3, 31));
+    expect(b.capital - plain.capital).toBe(108_000);
+    expect(plain.interest - b.interest).toBe(108_000);
+    // Profit figures don't change, only which account holds the cash.
+    expect(summary(book, d(2026, 3, 31)).interestCollected).toBe(summary(fixture(), d(2026, 3, 31)).interestCollected);
+    // From Mar 1 only: Feb's interest stays profit.
+    book.loans[0].reinvest = [{ from: d(2026, 3, 1), percent: 100 }];
+    expect(balancesOn(book, d(2026, 3, 31)).capital - plain.capital).toBe(80_000);
+  });
+
   // Jan 1: add 20,000 of capital; lend 10,000 at 10% a month.
   // Feb 1: 3,000 paid = 1,000 interest + 2,000 capital. Mar 1: 800 interest.
   // Apr 15: withdraw 1,000 (April's 800 is left unpaid).

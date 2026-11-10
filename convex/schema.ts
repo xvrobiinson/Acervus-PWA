@@ -32,6 +32,11 @@ export const receiptShow = v.object({
 /** A payment receipt: the full schedule and history, or what was paid and the next payment (2026-11-09). */
 export const receiptFormat = v.union(v.literal("full"), v.literal("next"));
 
+/** How a loan's late fees are worked out (0.15; shared/domain/installments.ts). */
+export const lateFeeMode = v.union(v.literal("installment"), v.literal("monthly"), v.literal("overdue"), v.literal("balance"));
+/** From `from` on, `percent` of each payment's interest is reinvested (0.15). */
+export const reinvestChoice = v.object({ from: v.string(), percent: v.number() });
+
 export const frequency = v.union(v.literal("daily"), v.literal("weekly"), v.literal("biweekly"), v.literal("monthly"));
 export const method = v.union(v.literal("declining"), v.literal("flat"), v.literal("interest_only"));
 export const contractStatus = v.union(
@@ -131,6 +136,10 @@ export default defineSchema({
     defaultRate: v.number(),
     defaultFrequency: frequency,
     lateFeeRate: v.number(),
+    /** New loans' way of charging late fees, and part of their interest
+     *  reinvested (0.15; none: "installment" and 0). */
+    lateFeeMode: v.optional(lateFeeMode),
+    defaultReinvest: v.optional(v.number()),
     receiptAfterPayment: v.boolean(),
     receiptAfterLoan: v.boolean(),
     logoId: v.optional(v.id("_storage")),
@@ -175,6 +184,10 @@ export default defineSchema({
     scheduleEdited: v.boolean(),
     schedule: v.array(installment),
     lateFeeRate: v.number(),
+    /** Its way of charging late fees; none: "installment" (0.15). */
+    lateFeeMode: v.optional(lateFeeMode),
+    /** Interest reinvested, from each date, oldest first; none: all profit. */
+    reinvest: v.optional(v.array(reinvestChoice)),
     startDate: v.string(),
     status: contractStatus,
     statusDate: v.union(v.string(), v.null()),

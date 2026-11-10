@@ -16,6 +16,7 @@ import {
   entryKindLabel,
   frequencyLabel,
   frequencyPer,
+  feeModeLabel,
   methodLabel,
   paidWithLabel,
   roleLabel,
@@ -126,6 +127,10 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
       interest_period: t("Interest charged", "Interés cobrado"),
       invited: t("Invited", "Invitado"),
       late_fee_rate: t("Late fee rate", "Tasa de mora"),
+      late_fee_mode: t("How late fees are charged", "Cómo se cobra la mora"),
+      lateFeeMode: t("How late fees are charged", "Cómo se cobra la mora"),
+      reinvest: t("Interest reinvested", "Interés reinvertido"),
+      defaultReinvest: t("Interest reinvested on new loans", "Interés reinvertido en préstamos nuevos"),
       method: t("Loan type", "Tipo de préstamo"),
       occurred_on: t("Date", "Fecha"),
       paid_on: t("Paid on", "Pagado el"),
@@ -177,6 +182,12 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
         return frequencyLabel(t, v as never) ?? v;
       case "method":
         return methodLabel(t, v as never) ?? v;
+      case "late_fee_mode":
+      case "lateFeeMode":
+        return feeModeLabel(t, v as never);
+      case "reinvest":
+      case "defaultReinvest":
+        return isInt ? `${n}%` : v;
       case "paid_with":
         return paidWithLabel(t, v as never) ?? v;
       case "status":

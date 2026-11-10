@@ -5,6 +5,7 @@
 // Unset keys print the built-in wording in the receipt's language.
 
 import type { Method } from "../../shared/domain/loans";
+import type { FeeMode } from "../../shared/domain/installments";
 import type { T } from "../lib/i18n";
 import { methodExplanation } from "../lib/labels";
 
@@ -47,6 +48,7 @@ export function tagList(t: T): [string, string][] {
     ["{amount}", t("amount lent", "monto prestado")],
     ["{interest}", t("interest per payment", "interés por pago")],
     ["{late_fee}", t("late fee rate", "tasa de mora")],
+    ["{late_fee_how}", t("how the late fee is charged", "cómo se cobra la mora")],
     ["{conversion}", t("how the rate converts", "cómo se convierte la tasa")],
     ["{example_payment}", t("example payment (interest only)", "pago de ejemplo (solo interés)")],
     ["{example_capital}", t("its capital part", "su parte de capital")],
@@ -92,8 +94,8 @@ export function defaultRules(t: T, set: RuleSet): RuleLine[] {
       {
         when: "late_fee",
         text: t(
-          "An installment not fully paid by its due date is charged a late fee of {late_fee} of what is still unpaid, once, the day after.",
-          "Una cuota que no se pague completa a su vencimiento tiene un cargo por mora de {late_fee} de lo que falte, una sola vez, al día siguiente.",
+          "An installment not fully paid by its due date is charged a late fee of {late_fee} {late_fee_how}.",
+          "Una cuota que no se pague completa a su vencimiento tiene un cargo por mora de {late_fee} {late_fee_how}.",
         ),
       },
       {
@@ -198,11 +200,28 @@ export interface Tags {
   amount: string;
   interest: string;
   late_fee: string;
+  /** How this loan's late fee is charged (0.15), the end of a sentence. */
+  late_fee_how: string;
   conversion: string;
   example_payment: string;
   example_capital: string;
   next_interest: string;
   company: string;
+}
+
+/** "{late_fee_how}": how a loan's late fee is charged, by its way (0.15).
+ *  Today's way reads as the built-in line always did. */
+export function feeHow(t: T, mode: FeeMode | undefined): string {
+  switch (mode ?? "installment") {
+    case "monthly":
+      return t("of what is still unpaid, the day after and again every 30 days while it stays unpaid", "de lo que falte, al día siguiente y otra vez cada 30 días mientras siga sin pagar");
+    case "overdue":
+      return t("of everything overdue on the loan, once, the day after", "de todo lo atrasado del préstamo, una sola vez, al día siguiente");
+    case "balance":
+      return t("of all the capital still owed, once, the day after", "de todo el capital que se debe, una sola vez, al día siguiente");
+    default:
+      return t("of what is still unpaid, once, the day after", "de lo que falte, una sola vez, al día siguiente");
+  }
 }
 
 export function fill(text: string, tags: Partial<Tags>): string {

@@ -12,13 +12,15 @@ import { NUMBER_STYLES, numberStyleLabel, type NumberStyle } from "../../shared/
 import { describeError } from "../lib/errors";
 import { exportCsv, exportJson } from "../lib/export";
 import { useLang, useT } from "../lib/i18n";
-import { CURRENCIES, frequencyLabel, roleLabel, COLLECTOR_VIEW_PARTS, RECEIPT_PART_GROUPS } from "../lib/labels";
+import { CURRENCIES, feeModeHint, feeModeLabel, frequencyLabel, roleLabel, COLLECTOR_VIEW_PARTS, RECEIPT_PART_GROUPS } from "../lib/labels";
 import { defaultRules, tagList, whenHint, withRules, withText, Wording, wordingProblem, type RuleLine, type RuleSet, type When } from "../receipts/wording";
 import { useBooks } from "../state/app";
 import { fillWa, waCustom, waDefaults, waProblem, waTemplate, withWa, WA_MAX, WA_TAGS, type WaKey, type WaTags } from "../lib/wa-messages";
 import { AcervusLoader, Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
 import { useTour } from "../ui/tour";
 import { ProfileSheet } from "../ui/profile";
+import { ReinvestPicker } from "../ui/reinvest";
+import { FEE_MODES, type FeeMode } from "../../shared/domain/installments";
 import { Icon, type IconName } from "../ui/icons";
 import { receiptShow, type ReceiptFormat, type ReceiptShow } from "../receipts/receipt";
 import { NewBusinessForm, PendingInvites } from "./auth";
@@ -786,6 +788,9 @@ function LendingCard() {
   const { s, f, set } = useSettingsForm();
   const [rate, setRate] = useRate(s.defaultRate);
   const [late, setLate] = useRate(s.lateFeeRate);
+  // 0.15: new loans' way of charging late fees, and their interest.
+  const [feeMode, setFeeMode] = useState<FeeMode>(s.lateFeeMode ?? "installment");
+  const [reinvest, setReinvest] = useState(s.defaultReinvest ?? 0);
   const showErr = useParseError();
   return (
     <Card title={t("Lending defaults", "Valores de préstamos")} className="section">
@@ -799,7 +804,19 @@ function LendingCard() {
           )}
         </Field>
         <Field label={t("Default late fee", "Mora por defecto")} error={showErr(late, false)}>{(id) => <RateInput id={id} value={late.text} onChange={setLate} />}</Field>
-        <SaveRow disabled={rate.value === null || late.value === null} onSave={() => void save({ defaultRate: rate.value!, defaultFrequency: f.defaultFrequency, lateFeeRate: late.value! })} />
+        <Field label={t("How late fees are charged", "Cómo se cobra la mora")} hint={`${feeModeHint(t, feeMode)} ${t("New loans keep the way in force when they are made.", "Los préstamos nuevos mantienen la forma vigente al crearlos.")}`}>
+          {(id) => (
+            <select id={id} className="input" value={feeMode} onChange={(e) => setFeeMode(e.target.value as FeeMode)}>
+              {FEE_MODES.map((m) => <option key={m} value={m}>{feeModeLabel(t, m)}</option>)}
+            </select>
+          )}
+        </Field>
+        <div className="span2">
+          <Field label={t("Interest collected on new loans", "Interés cobrado en préstamos nuevos")} hint={t("Which account each payment's interest goes to; each loan can change it. Late fees stay profit.", "A qué cuenta va el interés de cada pago; cada préstamo puede cambiarlo. Las moras quedan como ganancia.")}>
+            {() => <ReinvestPicker value={reinvest} onChange={setReinvest} label={t("Interest collected", "Interés cobrado")} />}
+          </Field>
+        </div>
+        <SaveRow disabled={rate.value === null || late.value === null} onSave={() => void save({ defaultRate: rate.value!, defaultFrequency: f.defaultFrequency, lateFeeRate: late.value!, lateFeeMode: feeMode, defaultReinvest: reinvest })} />
       </div>
     </Card>
   );

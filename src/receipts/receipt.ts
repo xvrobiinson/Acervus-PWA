@@ -33,7 +33,7 @@ import {
 import type { Fmt } from "../lib/format";
 import type { T } from "../lib/i18n";
 import { frequencyLabel, frequencyPer, methodShort, paidWithLabel } from "../lib/labels";
-import { fill, linesFor, Wording, type RuleSet, type Tags } from "./wording";
+import { feeHow, fill, linesFor, Wording, type RuleSet, type Tags } from "./wording";
 
 export interface ReceiptSettings {
   receiptName: string;
@@ -816,6 +816,7 @@ export function loanReceiptHtml(c: ReceiptContext, r: { loan: LoanRecord; client
     amount: fmt.money(loan.principal),
     interest: fmt.money(interestPerPeriod),
     late_fee: fmt.rate(loan.lateFeeRate),
+    late_fee_how: feeHow(t, loan.lateFeeMode),
     conversion: conversion ?? "",
     example_payment: fmt.money(interestPerPeriod + half),
     example_capital: fmt.money(half),

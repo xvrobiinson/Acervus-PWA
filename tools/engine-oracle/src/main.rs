@@ -17,6 +17,8 @@ pub mod i18n {
         #[default]
         En,
         Es,
+        Pap,
+        Nl,
     }
     pub fn get() -> Lang {
         Lang::En
@@ -56,7 +58,7 @@ use domain::installments::{self as inst, Applied, Installment, Instruction, Plan
 use domain::ledger::{self, ContractStatus, LoanFacts, PaymentError, PaymentFact, PaymentInput, Position};
 use domain::loans::{Frequency, Method, PeriodRate};
 use domain::money::{Cents, Rate};
-use domain::portfolio::{Account, Book, CapitalFact, CapitalKind, EntryFact, EntryKind, LoanBook};
+use domain::portfolio::{Account, Book, CapitalFact, CapitalKind, EntryFact, EntryKind, LoanBook, Reinvest};
 use serde_json::{Value, json};
 
 struct Rng(u64);
@@ -190,7 +192,8 @@ fn state_json(s: &PlanState, today: NaiveDate) -> Value {
         "installments": s.installments.iter().map(|x| json!({
             "seq": x.seq, "starts": iso(x.starts), "due": iso(x.due), "principal": x.principal,
             "interest": x.interest, "charged": x.charged, "balanceAtStart": x.balance_at_start,
-            "fee": x.fee, "feeBase": x.fee_base, "feeAssessedOn": opt_iso(x.fee_assessed_on),
+            "fee": x.fee, "feeAssessed": x.fee_assessed, "feeCharges": x.fee_charges,
+            "feeBase": x.fee_base, "feeAssessedOn": opt_iso(x.fee_assessed_on),
             "feeWaived": x.fee_waived, "paidPrincipal": x.paid_principal, "paidInterest": x.paid_interest,
             "paidFee": x.paid_fee,
             "status": format!("{:?}", x.status(today)),
@@ -295,6 +298,8 @@ fn scenario(r: &mut Rng, id: usize) -> (Value, Loan) {
     let count = if method == Method::InterestOnly { 0 } else { r.pick(&[1, 2, 3, 5, 12, 24, any_count]) };
     let any_fee = r.range(1, 200_000);
     let fee_rate = r.pick(&[0, 50_000, 50_000, 100_000, any_fee]);
+    // Every way of charging late fees (0.15), today's most often.
+    let fee_mode = inst::FeeMode::ALL[r.pick(&[0, 0, 1, 2, 3]) as usize];
     let facts = LoanFacts {
         principal,
         rate: PeriodRate::new(Rate(rate), interest_period, frequency),
@@ -325,7 +330,7 @@ fn scenario(r: &mut Rng, id: usize) -> (Value, Loan) {
             edited = true;
         }
         let waived: Vec<u32> = schedule.iter().filter(|_| r.chance(10)).map(|x| x.seq).collect();
-        plan = Some(Plan { method, schedule, edited, fee_rate: Rate(fee_rate), waived, payments: Vec::new() });
+        plan = Some(Plan { method, schedule, edited, fee_rate: Rate(fee_rate), fee_mode, waived, payments: Vec::new() });
     }
     let mut loan = Loan { facts, method, plan, accepted: Vec::new(), splits: Vec::new(), facts_splits: Vec::new() };
 
@@ -509,6 +514,7 @@ fn scenario(r: &mut Rng, id: usize) -> (Value, Loan) {
         "startDate": iso(start), "method": method.key(),
         "installments": if method == Method::InterestOnly { Value::Null } else { json!(count) },
         "lateFeeRate": fee_rate,
+        "lateFeeMode": fee_mode.key(),
         "schedule": loan.plan.as_ref().map(|p| p.schedule.iter().map(|x: &Installment| json!({
             "seq": x.seq, "due": iso(x.due), "principal": x.principal, "interest": x.interest
         })).collect::<Vec<_>>()),
@@ -539,6 +545,7 @@ fn summary_json(s: &domain::portfolio::Summary) -> Value {
 fn book(r: &mut Rng, loans: Vec<Loan>, ids: Vec<usize>) -> Value {
     let mut first = NaiveDate::from_ymd_opt(2030, 1, 1).unwrap();
     let mut book_loans = Vec::new();
+    let mut reinvests = Vec::new();
     for (i, l) in loans.into_iter().enumerate() {
         first = first.min(l.facts.start_date);
         let plan = l.plan.map(|mut p| {
@@ -551,7 +558,22 @@ fn book(r: &mut Rng, loans: Vec<Loan>, ids: Vec<usize>) -> Value {
             p
         });
         let _ = l.method;
-        book_loans.push(LoanBook { id: i as i64, client_id: 1, facts: l.facts, payments: l.facts_splits, plan });
+        // Interest reinvested (0.15): none, or one or two choices from dates
+        // around the loan's start.
+        let mut reinvest = Vec::new();
+        if r.chance(50) {
+            for _ in 0..r.range(1, 2) {
+                let from = l.facts.start_date + Duration::days(r.range(-10, 300));
+                let any = r.range(1, 99);
+                let percent = r.pick(&[0, 25, 50, 60, 100, any]) as u8;
+                reinvest.push(Reinvest { from, percent });
+            }
+            reinvest.sort_by_key(|c| c.from);
+        }
+        reinvests.push(Value::Array(
+            reinvest.iter().map(|c| json!({"from": iso(c.from), "percent": c.percent})).collect(),
+        ));
+        book_loans.push(LoanBook { id: i as i64, client_id: 1, facts: l.facts, payments: l.facts_splits, plan, reinvest });
     }
     let mut capital = Vec::new();
     let mut entries = Vec::new();
@@ -596,6 +618,7 @@ fn book(r: &mut Rng, loans: Vec<Loan>, ids: Vec<usize>) -> Value {
     let hist = book.history(first, first + Duration::days(r.range(0, 500)));
     json!({
         "loanIds": ids,
+        "reinvest": reinvests,
         "moves": moves,
         "points": points,
         "shortfall": book.shortfall().map(|s| json!({

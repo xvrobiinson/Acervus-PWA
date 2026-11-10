@@ -6,9 +6,9 @@ import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { Day } from "../../shared/domain/dates";
+import { monthStart, type Day } from "../../shared/domain/dates";
 import type { Cents } from "../../shared/domain/money";
-import { availableFrom, balancesOn, type Account } from "../../shared/domain/portfolio";
+import { availableFrom, balancesOn, reinvestedBetween, type Account } from "../../shared/domain/portfolio";
 import { useForms } from "../App";
 import { describeError, describeErrorData } from "../lib/errors";
 import { useT } from "../lib/i18n";
@@ -37,6 +37,8 @@ export function MoneyScreen() {
   const open = useForms();
   const [show, setShow] = useState<"all" | "in" | "out">("all");
   const s = books.summary;
+  // Interest reinvested this month (0.15), when any.
+  const reinvestedNow = useMemo(() => reinvestedBetween(books.book, monthStart(today), today), [books.book, today]);
   const movements = useMemo(() => {
     const out: Movement[] = [];
     for (const p of snapshot.payments) {
@@ -99,6 +101,11 @@ export function MoneyScreen() {
             <div className="value">{fmt.money(s.availableInterest)}</div>
           </div>
         </div>
+        {reinvestedNow > 0 && (
+          <p className="small muted" style={{ margin: "8px 16px 12px" }}>
+            {t(`${fmt.money(reinvestedNow)} of interest reinvested into capital this month.`, `${fmt.money(reinvestedNow)} de interés reinvertido en capital este mes.`)}
+          </p>
+        )}
       </Card>
       {can("record") && (
         <div className="actions" style={{ margin: "12px 0" }}>
