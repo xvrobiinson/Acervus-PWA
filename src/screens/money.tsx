@@ -150,7 +150,7 @@ export function MoneyScreen() {
   );
 }
 
-export function EntryForm({ kind, id, onClose }: { kind: EntryFormKind; id?: string; onClose: () => void }) {
+export function EntryForm({ kind, id, onClose, amount: startAmount, date }: { kind: EntryFormKind; id?: string; onClose: () => void; amount?: Cents; date?: Day }) {
   const t = useT();
   const app = useBooks();
   const { books, fmt, snapshot, today, businessId } = app;
@@ -164,9 +164,9 @@ export function EntryForm({ kind, id, onClose }: { kind: EntryFormKind; id?: str
   const adjust = useMutation(api.money.adjustBalances);
   const cap = id ? snapshot.capital.find((c) => c._id === id) : undefined;
   const entry = id ? snapshot.entries.find((e) => e._id === id) : undefined;
-  const [amount, setAmount] = useMoney(cap?.amount ?? (entry ? Math.abs(entry.amount) : null));
+  const [amount, setAmount] = useMoney(cap?.amount ?? (entry ? Math.abs(entry.amount) : (startAmount ?? null)));
   const [negative, setNegative] = useState(entry ? entry.amount < 0 : false);
-  const [on, setOn] = useState<Day>(cap?.occurredOn ?? entry?.occurredOn ?? today);
+  const [on, setOn] = useState<Day>(cap?.occurredOn ?? entry?.occurredOn ?? date ?? today);
   const [account, setAccount] = useState<Account>(entry?.account ?? (kind === "income" ? "interest" : "capital"));
   const [text, setText] = useState(cap?.notes ?? entry?.description ?? "");
   const [reason, setReason] = useState("");

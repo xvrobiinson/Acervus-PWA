@@ -13,6 +13,7 @@ import type { Fmt } from "../lib/format";
 import { useT } from "../lib/i18n";
 import { interestIn, spans, type Period } from "../lib/periods";
 import { Icon, type IconName } from "../ui/icons";
+import { CountUp, InfoTip } from "../ui/kit";
 
 type Tone = "plain" | "good" | "bad";
 
@@ -21,13 +22,24 @@ interface Six {
   icon: IconName;
   chip: "accent" | "info" | "good" | "bad" | "plain";
   label: string;
-  amount: string;
+  cents: number;
   bad?: boolean;
   lines: { text: string; tone: Tone }[];
   action?: ReactNode;
 }
 
 const toneOf = (v: number): Tone => (v > 0 ? "good" : v < 0 ? "bad" : "plain");
+
+/** What each of the six cards means, in one sentence (the "i" beside its
+ *  name, and the Help page). */
+export const sixHints = (t: ReturnType<typeof useT>): Record<string, string> => ({
+  portfolio: t("Everything the business has: money on hand plus what borrowers still owe you in capital and interest due.", "Todo lo que tiene el negocio: el dinero en mano más lo que los clientes aún deben en capital e interés vencido."),
+  capital: t("Money you can lend now: the capital you put in, less what is lent out, plus capital paid back.", "Dinero que puedes prestar ahora: el capital que pusiste, menos lo prestado, más el capital devuelto."),
+  lent: t("Capital your borrowers still owe on open loans.", "Capital que tus clientes aún deben en préstamos abiertos."),
+  interest: t("Interest and fees collected that you have not spent or moved to capital.", "Interés y cargos cobrados que no has gastado ni pasado a capital."),
+  earned: t("Interest and fees collected in the period you pick.", "Interés y cargos cobrados en el período que elijas."),
+  overdue: t("What is past its due date and still unpaid, on all loans.", "Lo que pasó su fecha de pago y sigue sin pagar, en todos los préstamos."),
+});
 
 export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: Summary; book: Book; fmt: Fmt; today: Day; period: Period; periodAction: ReactNode }) {
   const t = useT();
@@ -70,13 +82,13 @@ export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: S
   const late = s.overdueAmount > 0;
   const n = s.activeLoans;
   const cards: Six[] = [
-    { key: "portfolio", icon: "wallet", chip: "accent", label: t("Total portfolio value", "Valor total del portafolio"), amount: fmt.money(s.portfolioValue), lines: portfolioLines },
+    { key: "portfolio", icon: "wallet", chip: "accent", label: t("Total portfolio value", "Valor total del portafolio"), cents: s.portfolioValue, lines: portfolioLines },
     {
       key: "capital",
       icon: "landmark",
       chip: "accent",
       label: t("Available capital", "Capital disponible"),
-      amount: fmt.money(s.availableCapital),
+      cents: s.availableCapital,
       lines: [{ text: share ? t(`${share} of portfolio`, `${share} del portafolio`) : t("Ready to lend", "Listo para prestar"), tone: "plain" }],
     },
     {
@@ -84,7 +96,7 @@ export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: S
       icon: "loans",
       chip: "info",
       label: t("Capital lent out", "Capital prestado"),
-      amount: fmt.money(s.outstandingPrincipal),
+      cents: s.outstandingPrincipal,
       lines: [{ text: n === 1 ? t("across 1 active loan", "en 1 préstamo activo") : t(`across ${n} active loans`, `en ${n} préstamos activos`), tone: "plain" }],
     },
     {
@@ -92,16 +104,16 @@ export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: S
       icon: "coins",
       chip: "good",
       label: t("Available interest", "Interés disponible"),
-      amount: fmt.money(s.availableInterest),
+      cents: s.availableInterest,
       lines: [{ text: spent > 0 ? t(`${fmt.money(spent)} spent in expenses`, `${fmt.money(spent)} usado en gastos`) : t("Interest and fees on hand", "Interés y cargos en mano"), tone: "plain" }],
     },
-    { key: "earned", icon: "trendingUp", chip: "good", label: t("Interest earned", "Interés cobrado"), amount: fmt.money(earned), lines: earnedLines, action: periodAction },
+    { key: "earned", icon: "trendingUp", chip: "good", label: t("Interest earned", "Interés cobrado"), cents: earned, lines: earnedLines, action: periodAction },
     {
       key: "overdue",
       icon: "alert",
       chip: late ? "bad" : "plain",
       label: t("Overdue amount", "Monto atrasado"),
-      amount: fmt.money(s.overdueAmount),
+      cents: s.overdueAmount,
       bad: late,
       lines: [
         {
@@ -116,6 +128,9 @@ export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: S
       ],
     },
   ];
+
+  // What each card means (the "i" beside its name).
+  const hint = (key: string) => sixHints(t)[key] ?? "";
 
   // Where the swipe is: one dot per screenful.
   const row = useRef<HTMLDivElement>(null);
@@ -147,11 +162,14 @@ export function SixFigures({ s, book, fmt, today, period, periodAction }: { s: S
               <span className={`six-ico ${c.chip}`}>
                 <Icon name={c.icon} />
               </span>
-              <span className="six-label">{c.label}</span>
+              <span className="six-label">
+                {c.label}
+                <InfoTip text={hint(c.key)} label={t(`What "${c.label}" means`, `Qué significa "${c.label}"`)} />
+              </span>
               {c.action}
             </div>
-            <div className={`six-amt num ${c.bad ? "bad" : ""}`} style={{ "--len": c.amount.length } as CSSProperties}>
-              {c.amount}
+            <div className={`six-amt num ${c.bad ? "bad" : ""}`} style={{ "--len": fmt.money(c.cents).length } as CSSProperties}>
+              <CountUp value={c.cents} format={fmt.money} final={fmt.money(c.cents)} />
             </div>
             <div className="six-sub">
               {c.lines.map((l, i) => (

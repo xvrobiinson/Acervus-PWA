@@ -10,6 +10,7 @@ import { useT } from "../lib/i18n";
 import { paidWithLabel } from "../lib/labels";
 import { useBooks } from "../state/app";
 import { Avatar, Empty, FilterPill, Segmented, TabsPill } from "../ui/kit";
+import { WaReceiptButton } from "../ui/whatsapp";
 import { ConfirmScreen } from "./collect";
 
 type Range = "month" | "3m" | "year" | "all";
@@ -92,6 +93,7 @@ export function PaymentsScreen() {
                     <th className="wide-only">{t("Paid with", "Pagado con")}</th>
                     <th className="wide-only">{t("Recorded by", "Registrado por")}</th>
                     <th className="num">{t("Amount", "Monto")}</th>
+                    <th className="act" aria-label={t("Receipt", "Recibo")} />
                   </tr>
                 </thead>
                 <tbody>
@@ -108,6 +110,9 @@ export function PaymentsScreen() {
                       <td className="wide-only">{p.paidWith ? paidWithLabel(t, p.paidWith) : "—"}</td>
                       <td className="wide-only muted">{nameOf(p.createdBy)}</td>
                       <td className="num pos strong">+{fmt.money(p.amount)}</td>
+                      <td className="act">
+                        <WaReceiptButton payment={p} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

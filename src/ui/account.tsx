@@ -13,6 +13,8 @@ import { NewBusinessForm } from "../screens/auth";
 import { useSignOut } from "../screens/settings";
 import { useApp } from "../state/app";
 import { Icon, type IconName } from "./icons";
+import { useTour } from "./tour";
+import { FaceImage, initials, ProfileSheet } from "./profile";
 import { Sheet } from "./kit";
 import { openReports } from "../screens/reports-panel";
 
@@ -110,14 +112,6 @@ export function useAppStatus(): { sev: Severity; reasons: Reason[] } {
   return { sev, reasons: reasons.sort((a, b) => b.sev - a.sev) };
 }
 
-const initials = (name: string, email: string) =>
-  (name.trim() || email)
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-
 const ROLE_ICON: Record<"admin" | "collector" | "viewer", IconName> = { admin: "shield", collector: "briefcase", viewer: "eye" };
 
 function Face({ sev }: { sev: Severity }) {
@@ -127,7 +121,7 @@ function Face({ sev }: { sev: Severity }) {
     <>
       <span className={`ring s${sev}`} aria-hidden="true" />
       <span className="face" aria-hidden="true">
-        {initials(app.user?.name ?? "", app.user?.email ?? "?")}
+        <FaceImage name={app.user?.name ?? ""} email={app.user?.email ?? "?"} photoUrl={app.user?.photoUrl} />
       </span>
       <span className="role" aria-hidden="true">
         <Icon name={ROLE_ICON[role]} />
@@ -211,7 +205,9 @@ export function AccountButton() {
   const { sev, reasons } = useAppStatus();
   const { open, setOpen, box } = usePopover();
   const [creating, setCreating] = useState(false);
+  const [profile, setProfile] = useState(false);
   const signOut = useSignOut();
+  const tour = useTour();
   // The ring pulses once when its color changes.
   const [pulse, setPulse] = useState(false);
   const was = useRef(sev);
@@ -257,6 +253,18 @@ export function AccountButton() {
             <span className="who">
               <b className="ellipsis">{app.user?.name || app.user?.email}</b>
               {app.user?.name && <small className="ellipsis">{app.user.email}</small>}
+              {app.mode === "online" && (
+                <button
+                  type="button"
+                  className="link-add acct-edit"
+                  onClick={() => {
+                    setOpen(false);
+                    setProfile(true);
+                  }}
+                >
+                  {t("Edit profile", "Editar perfil")}
+                </button>
+              )}
               <span className="pill accent">
                 <Icon name={ROLE_ICON[role]} />
                 {roleLabel(t, role)}
@@ -334,6 +342,18 @@ export function AccountButton() {
             )}
           </div>
           <div className="acct-sec">
+            <MenuItem icon={<Icon name="info" />} title={t("Help", "Ayuda")} sub={t("How Acervus works, in plain words", "Cómo funciona Acervus, en palabras sencillas")} onClick={() => go("/help")} />
+            <MenuItem
+              icon={<Icon name="chevron" />}
+              title={t("Take the tour", "Hacer el recorrido")}
+              sub={t("A one-minute look at the essentials", "Un vistazo de un minuto a lo esencial")}
+              onClick={() => {
+                go("/");
+                tour.start();
+              }}
+            />
+          </div>
+          <div className="acct-sec">
             <div className="menu-item static">
               <span className="ic">
                 <Icon name="sun" />
@@ -366,6 +386,7 @@ export function AccountButton() {
           </button>
         </div>
       )}
+      {profile && <ProfileSheet onClose={() => setProfile(false)} />}
       {creating && <NewBusinessSheet onClose={() => setCreating(false)} />}
       {signOut.confirm}
     </div>

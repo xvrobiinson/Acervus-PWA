@@ -4,9 +4,11 @@
 // figures live in the hero above (src/lib/hero-layout.ts). Kept in this
 // device's storage, per person, the way the Windows app keeps it per PC.
 
-export type Block = "growth" | "money" | "attention" | "mine" | "recent";
+export type Block = "growth" | "today" | "status" | "money" | "attention" | "mine" | "recent" | "reminders";
 
-export const BLOCKS: Block[] = ["growth", "money", "attention", "recent", "mine"];
+// The clean look (2026-11-09): the chart beside what needs attention today,
+// then loans by status beside the payments, then the lists.
+export const BLOCKS: Block[] = ["growth", "today", "status", "recent", "mine", "attention", "money", "reminders"];
 
 export interface OverviewLayout {
   /** Every block, in order (hidden ones keep their place). */
@@ -15,10 +17,11 @@ export interface OverviewLayout {
   half: Block[];
 }
 
-/** The Overview as the app ships: the growth chart beside where the money
- *  is, then the loans that need attention beside the payments. */
+/** The Overview as the app ships: every block half wide (two to a row),
+ *  except the WhatsApp reminders. */
 export function defaultLayout(): OverviewLayout {
-  return { blocks: [...BLOCKS], hidden: [], half: [...BLOCKS] };
+  // Today's WhatsApp reminders take the whole width under the lists.
+  return { blocks: [...BLOCKS], hidden: [], half: BLOCKS.filter((b) => b !== "reminders") };
 }
 
 function known<T extends string>(all: readonly T[], v: unknown): T[] {

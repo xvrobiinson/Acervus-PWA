@@ -7,10 +7,9 @@ import { ratioLabel } from "../../shared/domain/money";
 import { gain, monthlyCashFlow, monthNet, netInvested, outsideIncome, realizedIncome, totalExpenses } from "../../shared/domain/portfolio";
 import { shortMonthYear } from "../../shared/domain/dates";
 import { useT } from "../lib/i18n";
-import { displayStatusLabel } from "../lib/labels";
 import { useBooks } from "../state/app";
-import { Card, Pill } from "../ui/kit";
-import { statusTone } from "./loans";
+import { Card } from "../ui/kit";
+import { StatusPill } from "./loans";
 
 export function ReportsScreen() {
   const t = useT();
@@ -91,7 +90,7 @@ export function ReportsScreen() {
               <li key={x.d}>
                 <div className="list-row">
                   <div className="grow">
-                    <Pill tone={statusTone(x.d)}>{displayStatusLabel(t, x.d)}</Pill>
+                    <StatusPill s={x.d} />
                   </div>
                   <div className="trail">
                     <span className="amount num">{fmt.money(x.owed)}</span>

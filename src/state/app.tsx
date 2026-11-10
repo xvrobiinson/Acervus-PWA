@@ -36,7 +36,10 @@ export type Mode = "loading" | "signed_out" | "online" | "offline" | "demo";
 export interface User {
   id: string;
   email: string;
+  /** The name the person gave ("" when none; never the email). */
   name: string;
+  /** Their profile photo's address, when they added one. */
+  photoUrl?: string | null;
 }
 
 export interface SubmitResult {
@@ -157,7 +160,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [forcedOffline, setForcedOffline] = useState(false);
   useEffect(() => {
     if (!me) return;
-    const u = { id: me.id, email: me.email, name: me.name };
+    const u = { id: me.id, email: me.email, name: me.name, photoUrl: me.photoUrl ?? null };
     setLastUser(u);
     setForcedOffline(false);
     try {
@@ -177,7 +180,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   else mode = "signed_out";
   const user: User | null =
     mode === "online"
-      ? { id: me!.id, email: me!.email, name: me!.name }
+      ? { id: me!.id, email: me!.email, name: me!.name, photoUrl: me!.photoUrl ?? null }
       : mode === "offline"
         ? lastUser
         : mode === "demo"

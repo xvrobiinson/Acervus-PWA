@@ -2,18 +2,7 @@
 // cards, stats, rows, pills, fields, sheets, toasts. Screens use these and
 // the CSS tokens, never raw colors.
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ButtonHTMLAttributes,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { useT } from "../lib/i18n";
@@ -177,7 +166,7 @@ export function Stat({
 }
 
 /** A figure counting up; screen readers get the final value at once. */
-function CountUp({ value, format, final }: { value: number; format: (n: number) => string; final: string }) {
+export function CountUp({ value, format, final }: { value: number; format: (n: number) => string; final: string }) {
   const shown = useCountUp(value);
   return (
     <>
@@ -187,8 +176,42 @@ function CountUp({ value, format, final }: { value: number; format: (n: number) 
   );
 }
 
-export function Pill({ tone, children }: { tone?: "pos" | "warn" | "neg" | "accent"; children: ReactNode }) {
-  return <span className={`pill ${tone ?? ""}`}>{children}</span>;
+/** An amount that counts up from zero when its page opens. */
+export function Count({ v, fmt }: { v: number; fmt: { money: (c: number) => string } }) {
+  return <CountUp value={v} format={fmt.money} final={fmt.money(v)} />;
+}
+
+/** A small "i" that explains something in one sentence: on hover and
+ *  keyboard focus, or a tap on phones (tap again or elsewhere to close). */
+export function InfoTip({ text, label }: { text: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open]);
+  return (
+    <span className={`info-tip ${open ? "open" : ""}`} ref={box}>
+      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        i
+      </button>
+      <span className="info-bubble" role="tooltip">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+export function Pill({ tone, title, children }: { tone?: "pos" | "warn" | "neg" | "accent"; title?: string; children: ReactNode }) {
+  return (
+    <span className={`pill ${tone ?? ""}`} title={title}>
+      {children}
+    </span>
+  );
 }
 
 export function Avatar({ name }: { name: string }) {
@@ -210,6 +233,7 @@ export function Row({
   trail,
   muted,
   meter,
+  aside,
 }: {
   to?: string;
   onClick?: () => void;
@@ -220,6 +244,8 @@ export function Row({
   muted?: boolean;
   /** 0 to 1: a thin bar under the text that fills when the row appears. */
   meter?: { value: number; label: string };
+  /** A control beside the row (a WhatsApp link), outside its own link. */
+  aside?: ReactNode;
 }) {
   const body = (
     <>
@@ -238,7 +264,7 @@ export function Row({
   );
   const cls = `list-row ${muted ? "muted" : ""}`;
   return (
-    <li>
+    <li className={aside ? "has-aside" : undefined}>
       {to ? (
         <Link to={to} className={cls}>
           {body}
@@ -250,6 +276,7 @@ export function Row({
       ) : (
         <div className={cls}>{body}</div>
       )}
+      {aside && <div className="row-aside">{aside}</div>}
     </li>
   );
 }
@@ -548,8 +575,14 @@ interface Toast {
   id: number;
   text: string;
   error?: boolean;
+  action?: ToastAction;
 }
-const ToastCtx = createContext<(text: string, error?: boolean) => void>(() => {});
+/** A button on a toast, such as Undo. */
+export interface ToastAction {
+  label: string;
+  run: () => void | Promise<void>;
+}
+const ToastCtx = createContext<(text: string, error?: boolean, action?: ToastAction) => void>(() => {});
 const SavedCtx = createContext<(text: string) => void>(() => {});
 
 /** Shows a check that draws itself, with `text`, for a moment: for saves
@@ -566,11 +599,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setSaved({ id, text });
     setTimeout(() => setSaved((x) => (x?.id === id ? null : x)), 1500);
   }, []);
-  const push = useCallback((text: string, error?: boolean) => {
+  const push = useCallback((text: string, error?: boolean, action?: ToastAction) => {
     const id = Date.now() + Math.random();
-    setToasts((ts) => [...ts, { id, text, error }]);
-    setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), error ? 7000 : 4000);
+    setToasts((ts) => [...ts, { id, text, error, action }]);
+    setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), error ? 7000 : action ? 7000 : 4000);
   }, []);
+  const act = (x: Toast) => {
+    setToasts((ts) => ts.filter((y) => y.id !== x.id));
+    void x.action?.run();
+  };
   return (
     <ToastCtx.Provider value={push}>
       <SavedCtx.Provider value={flash}>{children}</SavedCtx.Provider>
@@ -588,6 +625,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div key={x.id} className={`toast ${x.error ? "error" : ""}`}>
             <Icon name={x.error ? "alert" : "check"} width={18} height={18} />
             <span>{x.text}</span>
+            {x.action && (
+              <button type="button" className="toast-act" onClick={() => act(x)}>
+                {x.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -10,6 +10,7 @@ import { LangProvider } from "./lib/i18n";
 import { AppStateProvider } from "./state/app";
 import "./styles.css";
 import "./hero.css";
+import "./clean.css";
 import { ToastProvider } from "./ui/kit";
 
 const convex = new ConvexReactClient(CONVEX_URL);

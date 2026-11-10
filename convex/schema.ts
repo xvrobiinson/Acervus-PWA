@@ -29,6 +29,9 @@ export const receiptShow = v.object({
   history: v.boolean(),
 });
 
+/** A payment receipt: the full schedule and history, or what was paid and the next payment (2026-11-09). */
+export const receiptFormat = v.union(v.literal("full"), v.literal("next"));
+
 export const frequency = v.union(v.literal("daily"), v.literal("weekly"), v.literal("biweekly"), v.literal("monthly"));
 export const method = v.union(v.literal("declining"), v.literal("flat"), v.literal("interest_only"));
 export const contractStatus = v.union(
@@ -111,6 +114,8 @@ export default defineSchema({
     businessId: v.id("businesses"),
     /** Optional parts of payment receipts; unset (or a missing key) prints it. */
     receiptShow: v.optional(receiptShow),
+    /** Unset prints the full schedule. */
+    receiptFormat: v.optional(receiptFormat),
     receiptName: v.string(),
     companyAddress: v.string(),
     companyPhone: v.string(),
@@ -131,7 +136,9 @@ export default defineSchema({
     logoId: v.optional(v.id("_storage")),
     updatedAt: v.number(),
     version: v.number(),
-  }).index("by_business", ["businessId"]),
+  })
+    .index("by_business", ["businessId"])
+    .index("by_logo", ["logoId"]),
 
   clients: defineTable({
     businessId: v.id("businesses"),
@@ -260,8 +267,16 @@ export default defineSchema({
     /** The hero's four places as JSON (src/lib/hero-layout.ts), checked on save. */
     hero: v.optional(v.string()),
     interestPeriod: v.optional(v.string()),
+    /** The welcome tour, finished or skipped, and its version ("done:1"). */
+    tour: v.optional(v.string()),
+    /** The name the person gave themselves (account panel, 2026-11-10). */
+    name: v.optional(v.string()),
+    /** Their profile photo, shown to them in the account panel. */
+    photoId: v.optional(v.id("_storage")),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_photo", ["photoId"]),
 
   /** Accounts waiting to be deleted (convex/account.ts). */
   accountDeletions: defineTable({

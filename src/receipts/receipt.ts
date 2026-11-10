@@ -18,7 +18,7 @@ import {
   type Applied,
   type PlanState,
 } from "../../shared/domain/installments";
-import { owedAtPayment, payoff, type PaymentFact } from "../../shared/domain/ledger";
+import { delinquency, owedAtPayment, payoff, type PaymentFact } from "../../shared/domain/ledger";
 import { effectiveRate, hasInstallments, periodInterest, rateConverts, type Frequency, type Method } from "../../shared/domain/loans";
 import { ratioLabel, type Cents } from "../../shared/domain/money";
 import {
@@ -42,8 +42,22 @@ export interface ReceiptSettings {
   receiptCompany: { name: boolean; address: boolean; phone: boolean };
   receiptClient: { name: boolean; idNumber: boolean; phone: boolean; address: boolean };
   receiptShow?: Partial<ReceiptShow>;
+  /** Payment receipts: the full schedule and history (unset), or what was
+   *  paid and the next payment (2026-11-09, each business picks). */
+  receiptFormat?: ReceiptFormat;
   receiptText: Record<string, string>;
 }
+
+export type ReceiptFormat = "full" | "next";
+
+/** The paper this device prints receipts on: Letter, or a thermal roll
+ *  (58 mm, 80 mm, 112 mm: the 2¼", 3⅛" and 4" rolls of counter and
+ *  Bluetooth printers). Kept per device; rolls always print the short
+ *  receipt. */
+export type Paper = "letter" | "58mm" | "80mm" | "112mm";
+export const PAPERS: Paper[] = ["letter", "80mm", "58mm", "112mm"];
+/** Roll width and the width a thermal head prints, in millimetres. */
+const ROLL: Record<Exclude<Paper, "letter">, [number, number]> = { "58mm": [58, 48], "80mm": [80, 72], "112mm": [112, 104] };
 
 /** Optional parts of a payment receipt (Settings › Receipts). The business
  *  name, amount paid, date and receipt number always print; the loan
@@ -82,6 +96,8 @@ export interface ReceiptContext {
   businessName: string;
   /** The logo as a data: URL (so it prints offline), or null. */
   logo: string | null;
+  /** This device's paper; Letter when unset. Loan receipts are always Letter. */
+  paper?: Paper;
 }
 
 /** Table rows that fit on one Letter page under the rest of a payment
@@ -201,9 +217,17 @@ const BASE_CSS = `
   }
 `;
 
-function page(c: ReceiptContext, title: string, cls: string, css: string, body: string): string {
+function page(c: ReceiptContext, title: string, cls: string, css: string, body: string, paper: Paper = "letter"): string {
   const t = c.t;
   const footer = esc(title).replace(/"/g, "'");
+  const roll = paper === "letter" ? null : ROLL[paper];
+  const pageRule = roll
+    ? `@page { margin: 0; }`
+    : `@page { size: letter; margin: 0.5in;
+    @bottom-left { content: "${footer}"; font: 7.5pt Arial, sans-serif; color: #5f6570; }
+    @bottom-right { content: "${t("Page", "Página")} " counter(page) " ${t("of", "de")} " counter(pages); font: 7.5pt Arial, sans-serif; color: #5f6570; }
+  }`;
+  const rollCss = roll ? rollCssFor(roll[0], roll[1]) : "";
   return `<!doctype html>
 <html lang="${c.fmt.lang}">
 <head>
@@ -211,14 +235,11 @@ function page(c: ReceiptContext, title: string, cls: string, css: string, body: 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <style>
-  @page { size: letter; margin: 0.5in;
-    @bottom-left { content: "${footer}"; font: 7.5pt Arial, sans-serif; color: #5f6570; }
-    @bottom-right { content: "${t("Page", "Página")} " counter(page) " ${t("of", "de")} " counter(pages); font: 7.5pt Arial, sans-serif; color: #5f6570; }
-  }
-${BASE_CSS}${css}</style>
+  ${pageRule}
+${BASE_CSS}${css}${rollCss}</style>
 </head>
 <body>
-<div class="sheet ${cls}">
+<div class="sheet ${cls}${roll ? " roll" : ""}">
 ${body}
 </div>
 </body>
@@ -282,6 +303,52 @@ function installmentLines(applied: Applied[], state: PlanState, on: Day): Instal
     const x = state.installments.find((i) => i.seq === a.seq);
     return x ? [{ seq: a.seq, remaining: remaining(x), paid: installmentStatus(x, on) === "paid" }] : [];
   });
+}
+
+/** Everything still to pay right after a payment, as its receipt shows it:
+ *  installment loans, all that is left of the schedule; others, capital and
+ *  interest still owed. (The WhatsApp receipt text, src/lib/whatsapp.ts.) */
+export function balanceAfterPayment(loan: LoanRecord, payments: PaymentRecord[], lateFees: LateFeeRecord[], paymentId: string): Cents | null {
+  const payment = payments.find((p) => p._id === paymentId);
+  if (!payment) return null;
+  const live = payments.filter((p) => p.loanId === loan._id && byLedgerOrder(p, payment) <= 0).sort(byLedgerOrder);
+  const facts = loanFacts(loan);
+  const plan = planFor(loan, lateFees);
+  if (plan) {
+    const pays = live.map((p) => ({ paidOn: p.paidOn, amount: p.amount, instruction: { kind: "fixed" as const, applied: p.applied } }));
+    const s = run(facts, plan, pays, payment.paidOn, MAX_DAY);
+    return s.ok ? s.value.installments.reduce((a, x) => a + remaining(x), 0) : null;
+  }
+  const pos = owedAtPayment(facts, live.map(paymentFact), payment.paidOn);
+  return pos.principalOutstanding + pos.interestOutstanding;
+}
+
+/** What to pay next right after a payment (the short receipt and its
+ *  WhatsApp text): installment loans, the next installment plus anything
+ *  late; interest-only loans, the next interest payment. Null once the loan
+ *  is paid off. */
+export function nextAfterPayment(loan: LoanRecord, payments: PaymentRecord[], lateFees: LateFeeRecord[], paymentId: string): NextPayment | null {
+  const payment = payments.find((p) => p._id === paymentId);
+  if (!payment) return null;
+  const live = payments.filter((p) => p.loanId === loan._id && byLedgerOrder(p, payment) <= 0).sort(byLedgerOrder);
+  const facts = loanFacts(loan);
+  const on = payment.paidOn;
+  const plan = planFor(loan, lateFees);
+  if (plan) {
+    const pays = live.map((p) => ({ paidOn: p.paidOn, amount: p.amount, instruction: { kind: "fixed" as const, applied: p.applied } }));
+    const s = run(facts, plan, pays, on, MAX_DAY);
+    if (!s.ok || s.value.installments.every((x) => remaining(x) <= 0)) return null;
+    // The next installment with what is still owed by the payment day; only
+    // what fell due before that day is called late (one due that very day
+    // isn't late yet).
+    const owedNow = s.value.installments.filter((x) => x.due <= on).reduce((a, x) => a + owed(x), 0);
+    const late = s.value.installments.filter((x) => x.due < on).reduce((a, x) => a + owed(x), 0);
+    const next = s.value.installments.find((x) => x.due > on && remaining(x) > 0);
+    if (next) return { on: next.due, amount: remaining(next) + owedNow, late, interest: false };
+    return owedNow > 0 ? { on: null, amount: owedNow, late, interest: false } : null;
+  }
+  const q = delinquency({ ...facts, status: "active" }, live.map(paymentFact), on);
+  return q.nextDue ? { on: q.nextDue, amount: q.nextDueAmount, late: q.overdueAmount, interest: true } : null;
 }
 
 export function paymentReceiptHtml(
@@ -381,6 +448,12 @@ export function paymentReceiptHtml(
   if (show.split) {
     paid.push(row(t("Interest", "Interés"), m(payment.interest), "sub"));
     paid.push(row(t("Capital", "Abono a capital"), m(payment.principal), "sub"));
+  }
+
+  const paper = c.paper ?? "letter";
+  if ((c.settings.receiptFormat ?? "full") === "next" || paper !== "letter") {
+    const next = balanceAfter <= 0 ? null : nextAfterPayment(loan, r.payments, r.lateFees, payment._id);
+    return nextPaymentReceipt(c, { loan, client: r.client, payment, number, company, footer: wording.paymentFooter(), show, balanceAfter, next, installmentsPaid, principalAfter }, paper);
   }
 
   const bal = [
@@ -507,6 +580,142 @@ ${notes}
   return page(c, title, "", "", body);
 }
 
+// ----- payment receipt, next payment only (2026-11-09) --------------------
+
+export interface NextPayment {
+  /** Null when everything left is already late. */
+  on: Day | null;
+  /** All to pay by that date to be up to date (the late part included). */
+  amount: Cents;
+  late: Cents;
+  /** An interest-only loan's next interest payment. */
+  interest: boolean;
+}
+
+/** What was paid now and what to pay next: always one short page, and the
+ *  receipt on thermal rolls. The same figures as the full receipt. */
+function nextPaymentReceipt(
+  c: ReceiptContext,
+  r: {
+    loan: LoanRecord;
+    client: ReceiptClient;
+    payment: PaymentRecord;
+    number: string;
+    company: Company;
+    footer: string;
+    show: ReceiptShow;
+    balanceAfter: Cents;
+    next: NextPayment | null;
+    installmentsPaid: [number, number] | null;
+    principalAfter: Cents;
+  },
+  paper: Paper,
+): string {
+  const { t, fmt } = c;
+  const m = (v: Cents) => esc(fmt.money(v));
+  const { payment, loan, show, next } = r;
+  const installmentLoan = hasInstallments(loan.method);
+  const split: string[] = [];
+  if (payment.paidWith) split.push(row(t("Paid with", "Forma de pago"), esc(paidWithLabel(t, payment.paidWith)), "sub"));
+  if (payment.fee > 0 && show.lateFees) split.push(row(installmentLoan ? t("Late fees", "Cargos por mora") : t("Fee", "Cargo"), m(payment.fee), "sub"));
+  if (show.split) {
+    split.push(row(t("Interest", "Interés"), m(payment.interest), "sub"));
+    split.push(row(t("Capital", "Abono a capital"), m(payment.principal), "sub"));
+  }
+  const loanRows = [show.loanNumber && row(t("Loan", "Préstamo"), `#${loan.recordNo}`), row(t("Loan date", "Fecha del préstamo"), esc(fmt.day(loan.startDate)))]
+    .filter(Boolean)
+    .join("");
+  let nextHtml = "";
+  if (r.balanceAfter <= 0) {
+    nextHtml = `<p class="note done">${CHECK} ${esc(t("This loan is fully paid. Thank you!", "Este préstamo quedó saldado. ¡Gracias!"))}</p>`;
+  } else if (next) {
+    const label = next.interest ? t("Your next interest payment", "Su próximo pago de interés") : t("Your next payment", "Su próximo pago");
+    const when = next.on ? t(`By ${fmt.day(next.on)}`, `A más tardar el ${fmt.day(next.on)}`) : t("Due now", "Vence ahora");
+    const late =
+      next.late <= 0
+        ? ""
+        : next.on
+          ? `<p class="late">${esc(
+              t(
+                `Includes ${fmt.money(next.late)} that is already late. Please pay it as soon as you can.`,
+                `Incluye ${fmt.money(next.late)} que ya está atrasado. Por favor páguelo lo antes posible.`,
+              ),
+            )}</p>`
+          : `<p class="late">${esc(t("All of it is already late. Please pay it as soon as you can.", "Todo ya está atrasado. Por favor páguelo lo antes posible."))}</p>`;
+    nextHtml = `<div class="next"><p class="label">${esc(label)}</p><div class="next-row"><span class="when">${esc(when)}</span><span class="amt">${m(next.amount)}</span></div>${late}</div>`;
+  }
+  const facts: [string, string][] =
+    show.balance && r.balanceAfter > 0
+      ? [
+          [t("Still owed in total", "Total pendiente"), fmt.money(r.balanceAfter)],
+          ...(r.installmentsPaid
+            ? ([[t("Installments paid in full", "Cuotas pagadas por completo"), t(`${r.installmentsPaid[0]} of ${r.installmentsPaid[1]}`, `${r.installmentsPaid[0]} de ${r.installmentsPaid[1]}`)]] as [string, string][])
+            : []),
+          [t("Capital repaid", "Capital pagado"), ratioLabel(loan.principal - r.principalAfter, loan.principal) ?? "0.0%"],
+        ]
+      : [];
+  const factsHtml = facts.length ? `<div class="facts">${facts.map(([l, v]) => `<span>${esc(l)} <b>${esc(v)}</b></span>`).join("")}</div>` : "";
+  const notes = payment.notes?.trim() ? `<p class="muted">${esc(t("Note:", "Nota:"))} ${esc(payment.notes)}</p>` : "";
+  const title = t(`Receipt ${r.number}`, `Recibo ${r.number}`);
+  const body = `${header(c, r.company, t("Payment receipt", "Recibo de pago"), r.number, t("Date paid", "Fecha de pago"), fmt.day(payment.paidOn))}
+<div class="cols">${clientBlock(c, r.client)}<div class="block"><p class="label">${esc(t("Loan", "Préstamo"))}</p><table class="kv">${loanRows}</table></div></div>
+<div class="block"><p class="label">${esc(t("This payment", "Este pago"))}</p>
+<div class="paid-big"><span>${esc(t("Amount paid", "Monto pagado"))}</span><span class="amt">${m(payment.amount)}</span></div>
+${split.length ? `<table class="kv">${split.join("")}</table>` : ""}</div>
+${nextHtml}
+${factsHtml}
+${notes}
+<div class="end"><span>${esc(fill(r.footer, { company: companyTag(c, r.company) }))}</span><span>${show.loanNumber ? `${esc(t("Loan", "Préstamo"))} #${loan.recordNo} · ` : ""}${esc(t("Receipt", "Recibo"))} ${r.number}</span></div>`;
+  return page(c, title, "short", NEXT_CSS, body, paper);
+}
+
+const NEXT_CSS = `
+  .sheet.short { min-height: 0; }
+  .paid-big { display:flex; justify-content:space-between; align-items:baseline; gap:12pt; padding:4pt 0 5pt; border-bottom:1pt solid var(--rule); margin-bottom:3pt; }
+  .paid-big .amt { font-size:18pt; font-weight:700; white-space:nowrap; }
+  .next { margin-top:12pt; border:1.2pt solid var(--ink); border-radius:6pt; padding:9pt 11pt; display:grid; gap:3pt; }
+  .next .label { margin:0; }
+  .next-row { display:flex; justify-content:space-between; align-items:baseline; gap:12pt; flex-wrap:wrap; }
+  .next .when { font-size:11.5pt; font-weight:600; }
+  .next .amt { font-size:15pt; font-weight:700; white-space:nowrap; }
+  .late { margin:0; color:var(--neg); }
+  .facts { display:flex; flex-wrap:wrap; gap:3pt 16pt; margin-top:9pt; font-size:8.5pt; color:var(--muted); }
+  .facts b { color:var(--ink); font-weight:600; white-space:nowrap; }
+`;
+
+/** A thermal roll: one column at the head's printing width, black only
+ *  (thermal heads print no colors or fills), as long as the receipt. On
+ *  screen it shows as a strip of paper. */
+function rollCssFor(paperMm: number, printMm: number): string {
+  const small = printMm < 60;
+  const side = (paperMm - printMm) / 2;
+  return `
+  :root { --ink:#000; --muted:#000; --rule:#000; --soft:#fff; --accent:#000; --pos:#000; --pos-bg:#fff; --warn:#000; --warn-bg:#fff; --neg:#000; --neg-bg:#fff; }
+  body { font-size:${small ? 7.5 : 8.5}pt; line-height:1.3; }
+  .sheet.roll { width:${paperMm}mm; min-height:0; padding:4mm ${side}mm 6mm; }
+  .roll .top { flex-direction:column; align-items:center; text-align:center; gap:3pt; border-bottom-width:1pt; }
+  .roll .brand { flex-direction:column; gap:4pt; }
+  .roll .doc { text-align:center; }
+  .roll h1 { font-size:${small ? 11 : 12.5}pt; }
+  .roll .cols { grid-template-columns:1fr; }
+  .roll .block { padding-top:6pt; }
+  .roll table.kv.left td:first-child { width:auto; }
+  .roll .paid-big .amt { font-size:${small ? 13 : 15}pt; }
+  .roll .next { border-width:1pt; border-radius:3pt; padding:6pt; }
+  .roll .next .amt { font-size:${small ? 12 : 13.5}pt; }
+  .roll .next .when { font-size:inherit; }
+  ${small ? ".roll .next-row { flex-direction:column; align-items:flex-start; gap:1pt; }" : ""}
+  .roll .late { font-weight:700; }
+  .roll .note { background:none; border:1pt solid #000; }
+  .roll .facts { flex-direction:column; gap:1pt; }
+  .roll .facts span { display:flex; justify-content:space-between; gap:8pt; }
+  .roll .end { flex-direction:column; align-items:center; text-align:center; gap:2pt; }
+  .roll .stamp { display:block; text-align:center; }
+  .roll .signs { grid-template-columns:1fr; gap:26pt; margin-top:26pt; }
+  @media print { .sheet.roll { width:${paperMm}mm; padding:2mm ${side}mm 8mm; } }
+`;
+}
+
 // ----- receipt for a collected payment waiting for confirmation -----------
 
 /** What a collector hands the client: the amount and date, marked as
@@ -550,7 +759,7 @@ ${notes}
   .signs { display:grid; grid-template-columns:1fr 1fr; gap:36pt; margin-top:40pt; color:var(--muted); font-size:8.5pt; text-align:center; }
   .signs span { border-top:0.5pt solid var(--muted); padding-top:4pt; }
 `;
-  return page(c, title, "", css, body);
+  return page(c, title, "", css, body, c.paper ?? "letter");
 }
 
 // ----- loan receipt --------------------------------------------------------

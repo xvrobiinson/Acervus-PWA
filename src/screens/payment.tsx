@@ -2,7 +2,7 @@
 // before saving. New payments go through the outbox, so they also work
 // offline; the server works the split out again and its figures win.
 
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Day } from "../../shared/domain/dates";
@@ -20,6 +20,8 @@ import {
 import { describeError, describeErrorData, paymentErrorText, planErrorText } from "../lib/errors";
 import { useT } from "../lib/i18n";
 import { PAID_WITH, paidWithLabel, type PaidWith } from "../lib/labels";
+import { getOp } from "../offline/store";
+import { withOutboxLock } from "../offline/outbox";
 import { ReceiptSheet } from "../receipts/view";
 import { useBooks } from "../state/app";
 import { DateInput, MoneyInput, useMoney, useParseError } from "../ui/inputs";
@@ -34,17 +36,23 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
   const toast = useToast();
   const saved = useSaved();
   const update = useMutation(api.payments.update);
+  const remove = useMutation(api.payments.remove);
+  const withdraw = useMutation(api.payments.withdraw);
+  const convex = useConvex();
   const editing = paymentId ? snapshot.payments.find((p) => p._id === paymentId) : undefined;
   const [loan, setLoan] = useState<string>(editing?.loanId ?? loanId ?? "");
   const view = books.loanById.get(loan);
   const [amount, setAmount, setAmountCents] = useMoney(editing?.amount ?? null);
   const [fee, setFee] = useMoney(editing?.feeInput || null);
+  // The charge field stays folded until asked for (or when editing one).
+  const [showFee, setShowFee] = useState(!!editing?.feeInput);
   const [on, setOn] = useState<Day>(editing?.paidOn ?? today);
   const [notes, setNotes] = useState(editing?.notes ?? "");
   // How it was paid: as recorded, or the way used last on this device.
   const [paidWith, setPaidWith] = useState<PaidWith>(() => (editing ? (editing.paidWith ?? "cash") : lastPaidWith()));
   const [reason, setReason] = useState("");
   const [mode, setMode] = useState<Mode>((editing?.mode as Mode) ?? "auto");
+  const [otherWay, setOtherWay] = useState(!!editing?.mode && editing.mode !== "auto");
   const [target, setTarget] = useState<number>(editing?.targetSeq ?? 0);
   const [spread, setSpread] = useState<Record<number, string>>(() =>
     Object.fromEntries((editing?.targets ?? []).map((x) => [x.seq, (x.amount / 100).toFixed(2)])),
@@ -109,6 +117,33 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
       : { fee: preview.value.fee, interest: preview.value.interest, principal: preview.value.principal }
     : null;
 
+  // What the payment pays, in plain words.
+  const covers: string | null = (() => {
+    if (!preview || !preview.ok) return null;
+    if ("applied" in preview.value) {
+      const parts = preview.value.applied
+        .map((a) => {
+          const paid = a.fee + a.interest + a.principal;
+          const x = before?.installments.find((i) => i.seq === a.seq);
+          const full = !x || paid >= remaining(x);
+          return full ? t(`installment ${a.seq} in full`, `la cuota ${a.seq} completa`) : t(`${fmt.money(paid)} of installment ${a.seq}`, `${fmt.money(paid)} de la cuota ${a.seq}`);
+        })
+        .filter(Boolean);
+      if (parts.length === 0) return null;
+      const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} ${t("and", "y")} ${parts[parts.length - 1]}`;
+      return t(`Pays ${list}.`, `Paga ${list}.`);
+    }
+    const v = preview.value;
+    const bits = [
+      v.fee > 0 ? t(`${fmt.money(v.fee)} of charges`, `${fmt.money(v.fee)} de cargos`) : "",
+      v.interest > 0 ? t(`${fmt.money(v.interest)} of interest`, `${fmt.money(v.interest)} de interés`) : "",
+      v.principal > 0 ? t(`${fmt.money(v.principal)} of capital`, `${fmt.money(v.principal)} de capital`) : "",
+    ].filter(Boolean);
+    if (bits.length === 0) return null;
+    const list = bits.length === 1 ? bits[0] : `${bits.slice(0, -1).join(", ")} ${t("and", "y")} ${bits[bits.length - 1]}`;
+    return t(`Pays ${list}.`, `Paga ${list}.`);
+  })();
+
   const quick: [string, Cents][] = view
     ? ([
         [t("Next due", "Próximo"), view.delinquency.nextDueAmount],
@@ -116,6 +151,36 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
         [t("Pay off", "Saldar"), view.payoff],
       ] as [string, Cents][]).filter(([, v]) => v > 0)
     : [];
+
+  // "Payment recorded · Undo" for a few seconds after a new payment.
+  /** Undo: `undo` answers with what stopped it, or nothing when done. */
+  const offerUndo = (undo: () => Promise<string | void>) =>
+    toast(t("Payment recorded.", "Pago registrado."), false, {
+      label: t("Undo", "Deshacer"),
+      run: async () => {
+        try {
+          const problem = await undo();
+          toast(problem ?? t("Payment undone.", "Pago deshecho."), !!problem);
+        } catch (e) {
+          toast(describeError(t, fmt, e), true);
+        }
+      },
+    });
+
+  const onItsWay = t("It's on its way to the cloud. Try Undo again in a moment.", "Va camino a la nube. Prueba Deshacer de nuevo en un momento.");
+  /** Undo for a payment the cloud has: a collector's is taken back while it
+   *  waits; an admin's is deleted, at the version the cloud has now (it
+   *  moves when the loan is worked out again). */
+  const undoSent = async (id: string): Promise<string | void> => {
+    if (app.role === "collector") {
+      await withdraw({ businessId, pendingId: id as never });
+      return;
+    }
+    const now = await convex.query(api.data.snapshot, { businessId });
+    const p = now?.payments.find((x) => x._id === id);
+    if (!p) return onItsWay;
+    await remove({ businessId, paymentId: p._id, expectedVersion: p.version, reason: t("Undone right after recording it", "Deshecho justo después de registrarlo") });
+  };
 
   const save = async (confirmedStale = false) => {
     setTried(true);
@@ -167,6 +232,22 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
       }
       if (r.status === "queued") {
         saved(t("Saved on this device. It will sync when you're online.", "Guardado en este dispositivo. Se sincronizará al tener conexión."));
+        offerUndo(async () => {
+          // With the outbox to itself, so it can't be sent meanwhile: still
+          // waiting, it just leaves; sent meanwhile, it is undone in the cloud.
+          const now = await withOutboxLock(async () => {
+            const op = await getOp(r.op.opId);
+            if (op?.status === "pending") {
+              await app.discard(op);
+              return { done: true as const };
+            }
+            return { op };
+          });
+          if (now === null || (now.op && now.op.status === "syncing")) return onItsWay;
+          if ("done" in now) return;
+          if (now.op?.status === "synced" && now.op.resultId) return undoSent(now.op.resultId);
+          return t("The cloud didn't accept this payment, so there is nothing to undo. Review it from your account menu.", "La nube no aceptó este pago, así que no hay nada que deshacer. Revísalo desde el menú de tu cuenta.");
+        });
         onClose();
         return;
       }
@@ -175,6 +256,10 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
           ? t("Collected. It counts once the office confirms it.", "Cobrado. Cuenta cuando la oficina lo confirme.")
           : t("Payment recorded.", "Pago registrado."),
       );
+      if (r.resultId) {
+        const id = r.resultId;
+        offerUndo(() => undoSent(id));
+      }
       if (snapshot.settings?.receiptAfterPayment && r.resultId) setReceiptId(r.resultId);
       else onClose();
     } catch (e) {
@@ -226,7 +311,7 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
             )}
           </Field>
         </div>
-        {view && installments && (
+        {view && installments && otherWay && (
           <div className="span2">
             <Field label={t("Apply it", "Aplicarlo")}>
               {() => (
@@ -250,6 +335,7 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
             {(id) => (
               <div className="stack tight">
                 <MoneyInput id={id} value={amount.text} onChange={setAmount} symbol={fmt.symbol} invalid={!!amount.error && tried} />
+                {covers && <p className="covers">{covers}</p>}
                 {quick.length > 0 && !editing && (
                   <div className="chips">
                     {quick.map(([label, v]) => (
@@ -264,8 +350,27 @@ export function PaymentForm({ loanId, paymentId, onClose }: { loanId?: string; p
           </Field>
         )}
         <Field label={t("Date paid", "Fecha de pago")}>{(id) => <DateInput id={id} value={on} max={today} min={view?.loan.startDate} onChange={setOn} />}</Field>
-        {view && !installments && (
-          <Field label={t("Extra fee (optional)", "Cargo adicional (opcional)")} hint={t("Taken first, before interest.", "Se toma primero, antes del interés.")} error={fee.text ? showErr(fee, tried) : null}>
+        {view && installments && !otherWay && (
+          <button type="button" className="link-add span2" onClick={() => setOtherWay(true)}>
+            {t("Apply it another way", "Aplicarlo de otra forma")}
+          </button>
+        )}
+        {view && installments && otherWay && mode === "auto" && !editing && (
+          <button type="button" className="link-add span2" onClick={() => setOtherWay(false)}>
+            {t("Back to oldest first", "Volver a la más antigua primero")}
+          </button>
+        )}
+        {view && !installments && !showFee && (
+          <button type="button" className="link-add" onClick={() => setShowFee(true)}>
+            {t("+ Add a charge", "+ Agregar un cargo")}
+          </button>
+        )}
+        {view && !installments && showFee && (
+          <Field
+            label={t("Late or extra charge", "Mora u otro cargo")}
+            hint={t("A charge added to this payment, such as a late fee. It is paid before interest.", "Un cargo sumado a este pago, como la mora. Se paga antes del interés.")}
+            error={fee.text ? showErr(fee, tried) : null}
+          >
             {(id) => <MoneyInput id={id} value={fee.text} onChange={setFee} symbol={fmt.symbol} />}
           </Field>
         )}

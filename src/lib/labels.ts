@@ -50,6 +50,14 @@ export const methodShort = (t: T, m: Method) =>
     interest_only: t("Interest only", "Solo interés"),
   })[m];
 
+/** Who each loan type suits, in one line (shown before its explanation). */
+export const methodSuits = (t: T, m: Method) =>
+  ({
+    declining: t("Suits most loans: payments get smaller as the capital comes down.", "Sirve para la mayoría: las cuotas bajan a medida que baja el capital."),
+    flat: t("The same payment every time, easy for the client to remember.", "La misma cuota siempre, fácil de recordar para el cliente."),
+    interest_only: t("For open-ended loans: the client pays interest and repays the capital when they can.", "Para préstamos sin plazo: el cliente paga interés y devuelve el capital cuando pueda."),
+  })[m];
+
 export const methodExplanation = (t: T, m: Method) =>
   ({
     declining: t(
@@ -74,6 +82,17 @@ export const displayStatusLabel = (t: T, s: DisplayStatus) =>
     paid_off: t("Paid off", "Saldado"),
     defaulted: t("Defaulted", "Incobrable"),
     restructured: t("Restructured", "Reestructurado"),
+  })[s];
+
+/** What a status means, in one sentence (shown on hover and on the loan page). */
+export const displayStatusHint = (t: T, s: DisplayStatus) =>
+  ({
+    active: t("Payments are up to date.", "Los pagos están al día."),
+    due_soon: t("A payment falls due within 5 days.", "Un pago vence dentro de 5 días."),
+    overdue: t("A due date has passed with something still unpaid.", "Pasó una fecha de pago y queda algo sin pagar."),
+    paid_off: t("Everything is paid. The loan is closed.", "Todo está pagado. El préstamo está cerrado."),
+    defaulted: t("Marked as unlikely to be paid back: no more interest is charged. Reinstate it to record payments again.", "Marcado como difícil de cobrar: ya no se cobra interés. Reactívalo para volver a registrar pagos."),
+    restructured: t("Its terms were replaced on its status date: no new interest is charged on it after that.", "Sus condiciones se reemplazaron en la fecha de su estado: desde entonces no se cobra interés nuevo."),
   })[s];
 
 export const contractStatusLabel = (t: T, s: ContractStatus) =>

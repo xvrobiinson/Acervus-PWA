@@ -13,12 +13,13 @@ import { authClient } from "../lib/auth-client";
 import { CONVEX_SITE_URL } from "../lib/env";
 import { describeError, describeErrorData } from "../lib/errors";
 import { useT } from "../lib/i18n";
-import { displayStatusLabel, methodShort } from "../lib/labels";
+import { methodShort } from "../lib/labels";
 import { useBooks } from "../state/app";
-import { Avatar, Banner, Button, Card, Confirm, Empty, Field, FilterPill, Pill, Row, Sheet, TabsPill, useToast } from "../ui/kit";
+import { Avatar, Banner, Button, Card, Count, Confirm, Empty, Field, FilterPill, Pill, Row, Sheet, TabsPill, useToast } from "../ui/kit";
+import { WaClientButton } from "../ui/whatsapp";
 import { Icon } from "../ui/icons";
 import { AssignSheet, CollectorSelect, useTeam } from "./collect";
-import { statusTone } from "./loans";
+import { StatusPill } from "./loans";
 
 export function ClientsScreen() {
   const t = useT();
@@ -164,7 +165,7 @@ export function ClientsScreen() {
                     <td className="wide-only num">{c.loans.length}</td>
                     <td className="num strong">{fmt.money(c.outstanding)}</td>
                     <td className="wide-only muted nowrap">{next ? fmt.dayShort(next) : "—"}</td>
-                    <td>{c.worst ? <Pill tone={statusTone(c.worst)}>{displayStatusLabel(t, c.worst)}</Pill> : <span className="muted">—</span>}</td>
+                    <td>{c.worst ? <StatusPill s={c.worst} /> : <span className="muted">—</span>}</td>
                     <td className="wide-only num muted">{last ? fmt.dayShort(last) : "—"}</td>
                   </tr>
                 );
@@ -239,6 +240,7 @@ export function ClientDetail() {
       <div className="topbar">
         <Button variant="ghost" icon="back" className="back" aria-label={t("Back", "Atrás")} onClick={() => navigate(-1)} />
         <h1 className="ellipsis">{c.fullName}</h1>
+        {!c.archivedAt && <WaClientButton clientId={c._id} small />}
         {can("manage") && online && <Button size="small" icon="edit" onClick={() => open({ kind: "client", clientId: c._id })}>{t("Edit", "Editar")}</Button>}
       </div>
       {c.archivedAt && <Banner tone="offline" icon="alert">{t("Archived client.", "Cliente archivado.")}</Banner>}
@@ -248,15 +250,15 @@ export function ClientDetail() {
             <div className="stats">
               <div className="stat lead" style={{ gridColumn: "1 / -1" }}>
                 <div className="label">{t("Capital owed", "Capital adeudado")}</div>
-                <div className="value">{fmt.money(view.outstanding)}</div>
+                <div className="value"><Count v={view.outstanding} fmt={fmt} /></div>
               </div>
               <div className="stat">
                 <div className="label">{t("Overdue", "Atrasado")}</div>
-                <div className={`value ${view.overdue > 0 ? "neg" : ""}`}>{fmt.money(view.overdue)}</div>
+                <div className={`value ${view.overdue > 0 ? "neg" : ""}`}><Count v={view.overdue} fmt={fmt} /></div>
               </div>
               <div className="stat">
                 <div className="label">{t("Paid to date", "Pagado a la fecha")}</div>
-                <div className="value">{fmt.money(view.paidTotal)}</div>
+                <div className="value"><Count v={view.paidTotal} fmt={fmt} /></div>
               </div>
             </div>
           </Card>
@@ -275,7 +277,7 @@ export function ClientDetail() {
                   trail={
                     <>
                       <span className="amount num">{fmt.money(l.payoff)}</span>
-                      <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
+                      <StatusPill s={l.display} />
                     </>
                   }
                 />

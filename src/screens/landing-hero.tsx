@@ -9,7 +9,7 @@
 // as percentages, so it scales with the window. They were taken from the web
 // app's demo (built with the demo books in US$, and a copy with the payment
 // recorded for the last two), with the spots below measured from the real
-// buttons in each language.
+// buttons in each language. Retaken 2026-11-10 in the clean look.
 
 import { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "../ui/motion";
@@ -24,16 +24,16 @@ type Box = [number, number, number, number];
 const AT = {
   rest: [690, 560] as [number, number],
   add: [1148, 844] as [number, number], // the + button
-  record: { en: [1090, 783], es: [1096, 783] } as Record<"en" | "es", [number, number]>, // its Record payment
+  record: { en: [1090, 783], es: [1095, 783] } as Record<"en" | "es", [number, number]>, // its Record payment
   loan: [600, 328] as [number, number], // the form's loan field
-  amount: [465, 301] as [number, number], // the amount field
-  typed: [520, 283, 581, 319] as Box, // where the digits go (the field is right-aligned)
-  textRight: 580, // where the amount's text ends
-  sample: [470, 301] as [number, number], // a spot of the field's own color
+  amount: [465, 336] as [number, number], // the amount field
+  typed: [519, 318, 582, 354] as Box, // where the digits go (the field is right-aligned)
+  textRight: 581, // where the amount's text ends
+  sample: [506, 336] as [number, number], // a spot of the field's own color
   save: [800, 842] as [number, number], // the form's Save payment
-  payments: { en: [370, 32], es: [395, 32] } as Record<"en" | "es", [number, number]>, // the nav's Payments
-  overdue: [905, 294, 1146, 328] as Box, // the Overdue amount figure
-  newRow: [64, 407, 1136, 460] as Box, // today's payment on Payments
+  payments: { en: [508, 36], es: [532, 36] } as Record<"en" | "es", [number, number]>, // the nav's Payments
+  overdue: [1003, 222, 1140, 247] as Box, // the Overdue amount figure
+  newRow: [42, 337, 1158, 389] as Box, // today's payment on Payments
 };
 
 const pc = (v: number, of: number) => `${(v / of) * 100}%`;

@@ -171,7 +171,10 @@ export function describeError(t: T, f: Fmt, e: unknown): string {
   if (!d) {
     return isNetworkError(e)
       ? t("No connection. Try again when you're online.", "Sin conexión. Inténtalo de nuevo cuando estés en línea.")
-      : t("Something went wrong. Try again.", "Algo salió mal. Inténtalo de nuevo.");
+      : t(
+          "Something went wrong and nothing was saved. Try again in a moment. If it keeps happening, reload the app or sign out and back in.",
+          "Algo salió mal y no se guardó nada. Inténtalo de nuevo en un momento. Si sigue pasando, recarga la app o cierra sesión y vuelve a entrar.",
+        );
   }
   return describeErrorData(t, f, d);
 }

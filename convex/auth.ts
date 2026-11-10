@@ -18,6 +18,7 @@ import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { codeEmail, sendEmail } from "./lib/email";
+import { profileOf } from "./account";
 
 const siteUrl = process.env.SITE_URL!;
 
@@ -149,6 +150,8 @@ export const getCurrentUser = query({
   handler: async (ctx) => {
     const user = await authComponent.safeGetAuthUser(ctx);
     if (!user) return null;
-    return { id: user._id as string, email: user.email, name: user.name || user.email, emailVerified: user.emailVerified };
+    // The name the person gave (never their email address as a name) and their photo.
+    const { name, photoUrl } = await profileOf(ctx, user._id as string, user.name ?? "", user.email);
+    return { id: user._id as string, email: user.email, name, photoUrl, emailVerified: user.emailVerified };
   },
 });

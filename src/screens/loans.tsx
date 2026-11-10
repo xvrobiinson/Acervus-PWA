@@ -3,7 +3,7 @@
 
 import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { addDays, type Day } from "../../shared/domain/dates";
@@ -15,20 +15,23 @@ import {
   type Installment,
 } from "../../shared/domain/installments";
 import { DISPLAY_ORDER, periodStates, type DisplayStatus } from "../../shared/domain/ledger";
-import { effectiveRate, FREQUENCIES, periodInterest, hasInstallments, rateConverts, RATE_PRESETS, validateTerms, type Frequency, type LoanTerms, type Method } from "../../shared/domain/loans";
+import { dueDate, effectiveRate, FREQUENCIES, periodInterest, hasInstallments, rateConverts, RATE_PRESETS, validateTerms, type Frequency, type LoanTerms, type Method } from "../../shared/domain/loans";
 import { mulDiv, parseMoney, ratePercentLabel } from "../../shared/domain/money";
 import { availableFrom } from "../../shared/domain/portfolio";
 import { buildBook, termsFacts, type LoanRecord, type PaymentRecord } from "../../shared/domain/records";
 import { useForms } from "../App";
-import { describeError, scheduleErrorText } from "../lib/errors";
+import { describeError, errorData, scheduleErrorText } from "../lib/errors";
+import { EntryForm } from "./money";
 import { useT } from "../lib/i18n";
-import { contractStatusLabel, displayStatusLabel, frequencyLabel, frequencyPer, installmentStatusLabel, methodExplanation, methodLabel, methodShort } from "../lib/labels";
+import { contractStatusLabel, displayStatusHint, displayStatusLabel, frequencyLabel, frequencyPer, installmentStatusLabel, methodExplanation, methodLabel, methodShort, methodSuits } from "../lib/labels";
+import { loanSentence } from "../lib/loan-sentence";
 import { ReceiptSheet } from "../receipts/view";
 import { PendingOnLoan } from "./collect";
 import { useBooks } from "../state/app";
 import type { LoanView } from "../state/books";
 import { DateInput, MoneyInput, RateInput, useMoney, useParseError, useRate } from "../ui/inputs";
-import { Avatar, Banner, Button, Card, Confirm, Empty, Field, FilterPill, PaidBack, Pill, Row, Segmented, Sheet, TabsPill, useToast } from "../ui/kit";
+import { Avatar, Banner, Button, Card, Count, Confirm, Empty, Field, FilterPill, PaidBack, Pill, Row, Segmented, Sheet, TabsPill, useToast } from "../ui/kit";
+import { WaClientButton, WaReceiptButton } from "../ui/whatsapp";
 
 export function statusTone(s: DisplayStatus): "pos" | "warn" | "neg" | undefined {
   return s === "overdue" || s === "defaulted" ? "neg" : s === "due_soon" ? "warn" : s === "paid_off" ? "pos" : undefined;
@@ -36,11 +39,23 @@ export function statusTone(s: DisplayStatus): "pos" | "warn" | "neg" | undefined
 
 type Filter = "open" | "overdue" | "closed" | "all";
 
+/** A loan's status, with what it means on hover. */
+export function StatusPill({ s }: { s: DisplayStatus }) {
+  const t = useT();
+  return (
+    <Pill tone={statusTone(s)} title={displayStatusHint(t, s)}>
+      {displayStatusLabel(t, s)}
+    </Pill>
+  );
+}
+
 export function LoansScreen() {
   const t = useT();
   const { books, fmt, can, mode } = useBooks();
   const open = useForms();
-  const [filter, setFilter] = useState<Filter>("open");
+  // /loans?show=overdue (the Overview's "Open late loans") starts on Overdue.
+  const [params] = useSearchParams();
+  const [filter, setFilter] = useState<Filter>(params.get("show") === "overdue" ? "overdue" : "open");
   const { snapshot } = useBooks();
   const lentShown = snapshot.me.view.amountLent;
   const [q, setQ] = useState("");
@@ -146,7 +161,7 @@ function LoanRow({ l, lentShown }: { l: LoanView; lentShown: boolean }) {
       )}
       <td className="num strong">{fmt.money(l.payoff)}</td>
       <td>
-        <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
+        <StatusPill s={l.display} />
       </td>
     </tr>
   );
@@ -197,8 +212,9 @@ export function LoanDetail() {
         <h1 className="ellipsis">
           {l.client?.fullName ?? "—"} · #{loan.recordNo}
         </h1>
-        <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
+        <StatusPill s={l.display} />
       </div>
+      {(l.display === "defaulted" || l.display === "restructured") && <p className="small muted status-note">{displayStatusHint(t, l.display)}</p>}
       <div className="actions" style={{ marginBottom: 12 }}>
         {can("record") && loan.status === "active" && (
           <Button variant="primary" icon="receipt" onClick={() => open({ kind: "payment", loanId: loan._id })}>
@@ -208,6 +224,7 @@ export function LoanDetail() {
         <Button icon="printer" onClick={() => setReceipt({ kind: "loan", id: loan._id })}>
           {t("Loan receipt", "Recibo del préstamo")}
         </Button>
+        {l.client && <WaClientButton clientId={l.client._id} loanId={loan._id} />}
         {admin && <Button icon="edit" onClick={() => open({ kind: "loan", loanId: loan._id })}>{t("Edit", "Editar")}</Button>}
         {l.client && <Button variant="ghost" onClick={() => navigate(`/clients/${l.client!._id}`)}>{t("Client", "Cliente")}</Button>}
       </div>
@@ -223,7 +240,7 @@ export function LoanDetail() {
         <div className="stats">
           <div className="stat lead">
             <div className="label">{t("Owed now to close it", "Adeuda ahora para saldarlo")}</div>
-            <div className="value">{fmt.money(l.payoff)}</div>
+            <div className="value"><Count v={l.payoff} fmt={fmt} /></div>
             {l.loan.status === "active" && l.delinquency.nextDue && (
               <div className="caption">
                 {t(`Next: ${fmt.day(l.delinquency.nextDue)} · ${fmt.money(l.delinquency.nextDueAmount)}`, `Próximo: ${fmt.day(l.delinquency.nextDue)} · ${fmt.money(l.delinquency.nextDueAmount)}`)}
@@ -232,26 +249,26 @@ export function LoanDetail() {
           </div>
           <div className="stat">
             <div className="label">{t("Capital owed", "Capital adeudado")}</div>
-            <div className="value">{fmt.money(p.principalOutstanding)}</div>
+            <div className="value"><Count v={p.principalOutstanding} fmt={fmt} /></div>
           </div>
           <div className="stat">
             <div className="label">{t("Interest owed", "Interés pendiente")}</div>
-            <div className="value">{fmt.money(p.interestOutstanding)}</div>
+            <div className="value"><Count v={p.interestOutstanding} fmt={fmt} /></div>
           </div>
           {view.lateFees && (
             <div className="stat">
               <div className="label">{t("Late fees owed", "Mora pendiente")}</div>
-              <div className={`value ${p.feesOutstanding ? "neg" : ""}`}>{fmt.money(p.feesOutstanding)}</div>
+              <div className={`value ${p.feesOutstanding ? "neg" : ""}`}><Count v={p.feesOutstanding} fmt={fmt} /></div>
             </div>
           )}
           <div className="stat">
             <div className="label">{t("Overdue", "Atrasado")}</div>
-            <div className={`value ${l.delinquency.overdueAmount ? "neg" : ""}`}>{fmt.money(l.delinquency.overdueAmount)}</div>
+            <div className={`value ${l.delinquency.overdueAmount ? "neg" : ""}`}><Count v={l.delinquency.overdueAmount} fmt={fmt} /></div>
             {l.delinquency.overdueSince && <div className="caption">{t(`${l.delinquency.daysOverdue} days`, `${l.delinquency.daysOverdue} días`)}</div>}
           </div>
           <div className="stat">
             <div className="label">{t("Paid so far", "Pagado hasta ahora")}</div>
-            <div className="value">{fmt.money(p.paidTotal)}</div>
+            <div className="value"><Count v={p.paidTotal} fmt={fmt} /></div>
             <div className="caption">
               {t("interest", "interés")} {fmt.money(p.interestPaid)} · {t("capital", "capital")} {fmt.money(p.principalPaid)}
             </div>
@@ -313,6 +330,7 @@ export function LoanDetail() {
             </Card>
           ) : (
             <Card title={t("Interest periods", "Períodos de interés")}>
+              <p className="card-note">{t("Interest is charged once a period on the capital still owed. Payments cover the oldest period first.", "El interés se cobra una vez por período sobre el capital que se debe. Los pagos cubren primero el período más antiguo.")}</p>
               <div className="table-wrap">
                 <table className="data">
                   <thead>
@@ -366,6 +384,7 @@ export function LoanDetail() {
                     </div>
                     <div className="row" style={{ gap: 2 }}>
                       <Button size="small" variant="ghost" icon="printer" aria-label={t("Receipt", "Recibo")} onClick={() => setReceipt({ kind: "payment", id: pay._id })} />
+                      <WaReceiptButton payment={pay} />
                       {admin && <Button size="small" variant="ghost" icon="edit" aria-label={t("Edit", "Editar")} onClick={() => open({ kind: "payment", paymentId: pay._id })} />}
                       {admin && <Button size="small" variant="ghost" icon="trash" aria-label={t("Delete", "Eliminar")} onClick={() => setAsk({ deletePayment: pay._id })} />}
                     </div>
@@ -538,6 +557,7 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addingCapital, setAddingCapital] = useState(false);
   const showErr = useParseError();
 
   const n = Number(count);
@@ -606,11 +626,33 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
         navigate(`/loans/${id}`);
       }
     } catch (e) {
-      setError(describeError(t, fmt, e));
+      const d = errorData(e);
+      setError(describeError(t, fmt, e) + (d?.code === "insufficient_cash" && !d.account && admin ? " " + t("Add the capital first, then create the loan.", "Agrega el capital primero y luego crea el préstamo.") : ""));
     } finally {
       setBusy(false);
     }
   };
+  // What is missing to lend this amount on that date, if anything.
+  const admin = app.can("manage");
+  // (\`available\` already leaves out the loan being edited.)
+  const short = amount.value !== null && amount.value > Math.max(available, 0) ? amount.value - Math.max(available, 0) : 0;
+
+  // The loan in one plain sentence, from the schedule shown below it.
+  const sentence =
+    terms && !termsProblem
+      ? loanSentence(
+          {
+            client: books.clientById.get(client)?.client.fullName ?? null,
+            method,
+            frequency,
+            schedule: hasInstallments(method) ? schedule : [],
+            periodInterest: hasInstallments(method) ? 0 : periodInterest({ rate: terms.rate, per: period, every: frequency }, terms.principal),
+            firstDue: dueDate(frequency, start, 1),
+          },
+          t,
+          fmt,
+        )
+      : null;
 
   const diff = terms && edited ? terms.principal - edited.reduce((a, x) => a + Math.max(x.principal, 0), 0) : 0;
   const pr = { rate: rate.value ?? 0, per: period, every: frequency };
@@ -647,11 +689,23 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
           </Field>
         </div>
         <Field label={t("Amount lent", "Monto prestado")} error={showErr(amount, tried) ?? (tried && termsProblem === "principal" ? t("Enter an amount greater than zero", "Escribe un monto mayor que cero") : null)} hint={t(`Available on that date: ${fmt.money(Math.max(available, 0))}`, `Disponible en esa fecha: ${fmt.money(Math.max(available, 0))}`)}>
-          {(id) => <MoneyInput id={id} value={amount.text} onChange={setAmount} symbol={fmt.symbol} invalid={!!amount.error && tried} />}
+          {(id) => (
+            <div className="stack tight">
+              <MoneyInput id={id} value={amount.text} onChange={setAmount} symbol={fmt.symbol} invalid={!!amount.error && tried} />
+              {short > 0 && admin && app.mode === "online" && (
+                <p className="short-cash">
+                  {t(`${fmt.money(short)} more capital is needed on that date.`, `Faltan ${fmt.money(short)} de capital en esa fecha.`)}{" "}
+                  <button type="button" className="link-add" onClick={() => setAddingCapital(true)}>
+                    {t("Add capital", "Agregar capital")}
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
         </Field>
         <Field label={t("Loan date", "Fecha del préstamo")}>{(id) => <DateInput id={id} value={start} max={today} onChange={setStart} />}</Field>
         <div className="span2">
-          <Field label={t("Type", "Tipo")} hint={methodExplanation(t, method)}>
+          <Field label={t("Type", "Tipo")} hint={`${methodSuits(t, method)} ${methodExplanation(t, method)}`}>
             {() => (
               <Segmented
                 label={t("Type", "Tipo")}
@@ -724,8 +778,20 @@ export function LoanForm({ clientId, loanId, onClose }: { clientId?: string; loa
         )}
       </div>
 
+      {addingCapital && (
+        <EntryForm
+          kind="contribution"
+          amount={short > 0 ? short : undefined}
+          date={start}
+          onClose={() => {
+            setAddingCapital(false);
+            setError(null);
+          }}
+        />
+      )}
       {terms && !termsProblem && (
         <div className="preview" style={{ marginTop: 16 }}>
+          {sentence && <p className="loan-sentence">{sentence}</p>}
           {hasInstallments(method) ? (
             <>
               <div className="row between" style={{ marginBottom: 8 }}>

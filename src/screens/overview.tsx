@@ -7,15 +7,15 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { api } from "../../convex/_generated/api";
 import { addDays, addMonths, maxDay, monthStart } from "../../shared/domain/dates";
 import { firstActivity, history, netInvested, realizedIncome } from "../../shared/domain/portfolio";
 import { ratioLabel } from "../../shared/domain/money";
 import { useForms } from "../App";
 import { useT } from "../lib/i18n";
-import { displayStatusLabel } from "../lib/labels";
 import { SixFigures } from "./six-figures";
+import { markSent, reminderKey, reminders as remindersFor, reminderText, sentToday, waLink } from "../lib/whatsapp";
 import { allowedFigures, defaultHero, parseHero, ROW_ONLY, setPick, shownSlots, type HeroFigure, type HeroLayout, type HeroRole, type Pick } from "../lib/hero-layout";
 import { defaultLayout, dropOnto, layoutRows, nudge, parseLayout, setHalf, setShown, type Block, type OverviewLayout } from "../lib/overview-layout";
 import { needsAttention } from "../state/books";
@@ -25,10 +25,11 @@ import { GrowthChart } from "../ui/chart";
 import { InHero } from "../ui/hero";
 import { Avatar, Banner, Button, Card, Empty, LinkButton, Pill, Row, Segmented } from "../ui/kit";
 import { Icon } from "../ui/icons";
+import { WaLogo, WaReceiptButton } from "../ui/whatsapp";
 import { useFlip } from "../ui/motion";
 import type { Fmt } from "../lib/format";
 import { pendingStatus } from "./collect";
-import { statusTone } from "./loans";
+import { StatusPill } from "./loans";
 
 /** A value kept on this device per person (JSON), with a way to change it. */
 function useStored<T>(key: string, parse: (text: string | null) => T) {
@@ -170,7 +171,7 @@ type Dragged = Block;
 
 export function OverviewScreen() {
   const t = useT();
-  const { books, fmt, snapshot, today, can, role } = useBooks();
+  const { books, fmt, snapshot, today, can, role, business } = useBooks();
   const { user, mode } = useApp();
   const open = useForms();
   const admin = can("manage");
@@ -302,7 +303,7 @@ export function OverviewScreen() {
   );
 
   // ----- arranging the blocks -----
-  const [layout, saveLayout] = useStored<OverviewLayout>(`acervus.overview2.${user?.id ?? "anon"}`, parseLayout);
+  const [layout, saveLayout] = useStored<OverviewLayout>(`acervus.overview3.${user?.id ?? "anon"}`, parseLayout);
   const [editing, setEditing] = useState(false);
   const [over, setOver] = useState<Block | null>(null);
   const dragged = useRef<Dragged | null>(null);
@@ -316,13 +317,16 @@ export function OverviewScreen() {
     flip.capture();
     setEditing(on);
   };
-  const allowedBlocks: Block[] = [...(admin ? (["growth", "money"] as Block[]) : []), "attention", collector ? "mine" : "recent"];
+  const allowedBlocks: Block[] = [...(admin ? (["growth", "money"] as Block[]) : []), "today", "status", "attention", collector ? "mine" : "recent", ...(can("record") ? (["reminders"] as Block[]) : [])];
   const blockLabel: Record<Block, string> = {
     growth: t("Portfolio growth", "Crecimiento del portafolio"),
     money: t("Where your money is", "Dónde está tu dinero"),
-    attention: t("Needs attention", "Requiere atención"),
+    today: t("Needs attention today", "Requiere atención hoy"),
+    status: t("Loans by status", "Préstamos por estado"),
+    attention: t("Late and due soon", "Atrasados y por vencer"),
     mine: t("My recent payments", "Mis cobros recientes"),
     recent: t("Recent payments", "Pagos recientes"),
+    reminders: t("WhatsApp reminders", "Recordatorios por WhatsApp"),
   };
 
   // Dragging with a mouse; on touch screens the arrows do the moving.
@@ -445,6 +449,139 @@ export function OverviewScreen() {
     );
   };
 
+  // ----- what needs attention today: up to three numbered lines -----
+  const todayCard = () => {
+    const late = books.loans.filter((l) => l.display === "overdue");
+    const lateSum = late.reduce((a, l) => a + l.delinquency.overdueAmount, 0);
+    const oldest = [...late].sort((a, b) => b.delinquency.daysOverdue - a.delinquency.daysOverdue)[0];
+    const weekEnd = addDays(today, 7);
+    // Only loans that still take payments (not written off or restructured).
+    const dueWeek = books.loans.filter((l) => (l.display === "active" || l.display === "due_soon") && l.delinquency.nextDue && l.delinquency.nextDue >= today && l.delinquency.nextDue <= weekEnd);
+    const dueSum = dueWeek.reduce((a, l) => a + l.delinquency.nextDueAmount, 0);
+    const items: { key: string; to: string; strong: string; rest: string }[] = [];
+    if (late.length > 0) {
+      const d = oldest?.delinquency.daysOverdue ?? 0;
+      const days = d === 1 ? t("1 day", "1 día") : t(`${d} days`, `${d} días`);
+      const who = oldest?.client?.fullName ?? "—";
+      items.push({
+        key: "late",
+        to: "/loans?show=overdue",
+        strong: late.length === 1 ? t("1 loan is late", "1 préstamo está atrasado") : t(`${late.length} loans are late`, `${late.length} préstamos están atrasados`),
+        rest: t(`, ${fmt.money(lateSum)} behind. The oldest is ${who}, ${days}.`, `, ${fmt.money(lateSum)} sin pagar. El más atrasado es ${who}, ${days}.`),
+      });
+    }
+    if (admin && waiting.length > 0) {
+      items.push({
+        key: "confirm",
+        to: "/confirm",
+        strong: waiting.length === 1 ? t("1 collector payment", "1 cobro de un cobrador") : t(`${waiting.length} collector payments`, `${waiting.length} cobros de cobradores`),
+        rest: waiting.length === 1 ? t(" is waiting for you to confirm.", " espera tu confirmación.") : t(" are waiting for you to confirm.", " esperan tu confirmación."),
+      });
+    }
+    if (dueWeek.length > 0) {
+      items.push({
+        key: "week",
+        to: "/loans",
+        strong: dueWeek.length === 1 ? t("1 installment", "1 cuota") : t(`${dueWeek.length} installments`, `${dueWeek.length} cuotas`),
+        rest:
+          dueWeek.length === 1
+            ? t(` falls due this week, ${fmt.money(dueSum)}.`, ` vence esta semana, ${fmt.money(dueSum)}.`)
+            : t(` fall due this week, ${fmt.money(dueSum)} in all.`, ` vencen esta semana, ${fmt.money(dueSum)} en total.`),
+      });
+    }
+    return (
+      <Card
+        className="today-card"
+        title={
+          <>
+            <span className="today-ico" aria-hidden="true">
+              <Icon name="alert" />
+            </span>
+            {blockLabel.today}
+          </>
+        }
+      >
+        {items.length === 0 ? (
+          <Empty icon="check">{t("Nothing needs you today: no late loans and nothing due this week.", "Nada requiere tu atención hoy: ningún préstamo atrasado y nada vence esta semana.")}</Empty>
+        ) : (
+          <>
+            <ol className="today-list">
+              {items.map((it, i) => (
+                <li key={it.key}>
+                  <Link to={it.to}>
+                    <span className="today-n num" aria-hidden="true">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span>
+                      <b>{it.strong}</b>
+                      {it.rest}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+            {late.length > 0 && (
+              <div className="today-foot">
+                <LinkButton to="/loans?show=overdue" size="small" variant="primary">
+                  {t("Open late loans", "Ver préstamos atrasados")}
+                </LinkButton>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+    );
+  };
+
+  // ----- loans by status: a bar and a short list -----
+  const statusCard = () => {
+    const live = books.loans.filter((l) => l.display !== "paid_off");
+    const paidOff = books.loans.length - live.length;
+    const late = live.filter((l) => l.display === "overdue");
+    const groups: { key: string; label: string; n: number }[] = [
+      { key: "ok", label: t("On time", "Al día"), n: live.filter((l) => l.display === "active" || l.display === "restructured").length },
+      { key: "soon", label: t("Due soon", "Vence pronto"), n: live.filter((l) => l.display === "due_soon").length },
+      { key: "late", label: t("Late up to 30 days", "Atrasados hasta 30 días"), n: late.filter((l) => l.delinquency.daysOverdue <= 30).length },
+      { key: "later", label: t("Late over 30 days", "Atrasados más de 30 días"), n: late.filter((l) => l.delinquency.daysOverdue > 30).length },
+      { key: "gone", label: t("Defaulted", "Incobrables"), n: live.filter((l) => l.display === "defaulted").length },
+    ];
+    const total = groups.reduce((a, g) => a + g.n, 0);
+    return (
+      <Card
+        title={blockLabel.status}
+        action={
+          <LinkButton to="/loans" size="small" variant="ghost">
+            {t("All loans", "Préstamos")}
+          </LinkButton>
+        }
+      >
+        <div className="card-body">
+          {total === 0 ? (
+            <Empty icon="loans">{t("Your loans show here by how they are being paid.", "Tus préstamos aparecen aquí según cómo se están pagando.")}</Empty>
+          ) : (
+            <>
+              <div className="st-bar" aria-hidden="true">
+                {groups.map((g) => (g.n > 0 ? <span key={g.key} className={`st-${g.key}`} style={{ flexGrow: g.n }} /> : null))}
+              </div>
+              <ul className="st-list">
+                {groups.map((g) => (
+                  <li key={g.key}>
+                    <span className={`st-sw st-${g.key}`} aria-hidden="true" />
+                    {g.label}
+                    <span className="st-n num">
+                      {g.n} · {Math.round((g.n / total) * 100)}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {paidOff > 0 && <p className="st-foot">{paidOff === 1 ? t("1 loan paid off", "1 préstamo saldado") : t(`${paidOff} loans paid off`, `${paidOff} préstamos saldados`)}</p>}
+            </>
+          )}
+        </div>
+      </Card>
+    );
+  };
+
   const attentionList = () => (
     <Card
       title={
@@ -475,7 +612,7 @@ export function OverviewScreen() {
               trail={
                 <>
                   <span className="amount num">{fmt.money(l.display === "overdue" ? l.delinquency.overdueAmount : l.delinquency.nextDueAmount)}</span>
-                  <Pill tone={statusTone(l.display)}>{displayStatusLabel(t, l.display)}</Pill>
+                  <StatusPill s={l.display} />
                 </>
               }
             />
@@ -515,6 +652,76 @@ export function OverviewScreen() {
     </Card>
   );
 
+  // ----- WhatsApp (the regular app, through wa.me) -----
+  const currency = snapshot.settings?.currencyCode ?? "DOP";
+  const businessName = business?.name ?? snapshot.business.name;
+  const [sent, setSent] = useState(() => sentToday(today));
+  const todays = remindersFor(books.loans, today, currency);
+  const waSentCount = todays.filter((r) => sent.has(reminderKey(r, today))).length;
+  const remindersList = () => (
+    <Card
+      title={
+        <>
+          {blockLabel.reminders}
+          {todays.length - waSentCount > 0 && <span className="count-pill">{todays.length - waSentCount}</span>}
+        </>
+      }
+    >
+      {todays.length === 0 ? (
+        <Empty icon="chat">
+          {t(
+            "Clients with an installment due tomorrow or today, or who are late, appear here to remind on WhatsApp.",
+            "Aquí aparecen los clientes con una cuota que vence mañana u hoy, o atrasados, para recordarles por WhatsApp.",
+          )}
+        </Empty>
+      ) : (
+        <ul className="list ruled">
+          {todays.map((r) => {
+            const key = reminderKey(r, today);
+            const done = sent.has(key);
+            const n = r.loanNo;
+            const when =
+              r.due.kind === "tomorrow"
+                ? t(`Loan #${n} · due tomorrow`, `Préstamo #${n} · vence mañana`)
+                : r.due.kind === "today"
+                  ? t(`Loan #${n} · due today`, `Préstamo #${n} · vence hoy`)
+                  : r.due.days === 1
+                    ? t(`Loan #${n} · 1 day late`, `Préstamo #${n} · 1 día de atraso`)
+                    : t(`Loan #${n} · ${r.due.days} days late`, `Préstamo #${n} · ${r.due.days} días de atraso`);
+            return (
+              <Row
+                key={key}
+                to={`/loans/${r.loanId}`}
+                muted={done}
+                lead={<Avatar name={r.client} />}
+                title={r.client}
+                sub={when}
+                trail={<span className={`amount num ${r.due.kind === "late" ? "neg" : ""}`}>{fmt.money(r.amount)}</span>}
+                aside={
+                  r.phone ? (
+                    <a
+                      className={`btn ghost small wa-btn ${done ? "done" : ""}`}
+                      href={waLink(r.phone, reminderText(r, t, fmt, businessName, snapshot.settings?.receiptText))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={done ? t("Send it again", "Enviarlo de nuevo") : t("Open WhatsApp with the reminder written", "Abrir WhatsApp con el recordatorio escrito")}
+                      onClick={() => setSent(markSent(key, today))}
+                    >
+                      {done ? <Icon name="check" /> : <WaLogo />}
+                      <span className="wa-label">{done ? t("Sent", "Enviado") : "WhatsApp"}</span>
+                    </a>
+                  ) : (
+                    <span className="wa-none">{t("No phone", "Sin teléfono")}</span>
+                  )
+                }
+              />
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+
   const recentList = () => (
     <Card title={blockLabel.recent} action={<LinkButton to="/payments" size="small" variant="ghost">{t("All payments", "Todos los pagos")}</LinkButton>}>
       {recent.length === 0 ? (
@@ -531,6 +738,7 @@ export function OverviewScreen() {
                 title={l?.client?.fullName ?? "—"}
                 sub={`${fmt.dayShort(p.paidOn)} · ${t("interest", "interés")} ${fmt.money(p.interest)} · ${t("capital", "capital")} ${fmt.money(p.principal)}`}
                 trail={<span className="amount num pos">+{fmt.money(p.amount)}</span>}
+                aside={<WaReceiptButton payment={p} />}
               />
             );
           })}
@@ -539,7 +747,64 @@ export function OverviewScreen() {
     </Card>
   );
 
-  const content: Record<Block, () => ReactNode> = { growth, money, attention: attentionList, mine: mineList, recent: recentList };
+  // First steps on a new business (2026-11-10, usability item 5; the
+  // Windows app's `render_setup`): capital, a client, the first loan. An
+  // admin's to take; gone once the first loan exists.
+  const setupSteps: { done: boolean; title: string; body: string; label: string; primary?: boolean; go: () => void }[] = [
+    {
+      done: snapshot.capital.length > 0,
+      title: t("Record your starting capital", "Registra tu capital inicial"),
+      body: t("The money you have set aside to lend.", "El dinero que apartaste para prestar."),
+      label: t("Add capital", "Agregar capital"),
+      go: () => open({ kind: "entry", entry: "contribution" }),
+    },
+    {
+      done: snapshot.clients.length > 0,
+      title: t("Add a client", "Agrega un cliente"),
+      body: t("Name and optional contact details.", "Nombre y datos de contacto opcionales."),
+      label: t("New client", "Nuevo cliente"),
+      go: () => open({ kind: "client" }),
+    },
+    {
+      done: false,
+      title: t("Create the first loan", "Crea el primer préstamo"),
+      body: t("See what the client pays, and when, before you confirm.", "Mira qué paga el cliente, y cuándo, antes de confirmar."),
+      label: t("New loan", "Nuevo préstamo"),
+      primary: true,
+      go: () => open({ kind: "loan" }),
+    },
+  ];
+  const setupDone = setupSteps.filter((s) => s.done).length;
+  const setup =
+    snapshot.loans.length === 0 && can("manage") && mode === "online" ? (
+      <Card title={t("Set up your lending book", "Configura tu cartera")} action={<span className="small muted num">{t(`${setupDone} of 3 done`, `${setupDone} de 3 listos`)}</span>} className="setup-card">
+        <div className="card-body">
+          <p className="muted" style={{ marginTop: 0 }}>
+            {t("Three steps, and every figure on this screen comes from what you record.", "Tres pasos, y cada cifra de esta pantalla sale de lo que registres.")}
+          </p>
+          <ol className="setup-steps">
+            {setupSteps.map((s, i) => (
+              <li key={i} className={s.done ? "done" : ""}>
+                <span className="setup-n" aria-hidden="true">
+                  {s.done ? <Icon name="check" /> : i + 1}
+                </span>
+                <div>
+                  <b>{s.title}</b>
+                  <p>{s.body}</p>
+                  {!s.done && (
+                    <Button size="small" variant={s.primary ? "primary" : undefined} onClick={s.go}>
+                      {s.label}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Card>
+    ) : null;
+
+  const content: Record<Block, () => ReactNode> = { growth, today: todayCard, status: statusCard, money, attention: attentionList, mine: mineList, recent: recentList, reminders: remindersList };
   const shownBlocks = layout.blocks.filter((b) => allowedBlocks.includes(b) && !layout.hidden.includes(b));
 
   // A block; while arranging, framed with a bar to drag it by, arrows,
@@ -596,6 +861,13 @@ export function OverviewScreen() {
           <CustomizeFigures layout={layoutHero} role={heroRole} labels={values} onChange={saveHero} />
         </InHero>
       )}
+      {!editing && (
+        <InHero slot="actions">
+          <button type="button" className="glass-pill icon ov-arrange-top" aria-label={t("Arrange this Overview", "Organizar este Resumen")} title={t("Arrange this Overview", "Organizar este Resumen")} onClick={() => arrange(true)}>
+            <Icon name="sliders" />
+          </button>
+        </InHero>
+      )}
       <h1 className="sr-only">{t("Overview", "Resumen")}</h1>
       {editing && (
         <div className="ov-editbar">
@@ -622,6 +894,7 @@ export function OverviewScreen() {
           )}
         </Banner>
       )}
+      {setup}
       <div ref={box} className="ov-blocks">
         {rows.map((row) =>
           row.length === 2 ? (

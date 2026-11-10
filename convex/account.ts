@@ -1,4 +1,5 @@
-// Deleting your own account. The request waits 7 days (signing in lets the
+// The person's profile (their name and photo, 2026-11-10), and deleting
+// their own account. The request waits 7 days (signing in lets the
 // person cancel it, in case of a mistake or a hacked account), then the sign-in
 // and personal details go. The business's records stay: what was recorded in
 // the person's name then says "Former team member". The only admin of a
@@ -7,12 +8,129 @@
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireIdentity } from "./lib/access";
 import { fail } from "./lib/errors";
+import { hitLimit } from "./rateLimit";
 import { activeMembers, releaseClients } from "./lib/team";
 
 export const DELETE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ----- Profile -------------------------------------------------------------
+
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO = 2 * 1024 * 1024;
+/** A photo must be one just uploaded, never an older file named by its id. */
+const FRESH_UPLOAD_MS = 60 * 60_000;
+
+/** A file another record already uses (a business's logo, someone's photo)
+ *  can't be taken as a photo: refused, and never deleted here. */
+async function inUse(ctx: QueryCtx, id: Id<"_storage">, userId: string): Promise<boolean> {
+  const logo = await ctx.db
+    .query("settings")
+    .withIndex("by_logo", (q) => q.eq("logoId", id))
+    .first();
+  if (logo) return true;
+  const photo = await ctx.db
+    .query("userPrefs")
+    .withIndex("by_photo", (q) => q.eq("photoId", id))
+    .first();
+  return !!photo && photo.userId !== userId;
+}
+
+const prefsOf = (ctx: QueryCtx, userId: string) =>
+  ctx.db
+    .query("userPrefs")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+
+async function patchPrefs(ctx: MutationCtx, userId: string, change: { name?: string; photoId?: Id<"_storage"> | undefined }) {
+  const p = await prefsOf(ctx, userId);
+  if (p) await ctx.db.patch(p._id, { ...change, updatedAt: Date.now() });
+  else await ctx.db.insert("userPrefs", { userId, ...change, updatedAt: Date.now() });
+}
+
+/** The name and photo shown for a person: the name they gave (else their
+ *  sign-in's, but never their email address) and the photo they added. */
+export async function profileOf(ctx: QueryCtx, userId: string, signInName: string, email: string) {
+  const p = await prefsOf(ctx, userId);
+  const given = (p?.name ?? "").trim();
+  const fromSignIn = signInName.trim().toLowerCase() === email.trim().toLowerCase() ? "" : signInName.trim();
+  return { name: given || fromSignIn, photoUrl: p?.photoId ? await ctx.storage.getUrl(p.photoId) : null };
+}
+
+export const profile = query({
+  args: {},
+  handler: async (ctx) => {
+    const who = await requireIdentity(ctx);
+    const signIn = (await ctx.auth.getUserIdentity())?.name ?? "";
+    return { email: who.email, ...(await profileOf(ctx, who.userId, signIn, who.email)) };
+  },
+});
+
+export const setName = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, a) => {
+    const who = await requireIdentity(ctx);
+    const name = a.name.trim().replace(/\s+/g, " ");
+    if (name.length < 1 || name.length > 100) fail("invalid", { field: "name" });
+    if (!(await hitLimit(ctx, `profile:${who.userId}`, 30, 60_000))) fail("rate_limited");
+    await patchPrefs(ctx, who.userId, { name });
+    // The person's place in each of their businesses' teams shows it too.
+    for await (const m of ctx.db.query("members").withIndex("by_user", (q) => q.eq("userId", who.userId))) {
+      if (m.active && m.name !== name) await ctx.db.patch(m._id, { name });
+    }
+    // And the sign-in, so what they record from now on carries it.
+    await ctx.scheduler.runAfter(0, internal.account.renameSignIn, { userId: who.userId, name });
+  },
+});
+
+export const renameSignIn = internalMutation({
+  args: { userId: v.string(), name: v.string() },
+  handler: async (ctx, a) => {
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: { model: "user", update: { name: a.name, updatedAt: Date.now() }, where: [{ field: "_id", value: a.userId }] },
+    });
+  },
+});
+
+export const photoUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const who = await requireIdentity(ctx);
+    if (!(await hitLimit(ctx, `profile-photo:${who.userId}`, 20, 60 * 60_000))) fail("rate_limited");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setPhoto = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, a) => {
+    const who = await requireIdentity(ctx);
+    const meta = await ctx.db.system.get("_storage", a.storageId);
+    const fresh = !!meta && Date.now() - meta._creationTime <= FRESH_UPLOAD_MS;
+    if (!meta || !fresh || !PHOTO_TYPES.includes(meta.contentType ?? "") || meta.size > MAX_PHOTO || (await inUse(ctx, a.storageId, who.userId))) {
+      fail("invalid", { field: "photo", reason: "photo" });
+    }
+    const old = (await prefsOf(ctx, who.userId))?.photoId;
+    if (old === a.storageId) return;
+    await patchPrefs(ctx, who.userId, { photoId: a.storageId });
+    if (old) await ctx.storage.delete(old);
+  },
+});
+
+export const removePhoto = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const who = await requireIdentity(ctx);
+    const old = (await prefsOf(ctx, who.userId))?.photoId;
+    if (!old) return;
+    await patchPrefs(ctx, who.userId, { photoId: undefined });
+    await ctx.storage.delete(old);
+  },
+});
+
+// ----- Deleting the account -----------------------------------------------
 
 /** Businesses where `userId` is the only admin. */
 async function soleAdminOf(ctx: QueryCtx, userId: string): Promise<string[]> {
@@ -102,7 +220,10 @@ export const erase = internalMutation({
       await ctx.db.patch(m._id, { active: false, removedAt: m.removedAt ?? now, name: await formerLabel(ctx, m.businessId), email: "", collectorView: undefined });
     }
     for await (const i of ctx.db.query("invites").withIndex("by_email", (q) => q.eq("email", a.email))) await ctx.db.delete(i._id);
-    for await (const p of ctx.db.query("userPrefs").withIndex("by_user", (q) => q.eq("userId", a.userId))) await ctx.db.delete(p._id);
+    for await (const p of ctx.db.query("userPrefs").withIndex("by_user", (q) => q.eq("userId", a.userId))) {
+      if (p.photoId) await ctx.storage.delete(p.photoId);
+      await ctx.db.delete(p._id);
+    }
     await ctx.db.delete(a.deletionId);
     await ctx.scheduler.runAfter(0, internal.account.removeSignIn, { userId: a.userId });
   },

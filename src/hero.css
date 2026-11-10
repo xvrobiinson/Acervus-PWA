@@ -545,3 +545,16 @@
 .hero-nav a:has(.nbadge) .nav-ico { margin-right: 5px; }
 .hero-right .bell-count { background: #2f6db5; }
 @media (prefers-reduced-motion: reduce) { .nbadge { animation: none; } }
+
+/* ----- WhatsApp: links beside list rows (2026-11-09) -------------------- */
+.list li.has-aside { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--rule); }
+.list li.has-aside:first-child { border-top: 0; }
+.list li.has-aside > .list-row { flex: 1; min-width: 0; border-top: 0; }
+.row-aside { flex: none; padding-right: 10px; }
+.list li.has-aside .row-aside:has(.wa-btn:not(.icon)), .list li.has-aside .row-aside:has(.wa-none) { min-width: 118px; display: flex; justify-content: flex-end; }
+.wa-btn { white-space: nowrap; }
+.wa-btn.done { color: var(--positive); }
+.wa-none { font-size: 12px; color: var(--faint); padding: 0 8px; white-space: nowrap; }
+@media (max-width: 699px) { .wa-label { display: none; } .list li.has-aside .row-aside { min-width: 0 !important; padding-right: 6px; } .wa-none { padding: 0 4px; } }
+.tbl th.act, .tbl td.act { width: 1%; padding-left: 0; padding-right: 8px; text-align: right; white-space: nowrap; }
+.tbl td.act .wa-btn { margin: -6px 0; }

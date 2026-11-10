@@ -5,8 +5,34 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LateFeeRecord, LoanRecord, PaymentRecord } from "../../shared/domain/records";
 import { useT } from "../lib/i18n";
 import { useBooks } from "../state/app";
-import { Button, Empty, Sheet } from "../ui/kit";
-import { loanReceiptHtml, paymentReceiptHtml, pendingReceiptHtml, type ReceiptContext } from "./receipt";
+import { Button, Empty, Segmented, Sheet } from "../ui/kit";
+import { loanReceiptHtml, PAPERS, paymentReceiptHtml, pendingReceiptHtml, type Paper, type ReceiptContext } from "./receipt";
+
+/** The paper this device prints receipts on (a thermal printer's roll or
+ *  Letter), remembered on this device. */
+const PAPER_KEY = "acervus.paper";
+function usePaper(): [Paper, (p: Paper) => void] {
+  const [paper, setPaper] = useState<Paper>(() => {
+    try {
+      const v = localStorage.getItem(PAPER_KEY) as Paper | null;
+      return v && PAPERS.includes(v) ? v : "letter";
+    } catch {
+      return "letter";
+    }
+  });
+  const save = (p: Paper) => {
+    setPaper(p);
+    try {
+      localStorage.setItem(PAPER_KEY, p);
+    } catch {
+      /* storage blocked: it applies until the app closes */
+    }
+  };
+  return [paper, save];
+}
+
+/** Width of the page on screen, in CSS pixels (96 per inch). */
+const PAPER_PX: Record<Paper, number> = { letter: 816, "58mm": 219, "80mm": 302, "112mm": 423 };
 
 /** The logo as a data: URL, so it is inside the receipt (prints offline once loaded). */
 function useLogo(url: string | null | undefined): string | null {
@@ -39,10 +65,13 @@ export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan" |
   const { snapshot, fmt } = useBooks();
   const logo = useLogo(snapshot.settings?.logoUrl);
   const frame = useRef<HTMLIFrameElement>(null);
+  const [chosenPaper, setPaper] = usePaper();
+  // A loan receipt is the client's agreement: always a Letter page.
+  const paper: Paper = kind === "loan" ? "letter" : chosenPaper;
   const html = useMemo(() => {
     const s = snapshot.settings;
     if (!s) return null;
-    const c: ReceiptContext = { t, fmt, settings: s, businessName: snapshot.business.name, logo };
+    const c: ReceiptContext = { t, fmt, settings: s, businessName: snapshot.business.name, logo, paper };
     const pending = kind === "pending" ? snapshot.pending.find((p) => p._id === id) : undefined;
     const loanId = kind === "loan" ? id : kind === "pending" ? pending?.loanId : snapshot.payments.find((p) => p._id === id)?.loanId;
     const loan = snapshot.loans.find((l) => l._id === loanId);
@@ -58,11 +87,11 @@ export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan" |
           lateFees: snapshot.lateFees as unknown as LateFeeRecord[],
           paymentId: id,
         });
-  }, [snapshot, kind, id, t, fmt, logo]);
+  }, [snapshot, kind, id, t, fmt, logo, paper]);
   const fit = () => {
     // Scale the Letter page to the screen; printing uses the real size.
     const doc = frame.current?.contentDocument;
-    if (doc) doc.documentElement.style.setProperty("--fit", String(Math.min(1, (frame.current!.clientWidth - 8) / 816)));
+    if (doc) doc.documentElement.style.setProperty("--fit", String(Math.min(1, (frame.current!.clientWidth - 8) / (PAPER_PX[paper] + 32))));
   };
   const download = () => {
     if (!html) return;
@@ -90,12 +119,27 @@ export function ReceiptSheet({ kind, id, onClose }: { kind: "payment" | "loan" |
     >
       {html ? (
         <>
+          {kind !== "loan" && (
+            <div className="receipt-paper">
+              <Segmented
+                label={t("Paper", "Papel")}
+                value={paper}
+                onChange={setPaper}
+                options={PAPERS.map((p) => [p, p === "letter" ? t("Letter", "Carta") : p.replace("mm", " mm")] as [Paper, string])}
+              />
+            </div>
+          )}
           <iframe ref={frame} className="receipt-frame" title={t("Receipt", "Recibo")} srcDoc={html} onLoad={fit} />
           <p className="micro muted">
-            {t(
-              "To save a PDF, choose Print and then “Save as PDF” (on iPhone: Share › Save to Files). Letter paper.",
-              "Para guardar un PDF, elige Imprimir y luego “Guardar como PDF” (en iPhone: Compartir › Guardar en Archivos). Papel carta.",
-            )}
+            {paper === "letter"
+              ? t(
+                  "To save a PDF, choose Print and then “Save as PDF” (on iPhone: Share › Save to Files). Letter paper.",
+                  "Para guardar un PDF, elige Imprimir y luego “Guardar como PDF” (en iPhone: Compartir › Guardar en Archivos). Papel carta.",
+                )
+              : t(
+                  "For a receipt printer: in the print window choose the printer and its roll size, margins None. Rolls always print the short receipt. This device remembers the paper.",
+                  "Para una impresora de recibos: en la ventana de impresión elige la impresora y el tamaño del rollo, márgenes Ninguno. En rollo siempre sale el recibo corto. Este dispositivo recuerda el papel.",
+                )}
           </p>
         </>
       ) : (

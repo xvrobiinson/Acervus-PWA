@@ -2,8 +2,8 @@
 // its row in a sheet, and some have pages inside (receipt customization,
 // payment receipt settings, a team member), each with a back button.
 import { useAction, useMutation, useQuery } from "convex/react";
-import { useSearchParams } from "react-router";
-import { useState } from "react";
+import { useSearchParams, useNavigate } from "react-router";
+import { useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { DATE_STYLES, formatDay, type DateStyle } from "../../shared/domain/dates";
@@ -15,9 +15,12 @@ import { useLang, useT } from "../lib/i18n";
 import { CURRENCIES, frequencyLabel, roleLabel, COLLECTOR_VIEW_PARTS, RECEIPT_PART_GROUPS } from "../lib/labels";
 import { defaultRules, tagList, whenHint, withRules, withText, Wording, wordingProblem, type RuleLine, type RuleSet, type When } from "../receipts/wording";
 import { useBooks } from "../state/app";
+import { fillWa, waCustom, waDefaults, waProblem, waTemplate, withWa, WA_MAX, WA_TAGS, type WaKey, type WaTags } from "../lib/wa-messages";
 import { AcervusLoader, Banner, Button, Card, Check, Confirm, Field, Pill, Row, Segmented, Sheet, useSheetClean, useSheetGuard, useToast } from "../ui/kit";
+import { useTour } from "../ui/tour";
+import { ProfileSheet } from "../ui/profile";
 import { Icon, type IconName } from "../ui/icons";
-import { receiptShow, type ReceiptShow } from "../receipts/receipt";
+import { receiptShow, type ReceiptFormat, type ReceiptShow } from "../receipts/receipt";
 import { NewBusinessForm, PendingInvites } from "./auth";
 import { LegalLinks, SUPPORT_EMAIL } from "./legal";
 import { RateInput, useParseError, useRate } from "../ui/inputs";
@@ -107,13 +110,15 @@ function DeleteAccount() {
 }
 
 /** A group of settings behind a row on the Settings page, opened in a sheet. */
-type Panel = "business" | "receipts" | "formats" | "lending" | "team" | "account" | "data" | "about";
+type Panel = "business" | "receipts" | "whatsapp" | "formats" | "lending" | "team" | "account" | "data" | "about";
 /** A page inside a group's sheet; its back button returns to the group. */
 type Page = "receiptLook" | "receiptParts" | { person: Id<"members"> };
 
 export function SettingsScreen() {
   const t = useT();
   const app = useBooks();
+  const tour = useTour();
+  const navigate = useNavigate();
   const { can, mode, businessId } = app;
   const admin = can("manage");
   const online = mode === "online";
@@ -129,8 +134,9 @@ export function SettingsScreen() {
   const panels: { key: Panel; icon: IconName; title: string; sub: string; show: boolean }[] = [
     { key: "business", icon: "briefcase", title: t("Business", "Negocio"), sub: t("Company details and logo", "Datos de la empresa y logo"), show: business },
     { key: "receipts", icon: "receipt", title: t("Receipts", "Recibos"), sub: t("What prints, when to show it, wording", "Qué se imprime, cuándo se muestra, textos"), show: business },
+    { key: "whatsapp", icon: "chat", title: t("WhatsApp messages", "Mensajes de WhatsApp"), sub: t("What reminders and receipts say", "Qué dicen los recordatorios y recibos"), show: business },
     { key: "team", icon: "users", title: t("Team", "Equipo"), sub: t("People, roles, invitations, what collectors see", "Personas, roles, invitaciones, qué ven los cobradores"), show: business },
-    { key: "formats", icon: "globe", title: t("Regional formats", "Formatos regionales"), sub: t("Language, currency, numbers and dates", "Idioma, moneda, números y fechas"), show: true },
+    { key: "formats", icon: "globe", title: t("Language and formats", "Idioma y formatos"), sub: t("Language, currency, numbers and dates", "Idioma, moneda, números y fechas"), show: true },
     { key: "lending", icon: "wallet", title: t("Lending defaults", "Valores de préstamos"), sub: t("Rate, payments and late fees for new loans", "Tasa, pagos y mora para préstamos nuevos"), show: business },
     { key: "account", icon: "settings", title: t("Account and appearance", "Cuenta y apariencia"), sub: t("Light or dark, your account", "Claro u oscuro, tu cuenta"), show: true },
     { key: "data", icon: "download", title: t("Data", "Datos"), sub: t("Export to CSV or JSON", "Exportar a CSV o JSON"), show: admin },
@@ -140,9 +146,9 @@ export function SettingsScreen() {
   const current = shown.find((x) => x.key === open);
   const pageTitle =
     page === "receiptLook"
-      ? t("Receipt customization", "Personalizar recibos")
+      ? t("Business and client details", "Datos del negocio y del cliente")
       : page === "receiptParts"
-        ? t("Payment receipt settings", "Ajustes del recibo de pago")
+        ? t("What receipts show", "Qué muestran los recibos")
         : person?.name;
   const body = () => {
     switch (current?.key) {
@@ -153,6 +159,8 @@ export function SettingsScreen() {
             <CompanyCard />
           </>
         );
+      case "whatsapp":
+        return <WhatsAppCard />;
       case "receipts":
         if (page === "receiptLook")
           return (
@@ -207,6 +215,35 @@ export function SettingsScreen() {
           />
         ))}
       </ul>
+      {/* Help and the welcome tour, to read or replay any time. */}
+      <div className="settings-label">{t("Help", "Ayuda")}</div>
+      <ul className="list boxed settings-cats">
+        <Row
+          to="/help"
+          lead={
+            <span className="settings-ico" aria-hidden="true">
+              <Icon name="info" />
+            </span>
+          }
+          title={t("How Acervus works", "Cómo funciona Acervus")}
+          sub={t("Loan types, the cards, late fees, receipts", "Tipos de préstamo, las tarjetas, mora, recibos")}
+          trail={<Icon name="chevron" className="settings-chev" />}
+        />
+        <Row
+          onClick={() => {
+            navigate("/");
+            tour.start();
+          }}
+          lead={
+            <span className="settings-ico" aria-hidden="true">
+              <Icon name="chevron" />
+            </span>
+          }
+          title={t("Replay the tour", "Repetir el recorrido")}
+          sub={t("A one-minute look at the essentials", "Un vistazo de un minuto a lo esencial")}
+          trail={<Icon name="chevron" className="settings-chev" />}
+        />
+      </ul>
       {current && (
         <Sheet
           title={(page && pageTitle) || current.title}
@@ -259,6 +296,27 @@ function AboutCard() {
   );
 }
 
+/** Who is signed in, with Edit profile (their name and photo). */
+function ProfileLine() {
+  const t = useT();
+  const app = useBooks();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="span2 small muted profile-line">
+      <span>
+        {app.user?.name ? `${app.user.name} · ` : ""}
+        {app.user?.email} · {app.role ? roleLabel(t, app.role) : ""}
+      </span>
+      {app.mode === "online" && (
+        <button type="button" className="link-add" onClick={() => setOpen(true)}>
+          {t("Edit profile", "Editar perfil")}
+        </button>
+      )}
+      {open && <ProfileSheet onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 function DeviceCard() {
   const t = useT();
   const app = useBooks();
@@ -289,9 +347,7 @@ function DeviceCard() {
             />
           )}
         </Field>
-        <div className="span2 small muted">
-          {app.user?.email} · {app.role ? roleLabel(t, app.role) : ""}
-        </div>
+        <ProfileLine />
         {app.mode === "online" && <DeleteAccount />}
       </div>
     </Card>
@@ -538,8 +594,8 @@ function ReceiptOpenCard({ onPage }: { onPage: (page: "receiptLook" | "receiptPa
   const guard = useSheetGuard();
   const { f, set } = useSettingsForm();
   const pages: ["receiptLook" | "receiptParts", IconName, string, string][] = [
-    ["receiptLook", "edit", t("Receipt customization", "Personalizar recibos"), t("Company info, wording and client info", "Datos de la empresa, texto y datos del cliente")],
-    ["receiptParts", "receipt", t("Payment receipt settings", "Ajustes del recibo de pago"), t("What payment and loan receipts show", "Qué muestran los recibos de pago y de préstamo")],
+    ["receiptLook", "edit", t("Business and client details", "Datos del negocio y del cliente"), t("Your name, contact and wording, and the client details printed", "Tu nombre, contacto y texto, y los datos del cliente que se imprimen")],
+    ["receiptParts", "receipt", t("What receipts show", "Qué muestran los recibos"), t("Full schedule or next payment, and the optional parts", "Calendario completo o próximo pago, y las partes opcionales")],
   ];
   return (
     <Card title={t("Receipts", "Recibos")} className="section">
@@ -568,7 +624,7 @@ function ReceiptOpenCard({ onPage }: { onPage: (page: "receiptLook" | "receiptPa
   );
 }
 
-/** Receipt customization: the company and client details on every receipt. */
+/** Business and client details: the company and client details on every receipt. */
 function ReceiptDetailsCard() {
   const t = useT();
   const save = useSaveSettings();
@@ -596,15 +652,39 @@ function ReceiptDetailsCard() {
   );
 }
 
-/** Payment receipt settings: the optional parts of payment and loan receipts. */
+/** What receipts show: the format and the optional parts of payment and loan receipts. */
 function ReceiptPartsCard() {
   const t = useT();
   const { snapshot } = useBooks();
   const save = useSaveSettings();
   const [show, setShow] = useState<ReceiptShow>(() => receiptShow(snapshot.settings!));
+  const [format, setFormat] = useState<ReceiptFormat>(() => snapshot.settings?.receiptFormat ?? "full");
   return (
     <Card title={t("Shown on receipts", "En los recibos")} className="section">
       <div className="card-body form-grid two">
+        <div className="span2">
+          <div className="small strong">{t("Payment receipt", "Recibo de pago")}</div>
+          <Segmented
+            label={t("Payment receipt", "Recibo de pago")}
+            value={format}
+            onChange={setFormat}
+            options={[
+              ["full", t("Full schedule", "Calendario completo")],
+              ["next", t("Next payment", "Próximo pago")],
+            ]}
+          />
+          <p className="micro muted" style={{ margin: "6px 0 0" }}>
+            {format === "full"
+              ? t("Every installment and the whole payment history.", "Cada cuota y todo el historial de pagos.")
+              : t("What was paid and what to pay next, on one short page.", "Lo pagado y lo próximo a pagar, en una página corta.")}
+          </p>
+          <p className="micro muted" style={{ margin: "4px 0 0" }}>
+            {t(
+              "Also the receipt sent on WhatsApp. Receipt printers (58, 80 and 112 mm rolls) always print the next payment.",
+              "También el recibo enviado por WhatsApp. Las impresoras de recibos (rollos de 58, 80 y 112 mm) siempre imprimen el próximo pago.",
+            )}
+          </p>
+        </div>
         <p className="span2 micro muted" style={{ margin: 0 }}>
           {t(
             "These apply to payment and loan receipts. The business name, amounts paid, dates and receipt number always print. A loan receipt is the client's agreement: with the rate or amount off, it no longer shows those terms or the \"How payments work\" lines.",
@@ -621,7 +701,7 @@ function ReceiptPartsCard() {
             ))}
           </div>
         ))}
-        <SaveRow onSave={() => void save({ receiptShow: show })} />
+        <SaveRow onSave={() => void save({ receiptShow: show, receiptFormat: format })} />
       </div>
     </Card>
   );
@@ -720,6 +800,104 @@ function LendingCard() {
         </Field>
         <Field label={t("Default late fee", "Mora por defecto")} error={showErr(late, false)}>{(id) => <RateInput id={id} value={late.text} onChange={setLate} />}</Field>
         <SaveRow disabled={rate.value === null || late.value === null} onSave={() => void save({ defaultRate: rate.value!, defaultFrequency: f.defaultFrequency, lateFeeRate: late.value! })} />
+      </div>
+    </Card>
+  );
+}
+
+/** The business's own WhatsApp wording (2026-11-10): the three reminders,
+ *  and a line before and after a receipt's figures. Tags are filled in when
+ *  a message is sent; each shows a preview with sample figures. */
+function WhatsAppCard() {
+  const t = useT();
+  const { snapshot, fmt } = useBooks();
+  const save = useSaveSettings();
+  const [map, setMap] = useState<Record<string, string>>(() => ({ ...snapshot.settings!.receiptText }));
+  const [focus, setFocus] = useState<WaKey>("tomorrow");
+  const boxes = useRef<Partial<Record<WaKey, HTMLTextAreaElement | null>>>({});
+  const problem = waProblem(t, map);
+  const sample: WaTags = { client: "Marta", amount: fmt.money(150000), date: fmt.day(snapshot.today), loan: "12", business: snapshot.business.name };
+  const tagNames: Record<(typeof WA_TAGS)[number], string> = {
+    client: t("client's first name", "nombre del cliente"),
+    amount: t("amount", "monto"),
+    date: t("date", "fecha"),
+    loan: t("loan number", "número de préstamo"),
+    business: t("business name", "nombre del negocio"),
+  };
+  // A tag goes where the cursor is in the message last written in.
+  const insert = (tag: string) => {
+    const box = boxes.current[focus];
+    const now = waTemplate(map, focus, t);
+    const at = box ? box.selectionStart : now.length;
+    const end = box ? box.selectionEnd : now.length;
+    const next = now.slice(0, at) + `{${tag}}` + now.slice(end);
+    setMap(withWa(map, focus, next));
+    requestAnimationFrame(() => {
+      box?.focus();
+      box?.setSelectionRange(at + tag.length + 2, at + tag.length + 2);
+    });
+  };
+  const field = (key: WaKey, label: string, hint: string) => {
+    const custom = waCustom(map, key);
+    const text = custom ?? waDefaults(t)[key];
+    return (
+      <Field label={label} hint={custom === null ? `${hint} ${t("(built-in text)", "(texto predeterminado)")}` : hint}>
+        {(id) => (
+          <div className="stack tight">
+            <textarea
+              id={id}
+              ref={(el) => {
+                boxes.current[key] = el;
+              }}
+              className="input wa-text"
+              rows={key === "receiptTop" || key === "receiptEnd" ? 2 : 4}
+              maxLength={WA_MAX + 50}
+              value={text}
+              onFocus={() => setFocus(key)}
+              onChange={(e) => setMap(withWa(map, key, e.target.value))}
+            />
+            <div className="row between">
+              <span className="wa-preview small muted">{fillWa(text, sample) || t("(nothing)", "(nada)")}</span>
+              {custom !== null && (
+                <Button size="small" variant="ghost" onClick={() => setMap(withWa(map, key, null))}>
+                  {t("Back to the built-in text", "Volver al texto predeterminado")}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Field>
+    );
+  };
+  return (
+    <Card title={t("WhatsApp messages", "Mensajes de WhatsApp")} className="section">
+      <div className="card-body stack">
+        <p className="small muted" style={{ margin: 0 }}>
+          {t(
+            "What your clients get when you press WhatsApp. One wording for the whole business; every phone and PC sends it. Tap a tag to put it where you're writing; it's filled in when the message is sent.",
+            "Lo que reciben tus clientes cuando pulsas WhatsApp. Un mismo texto para todo el negocio; cada teléfono y PC lo envía. Toca una etiqueta para ponerla donde escribes; se llena al enviar el mensaje.",
+          )}
+        </p>
+        <div className="chips wa-tags">
+          {WA_TAGS.map((k) => (
+            <button key={k} type="button" className="chip" title={tagNames[k]} onMouseDown={(e) => e.preventDefault()} onClick={() => insert(k)}>
+              {`{${k}}`} <span className="muted">{tagNames[k]}</span>
+            </button>
+          ))}
+        </div>
+        <h4 className="wa-group">{t("Reminders", "Recordatorios")}</h4>
+        {field("tomorrow", t("The day before", "El día antes"), t("Sent the day before an installment is due.", "Se envía el día antes de que venza una cuota."))}
+        {field("today", t("On the due day", "El día que vence"), t("Sent on the day it's due.", "Se envía el día que vence."))}
+        {field("late", t("When it's late", "Cuando está atrasado"), t("{amount} is everything behind; {date} is since when.", "{amount} es todo lo atrasado; {date} es desde cuándo."))}
+        <h4 className="wa-group">{t("Receipts", "Recibos")}</h4>
+        {field("receiptTop", t("Before the figures", "Antes de los datos"), t("Empty: the receipt starts with its number.", "Vacío: el recibo empieza con su número."))}
+        {field("receiptEnd", t("After the figures", "Después de los datos"), t("Empty: nothing after the figures.", "Vacío: nada después de los datos."))}
+        {problem && <div className="banner warn">{problem}</div>}
+        <div className="actions end">
+          <Button variant="primary" disabled={!!problem} onClick={() => void save({ receiptText: map })}>
+            {t("Save messages", "Guardar mensajes")}
+          </Button>
+        </div>
       </div>
     </Card>
   );

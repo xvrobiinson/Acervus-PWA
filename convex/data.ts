@@ -85,7 +85,8 @@ export const snapshot = query({
       },
       me: { userId: access.userId, role: access.member.role, name: access.name, view },
       today: access.today,
-      settings: settings ? { ...settings, logoUrl, ...(own ? { receiptShow: collectorReceipt(settings.receiptShow, view) } : {}) } : null,
+      // The logo by its address only: a stored file's id never leaves the cloud.
+      settings: settings ? { ...settings, logoId: undefined, logoUrl, ...(own ? { receiptShow: collectorReceipt(settings.receiptShow, view) } : {}) } : null,
       clients: clients.map(({ photoId, ...c }) => ({ ...c, hasPhoto: photoId !== undefined })),
       loans,
       payments: mineOnly(records.payments),

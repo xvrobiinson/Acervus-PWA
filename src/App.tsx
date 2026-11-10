@@ -28,6 +28,9 @@ import { useApp } from "./state/app";
 import { Icon, type IconName } from "./ui/icons";
 import { AccountButton } from "./ui/account";
 import { HeroFiguresSlot, HeroHeader, HeroSlots, NavBadge, SearchBox, type NavItem } from "./ui/hero";
+import { TourProvider } from "./ui/tour";
+import { HelpScreen } from "./screens/help";
+import { CalendarScreen } from "./screens/calendar";
 import { Banner, Button, LaunchScreen } from "./ui/kit";
 import { usePresence } from "./ui/motion";
 
@@ -114,6 +117,8 @@ export function App() {
           {/* To confirm is a tab of Payments now; old links still land there. */}
           <Route path="/confirm" element={<Navigate to={app.role !== "collector" ? "/payments?tab=confirm" : "/"} replace />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/help" element={<HelpScreen />} />
+          <Route path="/calendar" element={<CalendarScreen />} />
           <Route path="/sync" element={<SyncScreen />} />
           <Route path="/more" element={<MoreScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -255,7 +260,15 @@ function Shell({ children }: { children: ReactNode }) {
     { to: "/clients", icon: "users", label: t("Clients", "Clientes") },
     { to: "/loans", icon: "loans", label: t("Loans", "Préstamos"), badge: { n: overdueLoans, tone: "alert" } },
     { to: "/payments", icon: "receipt", label: t("Payments", "Pagos"), badge: { n: confirmable, tone: "waiting" } },
-    ...(app.can("manage") ? [{ to: "/reports", icon: "chart" as IconName, label: t("Portfolio", "Portafolio") }] : []),
+    { to: "/calendar", icon: "calendar", label: t("Calendar", "Calendario") },
+    // Money (capital, expenses, moving money) has its own pill for admins on
+    // wide screens (2026-11-10, usability item 4); phones keep it under More.
+    ...(app.can("manage")
+      ? [
+          { to: "/money", icon: "wallet" as IconName, label: t("Money", "Dinero") },
+          { to: "/reports", icon: "chart" as IconName, label: t("Portfolio", "Portafolio") },
+        ]
+      : []),
   ];
   const quickItems: [string, IconName, () => void, boolean][] = [
     [t("Record payment", "Registrar pago"), "receipt", () => open({ kind: "payment" }), app.can("record")],
@@ -285,6 +298,7 @@ function Shell({ children }: { children: ReactNode }) {
     return () => watch.disconnect();
   }, []);
   return (
+    <TourProvider role={app.role}>
     <HeroSlots>
       <div className="shell hero-shell">
         <main className="main" ref={mainRef}>
@@ -327,6 +341,7 @@ function Shell({ children }: { children: ReactNode }) {
         {app.can("record") && <AddButton items={quickItems.filter(([, , , ok]) => ok)} note={app.mode !== "online" && app.can("manage")} />}
       </div>
     </HeroSlots>
+    </TourProvider>
   );
 }
 

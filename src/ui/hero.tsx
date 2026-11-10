@@ -98,6 +98,17 @@ export function HeroHeader({ nav, right }: { nav: NavItem[]; right: ReactNode })
   return (
     <header className="hero-top">
       <div className="hero-bar">
+        {/* Wide screens: the mark and the name, which go to the Overview. */}
+        <NavLink to="/" end className="hero-brand" aria-label={t("Acervus, Overview", "Acervus, Resumen")}>
+          <svg viewBox="0 0 512 512" aria-hidden="true">
+            <rect width="512" height="512" rx="112" className="hb-bg" />
+            <path d="M386.7 251.5 A133 133 0 1 1 300.5 145" fill="none" className="hb-ink" strokeWidth="54" strokeLinecap="round" />
+            <circle cx="357" cy="184" r="27" className="hb-dot" />
+          </svg>
+          <span>
+            Acervus<i>.</i>
+          </span>
+        </NavLink>
         {/* Phones: the business in the slim bar that stays on top. */}
         <div className="bar-biz">
           <BusinessSwitch>
@@ -145,20 +156,28 @@ function Identity() {
   const now = new Date();
   const date = `${now.toLocaleDateString(locale, { weekday: "long" })}, ${now.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}`;
   const logo = snapshot.settings?.logoUrl ?? null;
+  // Admins on the Overview: a small ⇄ under the name says it switches.
+  const { pathname } = useLocation();
+  const arrows = app.can("manage") && pathname === "/";
+  // "Good afternoon, Robin": the first name, when the account has one.
+  const first = app.mode === "demo" ? "" : (app.user?.name ?? "").trim().split(/\s+/)[0] ?? "";
   return (
     <div className="hero-id">
       <div className="who">
-        <div className="date">{date.charAt(0).toUpperCase() + date.slice(1)}</div>
-        <div className="greet">
+        <p className="hello">{first ? `${greeting(t)}, ${first}` : greeting(t)}</p>
+        <div className="where">
+          <BusinessSwitch>
+            <BizMark name={name} logo={logo} />
+            <span className="biz-title-wrap">
+              <span className="biz-title">{name}</span>
+              {arrows && <Icon name="swap" className="biz-arrows" aria-hidden="true" />}
+            </span>
+          </BusinessSwitch>
           <span className="sep" aria-hidden="true">
-            {" · "}
+            ·
           </span>
-          {greeting(t)}
+          <span className="date">{date.charAt(0).toUpperCase() + date.slice(1)}</span>
         </div>
-        <BusinessSwitch>
-          <BizMark name={name} logo={logo} />
-          <span className="biz-title">{name}</span>
-        </BusinessSwitch>
       </div>
       <div className="hero-acts">
         <Slot name="actions" className="hero-slot" />
@@ -212,11 +231,20 @@ export function SearchBox() {
     const key = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        input.current?.focus();
+        setFull(true);
+        setOpen(true);
+        requestAnimationFrame(() => input.current?.focus());
       }
     };
     const away = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node) && !box.current.classList.contains("full")) setOpen(false);
+      if (!box.current || box.current.contains(e.target as Node)) return;
+      // Wide screens: a click elsewhere folds the box back into the button.
+      // Phones: the full-screen search stays until Cancel.
+      const wide = window.matchMedia("(min-width: 900px)").matches;
+      if (wide) {
+        setOpen(false);
+        setFull(false);
+      } else if (!box.current.classList.contains("full")) setOpen(false);
     };
     document.addEventListener("keydown", key);
     document.addEventListener("pointerdown", away);

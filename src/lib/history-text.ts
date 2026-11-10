@@ -155,6 +155,7 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
       lateFeeRate: t("Default late fee rate", "Tasa de mora predeterminada"),
       receiptAfterPayment: t("Show the receipt after recording a payment", "Mostrar el recibo al registrar un pago"),
       receiptAfterLoan: t("Show the receipt after creating a loan", "Mostrar el recibo al crear un préstamo"),
+      receiptFormat: t("Payment receipt", "Recibo de pago"),
     };
     return byEntity[f] ?? all[f] ?? words(f);
   };
@@ -194,6 +195,8 @@ export function describeChange(c: StoredChange, t: T, fmt: Fmt, names: HistoryNa
         return numberStyleLabel(v as NumberStyle);
       case "dateStyle":
         return formatDay("2026-12-31", v as DateStyle, fmt.lang);
+      case "receiptFormat":
+        return v === "next" ? t("Next payment", "Próximo pago") : t("Full schedule", "Calendario completo");
       case "language":
         return v === "es" ? "Español" : v === "en" ? "English" : v;
       case "schedule": {

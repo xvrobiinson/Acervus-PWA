@@ -304,6 +304,26 @@ export const reject = mutation({
   },
 });
 
+/** A collector takes back a payment they just collected (Undo, 2026-11-10):
+ *  their own, still waiting, within 10 minutes. It is marked rejected by
+ *  them, so the office never has to look at it, and the history says so. */
+export const withdraw = mutation({
+  args: { businessId: v.id("businesses"), pendingId: v.id("pendingPayments") },
+  handler: async (ctx, a) => {
+    const access = await requireMember(ctx, a.businessId, "record");
+    const p = await ctx.db.get(a.pendingId);
+    if (!p || p.businessId !== a.businessId || p.collectedBy !== access.userId) fail("not_found", { table: "pendingPayments" });
+    if (p.status !== "waiting") fail("already_decided", { status: p.status });
+    if (Date.now() - p._creationTime > UNDO_MS) fail("invalid", { field: "pendingId", reason: "too_late" });
+    const reason = "Undone by the collector";
+    await ctx.db.patch(p._id, { status: "rejected", reason, decidedBy: access.userId, decidedAt: Date.now() });
+    const d = new Diff().removed("amount", p.amount).removed("paid_on", p.paidOn).removed("notes", p.notes);
+    await logChange(ctx, access, "payment", p._id, "delete", d, `Collected by ${p.collectorName}; undone right after`, { loanId: p.loanId });
+  },
+});
+/** How long a collector can undo a payment they collected. */
+const UNDO_MS = 10 * 60_000;
+
 export const update = mutation({
   args: {
     businessId: v.id("businesses"),

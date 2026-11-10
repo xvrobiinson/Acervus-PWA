@@ -735,6 +735,7 @@ textarea.input { min-height: 88px; resize: vertical; }
 .chart .gridline { stroke: var(--grid); stroke-width: 1; }
 .chart text { fill: var(--muted); font-size: 11px; }
 
+.receipt-paper { margin-bottom: 10px; overflow-x: auto; }
 .receipt-frame { width: 100%; height: 70dvh; border: 1px solid var(--border); border-radius: var(--radius-control); background: #e9ebef; }
 .photo { max-width: 100%; max-height: 50dvh; border-radius: var(--radius-control); display: block; }
 
@@ -743,11 +744,10 @@ textarea.input { min-height: 88px; resize: vertical; }
    animations fill backwards only, so nothing keeps a transform afterwards. */
 @keyframes m-pop { from { transform: scale(0.4); opacity: 0; } }
 @keyframes m-rise { from { transform: translateY(12px); opacity: 0; } }
-/* Each screen slides in from the side (from the left going back). */
-.screen-in { animation: m-screen 280ms var(--spring) backwards; }
-.screen-in.back { animation-name: m-screen-back; }
-@keyframes m-screen { from { transform: translateX(48px); opacity: 0; } }
-@keyframes m-screen-back { from { transform: translateX(-48px); opacity: 0; } }
+/* Each screen fades in and rises a little (2026-11-10, the owner's
+   "fading screens when opening"). */
+.screen-in { animation: m-screen 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+@keyframes m-screen { from { transform: translateY(10px); opacity: 0; } }
 /* Lists: rows rise in one after another. */
 .list > li { animation: m-rise 320ms var(--spring) backwards; }
 .list > li:nth-child(2) { animation-delay: 35ms; } .list > li:nth-child(3) { animation-delay: 70ms; }

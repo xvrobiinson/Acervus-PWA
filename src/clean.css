@@ -1,0 +1,354 @@
+/* The clean look (2026-11-09, the owner's pick from a drawing of a clean
+   analytics dashboard): a plain grey page with white cards (near-black and
+   dark grey in dark), no picture and no glass. The mark and the name at the
+   top left, the sections as pills (the open one black), search in the
+   middle, then the bell and the account. Under it a greeting with the
+   business and the date. Graphite is the accent; colors only mean
+   something (green paid, red late, amber waiting, blue lent and news).
+   Loaded after hero.css and overrides it. Some rules carry ":not(.z)" to
+   outrank hero.css's dark-mode rules. Tried on the Overview first. */
+
+:root.hero-ui {
+  --ground: #f2f2f0; --surface: #ffffff; --surface-top: #ffffff; --raised: #f6f6f4; --hover: #f0f0ee; --active: #e9e9e6;
+  --border: #ececE9; --rule: #f0f0ee; --line2: #e6e6e3; --control: #d6d7d4; --ink: #1c1e21; --muted: #5e6369; --faint: #6b7177;
+  --hero-ink: var(--ink); --hero-mute: var(--muted); --hero-sep: var(--border);
+  --btn: #1c1e21; --btn-ink: #ffffff; --face: #dce3ea; --face-ink: #25282b; --today-glow: #eef0f2;
+  --info: #2f6fdb; --info-tint: #e5eefb;
+  --st-ok: #17784e; --st-soon: #2f6fdb; --st-late: #e0a040; --st-later: #c03a3a; --st-gone: #8a8e94;
+}
+@media (prefers-color-scheme: dark) {
+  :root.hero-ui:not([data-theme="light"]) {
+    --ground: #0e1012; --surface: #17191c; --surface-top: #1b1e22; --raised: #1d2024; --hover: #202327; --active: #26292e;
+    --border: #24272b; --rule: #202327; --line2: #2c3035; --control: #363a40; --ink: #eceef0; --muted: #a3a8ae; --faint: #8c9197;
+    --hero-ink: var(--ink); --hero-mute: var(--muted); --hero-sep: var(--border);
+    --btn: #eceef0; --btn-ink: #15181b; --face: #2c3238; --face-ink: #dde0e3; --today-glow: #22262b;
+    --info: #6e9ceb; --info-tint: #16233a;
+    --st-ok: #4fd19b; --st-soon: #6e9ceb; --st-late: #e9b35c; --st-later: #f07b7b; --st-gone: #6b7177;
+  }
+}
+:root.hero-ui[data-theme="dark"] {
+  --ground: #0e1012; --surface: #17191c; --surface-top: #1b1e22; --raised: #1d2024; --hover: #202327; --active: #26292e;
+  --border: #24272b; --rule: #202327; --line2: #2c3035; --control: #363a40; --ink: #eceef0; --muted: #a3a8ae; --faint: #8c9197;
+  --hero-ink: var(--ink); --hero-mute: var(--muted); --hero-sep: var(--border);
+  --btn: #eceef0; --btn-ink: #15181b; --face: #2c3238; --face-ink: #dde0e3; --today-glow: #22262b;
+  --info: #6e9ceb; --info-tint: #16233a;
+  --st-ok: #4fd19b; --st-soon: #6e9ceb; --st-late: #e9b35c; --st-later: #f07b7b; --st-gone: #6b7177;
+}
+
+/* ----- the page: flat, no picture ----- */
+.hero-shell { background: var(--ground); }
+.hero-bg { display: none; }
+/* Only the top bar stays on top; the greeting scrolls with the page. */
+.hero-top { display: contents; color: var(--ink); }
+.hero-bar { position: sticky; top: 0; z-index: 45; isolation: isolate; gap: 14px; min-height: 0; height: calc(72px + var(--safe-top)); padding: var(--safe-top) var(--hpad) 0; border-bottom: 0; color: var(--ink); background: var(--ground); box-shadow: 0 1px 0 rgba(0, 0, 0, calc(var(--fold, 0) * 0.07)); }
+.hero-bar::before { display: none; }
+
+/* the mark and the name */
+.hero-brand { display: none; align-items: center; gap: 10px; flex: none; color: var(--ink) !important; text-decoration: none !important; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.hero-brand svg { width: 30px; height: 30px; display: block; }
+.hero-brand i { font-style: normal; color: var(--faint); }
+.hb-bg { fill: var(--btn); }
+.hb-ink { stroke: var(--btn-ink); }
+.hb-dot { fill: var(--btn-ink); }
+@media (min-width: 900px) { .hero-brand { display: flex; } }
+
+/* the sections: pills, the open one black (white in dark) */
+.hero-nav { margin-left: 6px; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--line2); border-radius: 999px; overflow-x: auto; scrollbar-width: none; }
+.hero-nav::-webkit-scrollbar { display: none; }
+.hero-nav a { padding: 7px 14px; border-radius: 999px; color: var(--muted); font-size: 13px; font-weight: 500; transition: color 150ms ease, background 150ms ease; }
+.hero-nav a .nav-ico { order: 2; }
+.hero-nav a .nav-ico > svg { display: none; }
+.hero-nav a:hover { color: var(--ink); background: var(--hover); }
+.hero-nav a.active { color: var(--btn-ink); background: var(--btn); font-weight: 600; }
+.hero-nav a.active::after { display: none; }
+.hero-nav a:has(.nbadge) .nav-ico { margin-right: 0; }
+.hero-nav .nbadge { position: static; height: 17px; min-width: 17px; line-height: 17px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+
+/* search, the bell and the account: white circles and pills */
+.hero-right { gap: 8px; }
+:root.hero-ui:not(.z) .glass-pill { background: var(--surface); border: 1px solid var(--line2); color: var(--ink); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root.hero-ui:not(.z) .glass-pill.icon { width: 42px; height: 42px; }
+:root.hero-ui:not(.z) .glass-pill.icon:hover, :root.hero-ui:not(.z) .glass-pill.icon.on { background: var(--hover); }
+@media (min-width: 900px) {
+  /* Search in the middle between the sections and the bell. */
+  .hero-right { flex: 1 1 auto; min-width: 0; }
+  .hero-search { margin-right: auto; margin-left: auto; }
+}
+.search-pill { height: 42px; width: clamp(200px, 26vw, 400px); padding: 0 6px 0 16px; }
+.search-pill:focus-within { border-color: var(--faint) !important; }
+.search-pill input { color: var(--ink); }
+.search-pill input::placeholder { color: var(--faint); }
+.search-ic { background: none; color: var(--faint); }
+.hero-right .bell { width: 42px; height: 42px; background: var(--surface); border: 1px solid var(--line2); color: var(--ink); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.hero-right .bell:hover { background: var(--hover); }
+.hero-right .acct-btn .face { background: var(--face); color: var(--face-ink); }
+.bar-biz .biz-hit { color: var(--ink); }
+.bar-biz .biz-hit:hover, .bar-biz .biz-hit.on { background: var(--hover); }
+
+/* the greeting, the business and the date */
+.hero-id { position: relative; z-index: 20; align-items: flex-end; gap: 14px; padding: 10px var(--hpad) 18px; opacity: 1; }
+.hero-id .who { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.hero-id .hello { margin: 0; font-size: clamp(22px, 2.3vw, 28px); line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.hero-id .where { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); min-width: 0; }
+.hero-id .where .biz-switch { margin: 0; flex: 0 1 auto; min-width: 0; }
+.hero-id .biz-hit { margin: 0 -6px; padding: 2px 6px; gap: 8px; color: var(--ink); border-radius: 8px; }
+.hero-id .biz-hit:hover, .hero-id .biz-hit.on { background: var(--hover); }
+.hero-id .biz-title { font-size: 13px; font-weight: 500; letter-spacing: 0; }
+.hero-id .biz-mark { width: 20px; height: 20px; border-radius: 6px; font-size: 9px; box-shadow: none; }
+.hero-id .date { font-size: 13px; color: var(--muted); }
+.hero-acts { gap: 8px; }
+/* Reports: an outlined pill like the others */
+:root.hero-ui:not(.z) .hero-dark-btn { height: 42px; background: var(--surface); color: var(--ink); border: 1px solid var(--line2); box-shadow: none; font-weight: 600; }
+:root.hero-ui:not(.z) .hero-dark-btn:hover { background: var(--hover); }
+
+/* the figures: no fading while scrolling */
+.hero-figs { opacity: 1; transform: none; color: var(--ink); }
+
+/* ----- the content: no panel, cards straight on the page ----- */
+.hero-tail { height: 14px; }
+:root.hero-ui:not(.z) .sheet-panel { margin: 0 var(--hpad); padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; min-height: 0; }
+.sheet-panel .card { border-radius: 20px; border: 1px solid var(--border); background: var(--surface); }
+.sheet-panel .card-head { padding: 16px 20px 6px; }
+.sheet-panel .card-body { padding: 4px 20px 18px; }
+.sheet-panel .list.ruled .list-row { padding: 11px 20px; }
+.sheet-panel .avatar { background: var(--raised); border-color: var(--border); }
+.overview .ov-blocks, .overview .ov-pair { gap: 14px; }
+
+/* the six figures: icon at the top right, a larger amount */
+.hero-six { gap: 14px; }
+.six-card { gap: 10px; padding: 16px 18px; border-radius: 18px; border: 1px solid var(--border); box-shadow: none; }
+.six-top { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+.six-label { order: 1; }
+.six-top .period-pick { order: 2; }
+.six-ico { order: 3; width: 28px; height: 28px; border-radius: 9px; }
+.six-ico svg { width: 15px; height: 15px; }
+.six-amt { font-size: clamp(16px, calc(100cqi / (var(--len) * 0.6)), 22px); font-weight: 600; letter-spacing: -0.02em; }
+.six-sub { min-height: 0; font-size: 11.5px; }
+
+/* Needs attention today */
+.today-card { background: linear-gradient(160deg, var(--surface) 55%, var(--today-glow)) !important; }
+.today-ico { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--btn); color: var(--btn-ink); flex: none; }
+.today-ico svg { width: 14px; height: 14px; }
+.today-list { list-style: none; margin: 0; padding: 6px 20px 4px; display: flex; flex-direction: column; gap: 8px; }
+.today-list a { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 13px; line-height: 1.45; text-decoration: none; transition: background 150ms ease; }
+.today-list a:hover { background: var(--hover); text-decoration: none; }
+.today-list b { font-weight: 600; }
+.today-n { color: var(--faint); font-weight: 700; flex: none; }
+.today-foot { padding: 10px 20px 18px; }
+.today-foot .btn { border-radius: 999px; }
+
+/* Loans by status */
+.st-bar { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; margin: 6px 0 12px; }
+.st-bar span { min-width: 3px; }
+.st-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; font-size: 13px; }
+.st-list li { display: flex; align-items: center; gap: 8px; }
+.st-sw { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.st-n { margin-left: auto; color: var(--muted); }
+.st-foot { margin: 12px 0 0; font-size: 12px; color: var(--faint); }
+.st-ok { background: var(--st-ok); } .st-soon { background: var(--st-soon); } .st-late { background: var(--st-late); } .st-later { background: var(--st-later); } .st-gone { background: var(--st-gone); }
+
+/* Arrange: the small button at the top right on wide screens, the link on phones */
+@media (min-width: 900px) { .hero-shell .ov-arrange { display: none; } }
+
+/* ----- phones ----- */
+@media (max-width: 899px) {
+  .hero-bar { height: calc(60px + var(--safe-top)); gap: 8px; }
+  .hero-search { margin: 0; }
+  .hero-id { padding: 4px var(--hpad) 14px; }
+  .hero-id .who .where .biz-switch, .hero-id .where .sep { display: none; }
+  .hero-id .hello { font-size: 22px; }
+  .ov-arrange-top { display: none !important; }
+  :root.hero-ui:not(.z) .sheet-panel { margin: 0 var(--hpad); padding: 0 0 calc(112px + var(--safe-bottom)); border-radius: 0; min-height: 0; }
+  /* The bottom bar: dark, with a light + in its middle. */
+  :root.hero-ui:not(.z) .tabbar.pill-bar { background: #1c1e21; border-color: #2c3035; }
+  :root.hero-ui[data-theme="dark"] .tabbar.pill-bar { background: #202327; }
+  .tabbar.pill-bar .tab { color: #a9adb2; }
+  .tabbar.pill-bar .tab.active { color: #ffffff; }
+  :root.hero-ui:not(.z) .hero-shell .add .fab { background: #f1f2f3; color: #111316; }
+}
+
+/* ----- life (2026-11-10, the owner's list) ------------------------------
+   Cards lift under the pointer, bars fill when a page opens, the chart's
+   newest point glows and pulses, search is a magnifying glass by the bell. */
+:root { --lift-shadow: 0 2px 4px rgba(15, 26, 46, 0.05), 0 14px 32px -10px rgba(15, 26, 46, 0.18); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --lift-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 36px -10px rgba(0, 0, 0, 0.6); } }
+:root[data-theme="dark"] { --lift-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 36px -10px rgba(0, 0, 0, 0.6); }
+.six-card, .stats .stat, .ov-block > .card, .grid2 > div > .card {
+  transition: transform 260ms var(--spring), box-shadow 260ms ease, border-color 200ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Small cards rise; big ones (lists, tables) only gain a soft shadow. */
+  .six-card:hover, .stats .stat:hover { transform: translateY(-3px); box-shadow: var(--lift-shadow); border-color: var(--line2); }
+  .ov-block > .card:hover, .grid2 > div > .card:hover { box-shadow: var(--lift-shadow); }
+  .six-card:hover .six-ico { transform: scale(1.08) rotate(-4deg); }
+  .six-ico { transition: transform 260ms var(--spring); }
+}
+/* Bars fill from the left when their page opens. */
+.st-bar, .money-bar { animation: m-bar 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) 180ms backwards; }
+@keyframes m-bar { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* The newest point of the chart: a brighter glow and a wider pulse. */
+.pulse-core { filter: drop-shadow(0 0 6px var(--glow)) drop-shadow(0 0 16px var(--glow)); animation: m-core 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.pulse-ring { animation-duration: 2.2s; }
+@keyframes m-core { 50% { transform: scale(1.18); } }
+/* Wide screens: search is a round button beside the bell; it grows into
+   the search box when clicked (or with Ctrl+K). */
+@media (min-width: 900px) {
+  .hero-right { justify-content: flex-end; }
+  .hero-search { margin: 0; }
+  .hero-search .search-open { display: grid; }
+  .hero-search .search-pill, .hero-search .search-cancel { display: none; }
+  .hero-search.full .search-open { display: none; }
+  .hero-search.full .search-pill { display: flex; width: clamp(260px, 26vw, 360px); animation: m-search 300ms var(--spring) backwards; }
+  .hero-search .search-results { left: auto; right: 0; }
+}
+@keyframes m-search { from { width: 42px; opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .six-card, .stats .stat, .six-ico, .ov-block > .card, .grid2 > div > .card { transition: none; }
+  .st-bar, .money-bar, .pulse-core, .hero-search.full .search-pill { animation: none; }
+}
+
+/* ----- usability fixes (2026-11-10, review items 1-14) ------------------ */
+/* A small "i" that explains a figure: hover, keyboard focus, or a tap. */
+.info-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
+.info-tip > button { width: 15px; height: 15px; padding: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--faint);
+  font: 700 9.5px/13px var(--font, inherit); cursor: pointer; display: grid; place-items: center; }
+.info-tip > button:hover, .info-tip > button:focus-visible, .info-tip.open > button { color: var(--ink); }
+.info-bubble { display: none; position: absolute; z-index: 40; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(260px, 70vw);
+  padding: 9px 11px; border-radius: 10px; background: var(--ink); color: var(--ground); font-size: 12.5px; line-height: 17px; font-weight: 400; text-align: left;
+  box-shadow: var(--shadow-floating); white-space: normal; animation: m-rise 180ms var(--spring) backwards; }
+@media (hover: hover) { .info-tip:hover .info-bubble { display: block; } }
+.info-tip:focus-within .info-bubble, .info-tip.open .info-bubble { display: block; }
+/* The last cards of a row open their bubble toward the left. */
+.six-card:nth-child(n + 5) .info-bubble, .six-card:last-child .info-bubble { left: auto; right: -8px; transform: none; }
+.six-card:first-child .info-bubble { left: -8px; transform: none; }
+/* "+ Add a charge" and other quiet links inside forms. */
+.link-add { justify-self: start; border: 0; background: none; padding: 2px 0; color: var(--accent-text, var(--ink)); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+.link-add:hover { text-decoration: underline; }
+/* A line under a card's title, and under a closed loan's name. */
+.card-note { margin: -2px 16px 10px; font-size: 13px; color: var(--muted); }
+.status-note { margin: -4px 0 12px; max-width: 62ch; }
+/* A toast's button (Undo): the only part that takes clicks. */
+.toast { align-items: center; }
+.toast > span { flex: 1; min-width: 0; }
+.toast-act { pointer-events: auto; flex: none; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; padding: 4px 6px; margin: -4px -6px -4px 0; cursor: pointer; }
+/* First steps on a new business. */
+.setup-card { margin-bottom: 16px; }
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+@media (min-width: 760px) { .setup-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.setup-steps li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; background: var(--hover); }
+.setup-steps li b { display: block; font-size: 14.5px; }
+.setup-steps li p { margin: 4px 0 10px; font-size: 13px; color: var(--muted); }
+.setup-steps li.done p { margin-bottom: 0; }
+.setup-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.setup-steps li.done .setup-n { background: var(--positive-tint); border-color: transparent; color: var(--positive); }
+.setup-n svg { width: 14px; height: 14px; }
+/* The payment form's line about what the amount pays. */
+.covers { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.loan-sentence { margin: 0 0 12px; font-size: 15px; line-height: 21px; font-weight: 600; color: var(--ink); }
+.short-cash { margin: 2px 0 0; font-size: 13px; color: var(--negative); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; } .short-cash .link-add { font-size: 13px; }
+
+/* ----- Help (screens/help.tsx) ------------------------------------------ */
+.help-list { display: grid; gap: 16px; }
+.help-list section h3 { margin: 0 0 4px; font-size: 15px; }
+.help-list section p { margin: 0; font-size: 14px; line-height: 21px; color: var(--muted); max-width: 72ch; }
+.help-list section p b { color: var(--ink); font-weight: 600; }
+.help-example { margin-top: 6px !important; padding: 8px 12px; border-radius: 10px; background: var(--hover); color: var(--ink) !important; font-variant-numeric: tabular-nums; }
+.help-terms { display: grid; gap: 12px; margin: 0; }
+@media (min-width: 760px) { .help-terms { grid-template-columns: 1fr 1fr; } }
+.help-terms dt { font-weight: 600; font-size: 14px; }
+.help-terms dd { margin: 2px 0 0; font-size: 13.5px; line-height: 20px; color: var(--muted); }
+
+/* ----- the welcome tour (ui/tour.tsx) -----------------------------------
+   No cover over the app: a ring around what a step points at, and a card
+   beside it (at the bottom on phones). */
+.tour-ring { position: fixed; z-index: 95; pointer-events: none; border-radius: 16px; border: 2px solid var(--ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 14%, transparent), 0 0 24px 4px color-mix(in srgb, var(--ink) 18%, transparent);
+  transition: top 320ms var(--spring), left 320ms var(--spring), width 320ms var(--spring), height 320ms var(--spring); animation: tour-pulse 2s ease-in-out infinite; }
+@keyframes tour-pulse { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--ink) 8%, transparent), 0 0 30px 6px color-mix(in srgb, var(--ink) 14%, transparent); } }
+.tour-card { position: fixed; z-index: 96; width: min(340px, calc(100vw - 24px)); padding: 16px 16px 14px; border-radius: 16px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); box-shadow: var(--shadow-floating); animation: m-rise 260ms var(--spring) backwards; }
+.tour-card.centered { top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(400px, calc(100vw - 32px)); animation: rp-fade 240ms ease-out backwards; }
+.tour-card h3 { margin: 0 0 6px; font-size: 16px; line-height: 21px; }
+.tour-card p { margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); }
+.tour-progress { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: var(--faint); }
+.tour-dots { display: flex; gap: 4px; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line2); transition: width 260ms var(--spring), background 200ms; }
+.tour-dots i.past { background: var(--faint); }
+.tour-dots i.on { width: 16px; background: var(--ink); }
+.tour-acts { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.tour-acts .grow { flex: 1; }
+.tour-skip { border: 0; background: none; padding: 4px 0; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tour-skip:hover { color: var(--ink); }
+.tour-resume { position: fixed; z-index: 96; left: max(16px, env(safe-area-inset-left)); bottom: calc(var(--tabbar, 0px) + var(--safe-bottom, 0px) + 24px); padding: 10px 16px; border-radius: 999px;
+  border: 0; background: var(--btn); color: var(--btn-ink); font: inherit; font-weight: 600; font-size: 14px; box-shadow: var(--shadow-floating); cursor: pointer; animation: m-rise 260ms var(--spring) backwards; }
+@media (max-width: 699px) {
+  /* Phones: the card is a sheet at the bottom, above the tab bar. */
+  .tour-card.pointing { top: auto !important; left: 12px !important; right: 12px; width: auto; bottom: calc(var(--tabbar, 0px) + var(--safe-bottom, 0px) + 16px); }
+}
+@media (prefers-reduced-motion: reduce) { .tour-ring, .tour-card, .tour-resume { animation: none; transition: none; } }
+
+/* ----- Calendar (screens/calendar.tsx) --------------------------------- */
+.cal-layout { display: grid; gap: 16px; align-items: start; }
+@media (min-width: 1100px) { .cal-layout { grid-template-columns: minmax(0, 1fr) 420px; } }
+.cal-side .row-aside .wa-label { display: none; }
+.cal-head { display: flex; align-items: center; gap: 6px; padding: 12px 14px 6px; }
+.cal-head h2 { margin: 0 4px; font-size: 16px; text-transform: capitalize; min-width: 150px; text-align: center; }
+.cal-head .grow { flex: 1; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 4px 10px 10px; }
+.cal-wd { padding: 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--faint); text-align: center; text-transform: capitalize; }
+.cal-day { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 76px; padding: 7px 8px; border-radius: 12px;
+  border: 1px solid transparent; background: var(--hover); color: var(--ink); font: inherit; text-align: left; cursor: pointer; min-width: 0;
+  transition: background 160ms ease, border-color 160ms ease, transform 200ms var(--spring); }
+.cal-grid.week .cal-day { min-height: 150px; }
+@media (hover: hover) { .cal-day:hover { background: color-mix(in srgb, var(--hover) 60%, var(--line2)); } }
+.cal-day.out { opacity: 0.45; }
+.cal-day.today .cal-n { background: var(--btn); color: var(--btn-ink); }
+.cal-day.picked { border-color: var(--ink); background: var(--surface); }
+.cal-day.late::after { content: ""; position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--negative); }
+.cal-n { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-amt { font-size: 12.5px; font-weight: 600; }
+.cal-amt.done { color: var(--faint); font-weight: 500; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--faint) 60%, transparent); }
+.cal-paid { font-size: 11.5px; color: var(--positive); font-weight: 600; }
+.cal-who { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--muted); }
+.cal-who.late { color: var(--negative); }
+.cal-who.paid { color: var(--faint); text-decoration: line-through; }
+.cal-who.more { color: var(--faint); }
+.cal-legend { display: flex; gap: 16px; padding: 0 16px 14px; }
+.cal-legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.cal-legend .dot.late { background: var(--negative); } .cal-legend .dot.paid { background: var(--positive); }
+.cal-trail { display: inline-flex; align-items: center; gap: 8px; }
+.cal-acts { display: inline-flex; align-items: center; gap: 4px; }
+.cal-sub { display: flex; align-items: center; gap: 6px; padding: 12px 16px 4px; font-size: 12.5px; font-weight: 600; color: var(--positive); }
+.cal-sub svg { width: 14px; height: 14px; }
+@media (max-width: 699px) {
+  .cal-grid { gap: 3px; padding: 4px 6px 8px; }
+  .cal-day { min-height: 54px; padding: 5px; border-radius: 9px; }
+  .cal-grid.week .cal-day { min-height: 96px; }
+  .cal-amt { font-size: 10.5px; } .cal-paid { display: none; }
+  .cal-head h2 { min-width: 0; font-size: 15px; }
+}
+
+/* Profile (2026-11-10): the photo in the account circle, and its sheet. */
+.acct-btn .face { overflow: hidden; }
+.acct-btn .face .face-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.acct-head .who .acct-edit { align-self: flex-start; margin-top: 6px; }
+.profile-sheet { display: flex; flex-direction: column; gap: 16px; }
+.profile-photo { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.profile-face { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--face, var(--accent-tint)); color: var(--face-ink, var(--accent-text)); font-weight: 700; font-size: 24px; flex: none; }
+.profile-face .face-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.btn.is-busy { opacity: 0.6; pointer-events: none; }
+.profile-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+
+/* WhatsApp's mark in its own green (2026-11-10; on the Overview first). */
+:root { --wa-green: #25D366; }
+.wa-logo { width: 16px; height: 16px; flex: none; color: var(--wa-green); }
+
+/* Settings › WhatsApp messages (2026-11-10). */
+.wa-text { min-height: 0; resize: vertical; line-height: 1.45; }
+.wa-preview { white-space: pre-wrap; flex: 1; min-width: 0; }
+.wa-tags .chip { cursor: pointer; }
+.wa-group { margin: 6px 0 -4px; font-size: 13px; font-weight: 600; }
+
+/* The ⇄ under the business name on the Overview (admins, 2026-11-10). */
+.biz-title-wrap { position: relative; display: inline-flex; min-width: 0; }
+.biz-arrows { position: absolute; top: calc(100% + 1px); left: 50%; width: 13px; height: 13px; margin-left: -6.5px; color: var(--faint); pointer-events: none; }

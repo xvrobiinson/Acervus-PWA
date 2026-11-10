@@ -66,6 +66,7 @@ Reversed payments from very old desktop versions have no counterpart. A migratio
 
   Records are checked to belong to the caller's business (`ownRecord`), and the error is the same whether a business is missing or simply not yours. Hiding buttons is only a convenience.
 - **Initial admin:** whoever creates a business becomes its only admin. There is no default account, hard-coded password or public admin route. A business can never lose its last admin.
+- **Planned, not built (2026-11-09):** the roles above become Owner, Admin, Manager, Accountant and Collector as permission sets, with admin and collector seats counted against a plan; platform administrators (a separate table, checked on the server, audited) and a private `/admin` dashboard; subscriptions and server-side entitlements; billing through Paddle or FastSpring. See `docs/SAAS-PLAN.md` and `docs/STATUS.md` items 44–51. Until then, the table above is how access works.
 - ID photos are stored in Convex storage and served **only** through `GET /client-photo` on the HTTP actions URL. It requires the admin's JWT, answers `Cache-Control: no-store`, and is never a public storage URL. Photos are never cached offline, exported or printed.
 - Browser: a strict CSP in `public/_headers`:
   - no inline scripts;

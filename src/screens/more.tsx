@@ -16,6 +16,7 @@ export function MoreScreen() {
     ["/payments", "receipt", t("Payments", "Pagos")],
     ...(team && toConfirm > 0 ? [["/payments?tab=confirm", "check", t("To confirm", "Por confirmar"), toConfirm] as [string, IconName, string, number]] : []),
     ...(can("manage") ? [["/reports", "chart", t("Portfolio", "Portafolio")] as [string, IconName, string]] : []),
+    ["/calendar", "calendar", t("Calendar", "Calendario")] as [string, IconName, string],
     ...(can("manage") ? [["/money", "wallet", t("Money", "Dinero")] as [string, IconName, string]] : []),
     ...(team ? [["/history", "history", t("History", "Historial")] as [string, IconName, string]] : []),
   ];

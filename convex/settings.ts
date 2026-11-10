@@ -8,7 +8,7 @@ import { checkVersion, requireMember } from "./lib/access";
 import { Diff, logChange } from "./lib/books";
 import { fail } from "./lib/errors";
 import { rate, text } from "./lib/validate";
-import { frequency, receiptShow } from "./schema";
+import { frequency, receiptFormat, receiptShow } from "./schema";
 
 const CURRENCIES = ["DOP", "USD", "EUR", "MXN", "COP", "GBP", "CAD", "XCG"];
 
@@ -23,6 +23,7 @@ export const update = mutation({
     receiptClient: v.object({ name: v.boolean(), idNumber: v.boolean(), phone: v.boolean(), address: v.boolean() }),
     /** Older apps don't send it; their saves then keep what is stored. */
     receiptShow: v.optional(receiptShow),
+    receiptFormat: v.optional(receiptFormat),
     receiptText: v.record(v.string(), v.string()),
     currencyCode: v.string(),
     numberStyle: v.union(v.literal("comma_dot"), v.literal("dot_comma"), v.literal("space_comma")),
@@ -54,6 +55,7 @@ export const update = mutation({
       receiptCompany: a.receiptCompany,
       receiptClient: a.receiptClient,
       ...(a.receiptShow ? { receiptShow: a.receiptShow } : {}),
+      ...(a.receiptFormat ? { receiptFormat: a.receiptFormat } : {}),
       receiptText,
       currencyCode: a.currencyCode,
       numberStyle: a.numberStyle,

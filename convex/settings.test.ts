@@ -66,5 +66,14 @@ describe("settings.update receipt parts", () => {
     const after = (await read())!;
     expect(after.receiptName).toBe("Otro nombre");
     expect(after.receiptShow).toEqual(parts);
+
+    // The payment receipt format: unset is the full schedule; a save without
+    // it (an older app) keeps the business's choice.
+    expect(after.receiptFormat).toBeUndefined();
+    await asAna.mutation(api.settings.update, { ...base, expectedVersion: after.version, receiptFormat: "next" });
+    const chosen = (await read())!;
+    expect(chosen.receiptFormat).toBe("next");
+    await asAna.mutation(api.settings.update, { ...base, expectedVersion: chosen.version, receiptName: "Tercero" });
+    expect((await read())!.receiptFormat).toBe("next");
   });
 });
